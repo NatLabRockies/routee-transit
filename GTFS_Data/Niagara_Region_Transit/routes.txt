@@ -1,0 +1,95 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+101,1,101,,,3,,feb811,000000
+102,1,102,,,3,,8882bd,000000
+103,1,103,,,3,,f599c1,000000
+104,1,104,,,3,,77caeb,000000
+105,1,105,,,3,,eb9073,000000
+106,1,106,,,3,,fff34c,000000
+107,1,107,,,3,,cda793,000000
+108,1,108,,,3,,1ab16a,ffffff
+109,1,109,,,3,,bdd732,000000
+110,1,110,,,3,,97afdb,000000
+111,1,111,,,3,,fbb19b,000000
+112,1,112,,,3,,dfb7d9,000000
+113,1,113,,,3,,b79785,000000
+114,1,114,,,3,,d593c1,000000
+115,1,115,,,3,,ffffff,000000
+203,1,203,,,3,,f79ac3,000000
+204,1,204,,,3,,7dd3f7,000000
+205,1,205,,,3,,f79675,000000
+206,1,206,,,3,,fff34e,000000
+209,1,209,,,3,,bed734,000000
+210,1,210,,,3,,96aedb,000000
+211,1,211,,,3,,feae9b,000000
+213,1,213,,,3,,b69686,000000
+214,1,214,,,3,,d792be,000000
+22,1,22,Fort Erie Link,,3,,db5e2c,ffffff
+25,1,25,Port Colborne Link,,3,,ffffff,000000
+301,1,301,Hospital,,3,,ed171f,ffffff
+302,1,302,Ontario St.,,3,,04a559,ffffff
+303,1,303,Pelham Rd.,,3,,943734,ffffff
+304,1,304,Oakdale Av. - Pen Centre,,3,,e46c0a,ffffff
+305,1,305,Haig St. - Linwell Rd.,,3,,604a7b,ffffff
+306,1,306,Lake St. ,,3,,ed171f,ffffff
+307,1,307,Niagara St.,,3,,376092,ffffff
+308,1,308,Grantham Av. ,,3,,428b96,ffffff
+309,1,309,Geneva St.,,3,,519177,ffffff
+310,1,310,Glenridge Av. - Pen Centre,,3,,524d59,ffffff
+311,1,311,Hartzel Rd.,,3,,376092,ffffff
+312,1,312,Vine St.,,3,,04a559,ffffff
+314,1,314,Scott St.,,3,,bd4a5b,ffffff
+315,1,315,West St. Catharines,,3,,0e8343,ffffff
+316,1,316,Brock - Glenridge,,3,,ff0000,ffffff
+317,1,317,Bunting Rd.,,3,,604a7b,ffffff
+318,1,318,Secord Woods,,3,,0e8343,ffffff
+320,1,320,Thorold,,3,,534ca3,ffffff
+321,1,321,Confederation,,3,,519177,ffffff
+322,1,322,Thorold South,,3,,c0504d,ffffff
+324,1,324,Brock - Tupper,,3,,0070c0,ffffff
+331,1,331,Brock - Richmond,,3,,00b050,ffffff
+335,1,335,Pen - Brock,,3,,519177,ffffff
+336,1,336,Pen - Glendale - Brock,,3,,e73d2a,ffffff
+337,1,337,Crosstown,,3,,e46c0a,ffffff
+338,1,338,GO Train Connection,,3,,4e6128,ffffff
+34,1,34,Niagara College Campus Link,,3,,943734,ffffff
+40,1,40,Niagara College NOTL Campus,,3,,4f809e,ffffff
+401,1,401,Hospital,,3,,e02626,ffffff
+402,1,402,Ontario St.,,3,,00b050,ffffff
+403,1,403,Pelham Road,,3,,943734,ffffff
+404,1,404,Oakdale Av. ,,3,,e46c0a,ffffff
+406,1,406,Lake St. ,,3,,e02626,ffffff
+408,1,408,Grantham Av.,,3,,519177,ffffff
+409,1,409,Geneva St.,,3,,519177,ffffff
+410,1,410,Glenridge - Pen Centre,,3,,524d59,ffffff
+412,1,412,Vine St.,,3,,524d59,ffffff
+414,1,414,Scott St.,,3,,bd4a5b,ffffff
+415,1,415,West St. Catharines,,3,,0e8343,ffffff
+416,1,416,Brock - Glenridge,,3,,ff0000,ffffff
+417,1,417,Bunting Rd.,,3,,604a7b,ffffff
+418,1,418,Secord Woods,,3,,0e8343,ffffff
+420,1,420,Thorold,,3,,524d59,ffffff
+421,1,421,Confederation,,3,,519177,ffffff
+424,1,424,Brock - Tupper,,3,,0070c0,ffffff
+431,1,431,Brock - Richmond,,3,,00b050,ffffff
+435,1,435,Pen - Brock,,3,,519177,ffffff
+437,1,437,Crosstown,,3,,e46c0a,ffffff
+438,1,438,GO Train Station Connection,,3,,4e6128,ffffff
+45,1,45,Niagara College NOTL Campus,,3,,4f809e,ffffff
+50,1,50,Brock University - St. Catharines,,3,,e46c0a,ffffff
+501,1,501,Broadway,,3,,ff0000,ffffff
+502,1,502,Rice Road,,3,,4a452a,ffffff
+503,1,503,First Av,,3,,93cddd,000000
+504,1,504,Fitch St,,3,,604a7b,ffffff
+505,1,505,Lincoln - Wellington,,3,,b3a2c7,000000
+506,1,506,Ontario Rd,,3,,93cddd,000000
+508,1,508,Woodlawn,,3,,943734,ffffff
+509,1,509,Niagara St,,3,,548ed5,000000
+55,1,55,Brock University - Niagara Falls,,3,,e46c0a,ffffff
+60,1,60,Niagara College - Welland Campus,,3,,8c73a6,000000
+65,1,65,Niagara Falls,,3,,8c73a6,000000
+70,1,70,Brock University - Niagara College Welland Campus,,3,,00a3ae,ffffff
+75,1,75,Brock University - St. Catharines,,3,,00a3ae,ffffff
+BLUE,1,BLUE,,,3,,4986c6,000000
+GREEN,1,GREEN,,,3,,4fc0a0,000000
+RED,1,RED,,,3,,ea1c2d,ffffff
+REDX,1,REDX,Red Line Express,,3,,c00000,ffffff

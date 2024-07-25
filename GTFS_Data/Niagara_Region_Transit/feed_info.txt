@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version
+Niagara Region Transit,http://nrtransit.ca,en,20240428,20240601,S1000254
