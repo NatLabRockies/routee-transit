@@ -1,0 +1,7 @@
+nrel.routee.powertrain==1.1.1
+mappymatch==0.4.5
+geopy==2.4.1
+geopandas==0.14.4
+multiprocess==0.70.16
+SQLAlchemy==2.0.35
+rich==13.9.3
