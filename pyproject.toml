@@ -34,9 +34,5 @@ platforms = ["osx-64", "osx-arm64", "linux-64", "win-64"]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 
-[tool.pixi.dependencies]
-# Geopandas gives GDAL-related errors when installing from PyPI
-geopandas = "*"
-
 [tool.pixi.pypi-dependencies]
 routee_transit = { path = ".", editable = true }
