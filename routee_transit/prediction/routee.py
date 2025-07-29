@@ -64,8 +64,10 @@ def predict_for_all_trips(
     with mp.Pool(n_processes) as pool:
         predictions_by_trip = pool.map(predict_partial, links_df_by_trip)
 
+    all_predictions =pd.concat(predictions_by_trip)
+
     routee_results = pd.concat(
-        [routee_input_df, pd.concat(predictions_by_trip)], axis=1
+        [routee_input_df, all_predictions], axis=1
     )
     cols_incl = [
         "trip_id",
@@ -75,6 +77,5 @@ def predict_for_all_trips(
         "kilometers",
         "travel_time_osm",
         "grade_dec_unfiltered",
-        "gallons",
-    ]
+    ] + list(all_predictions.columns)
     return routee_results[cols_incl]
