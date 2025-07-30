@@ -1,3 +1,5 @@
+reports/
+
 *.local*
 
 .DS_Store

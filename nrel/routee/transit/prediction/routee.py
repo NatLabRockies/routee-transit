@@ -15,7 +15,7 @@ def predict_trip_energy(
     routee_model_str: str | Path,
     feature_cols: list[str],
     distance_col: str,
-):
+) -> pd.DataFrame:
     """Predict energy consumption using a provided RouteE model and trip data.
 
     Args:

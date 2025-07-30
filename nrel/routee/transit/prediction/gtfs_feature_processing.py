@@ -99,7 +99,7 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
 
 def add_stop_flags_to_shape(
     trip_shape_df: pd.DataFrame, stop_times_ext: pd.DataFrame
-) -> pd.DataFrame:
+) -> gpd.GeoDataFrame:
     """Attach stop information to a DataFrame of shape points for a specific trip.
 
     Given a DataFrame of shape points (`trip_shape_df`) and a DataFrame of stop times
