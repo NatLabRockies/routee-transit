@@ -36,6 +36,8 @@ if __name__ == "__main__":
     import os
     import time
 
+    from pathlib import Path
+
     from nrel.routee.transit.prediction.gtfs_feature_processing import (
         build_routee_features_with_osm,
     )
@@ -55,28 +57,29 @@ if __name__ == "__main__":
 
     logger = logging.getLogger("single_agency_analysis")
 
+    HERE = Path(__file__).parent.resolve()
+
     # Set inputs
     n_proc = mp.cpu_count()
-    agency = "saltlake"
-    veh_name = "SLC_BEB"
-    routee_vehicle_model = f"routee_transit/vehicle_models/{veh_name}.json"
-    raster_path = "data/usgs_elevation"
+    routee_vehicle_model = "Transit_Bus_Diesel"
+    input_directory = HERE / "../sample-inputs/saltlake"
+    output_directory = HERE / "../reports/saltlake"
+    if not output_directory.exists():
+        output_directory.mkdir(parents=True)
+
     # Number of trips to include in analysis. If None, all will be analyzed.
     n_trips_incl = 100
 
     start_time = time.time()
     routee_input_df = build_routee_features_with_osm(
-        agency=agency,
+        input_directory=input_directory,
         n_trips=n_trips_incl,
         add_road_grade=True,
-        gradeit_tile_path=raster_path,
         n_processes=n_proc,
     )
 
     logger.info("Finished building RouteE features")
-    routee_input_df.to_csv(
-        f"reports/trip_features/{agency}_trip_features.csv", index=False
-    )
+    routee_input_df.to_csv(output_directory / "trip_features.csv", index=False)
 
     # 4) Predict energy consumption
     routee_results = predict_for_all_trips(
@@ -84,10 +87,8 @@ if __name__ == "__main__":
         routee_vehicle_model=routee_vehicle_model,
         n_processes=n_proc,
     )
-    routee_results["vehicle"] = veh_name
-    routee_results.to_csv(
-        f"reports/energy_predictions/{agency}_link_energy_predictions.csv", index=False
-    )
+    routee_results["vehicle"] = routee_vehicle_model
+    routee_results.to_csv(output_directory / "link_energy_predictions.csv", index=False)
 
     # Summarize predictions by trip
     agg_cols = [c for c in ["gallons", "kWhs"] if c in routee_results.columns]
@@ -95,9 +96,9 @@ if __name__ == "__main__":
         {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
     )
     energy_by_trip["miles"] = 0.6213712 * energy_by_trip["kilometers"]
-    energy_by_trip["vehicle"] = veh_name
+    energy_by_trip["vehicle"] = routee_vehicle_model
     # TODO: save geometry data separate from energy predictions to save space
     energy_by_trip.drop(columns="kilometers").to_csv(
-        f"reports/energy_predictions/{agency}_trip_energy_predictions.csv"
+        output_directory / "trip_energy_predictions.csv"
     )
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")

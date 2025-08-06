@@ -3,17 +3,20 @@ import logging
 import multiprocessing as mp
 from functools import partial
 from pathlib import Path
+from typing import Union
 
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
-from gradeit.gradeit import gradeit
 from gtfsblocks import Feed
 from mappymatch.constructs.geofence import Geofence
 from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
 from numpy.random import default_rng
+
+from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
+from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 
 logger = logging.getLogger("gtfs_feature_processing")
 
@@ -334,89 +337,11 @@ def extend_trip_traces(
     return trips_with_timestamps_list
 
 
-def run_gradeit_parallel(
-    trip_dfs_list: list[pd.DataFrame],
-    raster_path: str | Path,
-    n_processes: int,
-) -> pd.DataFrame:
-    """Run gradeit in parallel for the provided list of trips.
-
-    Args:
-        trip_dfs_list (list[pd.DataFrame]): List of DataFrames, each containing shape
-        traces with "shape_pt_lat" and "shape_pt_lon" for a single bus trip.
-        raster_path (str | Path): Path to directory holding elevation raster data,
-            supplied as `usgs_db_path` to gradeit.
-        n_processes (int): Number of processes to run in parallel.
-
-    Returns:
-        pd.DataFrame: DataFrame including all input trip/shape data, plus gradeit
-            outputs (filtered and unfiltered elevation and grade), for all trips.
-    """
-    gradeit_partial = partial(add_grade_to_trip, raster_path=raster_path)
-    with mp.Pool(n_processes) as pool:
-        trips_with_grade = pool.map(gradeit_partial, trip_dfs_list)
-    return pd.concat(trips_with_grade)
-
-
-def add_grade_to_trip(
-    trip_link_df: pd.DataFrame, raster_path: str | Path
-) -> pd.DataFrame:
-    """Use gradeit to add grade and elevation columns to a trip DataFrame.
-
-    Args:
-        trip_link_df (pd.DataFrame): Trip DataFrame where geometry has been aggregated
-            by link.
-        raster_path (str | Path): Path to USGS elevation tiles.
-
-    Returns:
-        pd.DataFrame: Trip DataFrame with elevation and grade columns added.
-    """
-    # Reset the index to make sure things go as expected when we combine DFs later
-    trip_link_df = trip_link_df.reset_index(drop=True)
-
-    # Input DF is link level. Extract the coordinates of all points by grabbing the
-    # start coords of each link, then appending the end coords of the last one.
-    trip_coords_df = trip_link_df[["start_lat", "start_lon"]].rename(
-        columns={"start_lat": "lat", "start_lon": "lon"}
-    )
-    last_rw = trip_link_df.iloc[-1][["end_lat", "end_lon"]].T
-    trip_coords_df = pd.concat(
-        [
-            trip_coords_df,
-            last_rw.to_frame().rename({"end_lat": "lat", "end_lon": "lon"}).T,
-        ],
-        ignore_index=True,
-    )
-
-    # Run gradeit on the coordinate-level DF
-    gradeit_out = gradeit(
-        df=trip_coords_df,
-        source="usgs-local",
-        usgs_db_path=raster_path,
-        lat_col="lat",
-        lon_col="lon",
-        filtering=True,
-    )
-
-    # When calculating grades, the first point from gradeit has zero distance/grade.
-    # We'll shift these to appropriately match to links.
-    gradeit_cols = [
-        "elevation_ft",
-        "distances_ft",
-        "grade_dec_unfiltered",
-        "elevation_ft_filtered",
-        "grade_dec_filtered",
-    ]
-    trip_link_df.loc[:, gradeit_cols] = gradeit_out.shift(-1)[:-1].loc[:, gradeit_cols]
-
-    return trip_link_df
-
-
 def build_routee_features_with_osm(
-    agency: str,
+    input_directory: Union[str, Path],
     n_trips: int | None = 100,
     add_road_grade: bool = False,
-    gradeit_tile_path: Path | str | None = None,
+    tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
 ) -> pd.DataFrame:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
@@ -431,17 +356,16 @@ def build_routee_features_with_osm(
     features needed to run energy consumption prediction with a RouteE vehicle model.
 
     Args:
-        agency (str): Name of the transit agency under study. This must correspond to
-            the name of a directory under `data/gtfs` containing a fully populated
-            GTFS feed.
+        input_directory (str | Path): Where the inputs are stored, including GTFS data
         n_trips (int | None, optional): The number of trips to include in the analysis.
             If None, all trips will be included. If an integer, that number of trips
             will be selected at random. Defaults to 100.
         add_road_grade (bool, optional): Whether to append road grade information.
             Requires local elevation raster files specified with `gradeit_tile_path`.
             Defaults to False.
-        gradeit_tile_path (Path | str | None, optional): Path to a directory containing.
-            elevation tiles to be used by `gradeit`. Defaults to None.
+        tile_resolution (TileResolution | str, optional): The resolution of the USGS
+            tiles to use for elevation and grade calculations. Defaults to
+            TileResolution.ONE_ARC_SECOND.
         n_processes (int | None, optional): Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
 
@@ -462,7 +386,8 @@ def build_routee_features_with_osm(
         ],
         "shapes": ["shape_dist_traveled"],
     }
-    gtfs_path = f"data/gtfs/{agency}"
+    input_directory = Path(input_directory)
+    gtfs_path = input_directory / "gtfs"
     feed = Feed.from_dir(gtfs_path, columns=req_cols)
     logger.info(f"Feed contains {len(feed.trips)} trips and {len(feed.shapes)} shapes")
 
@@ -529,15 +454,9 @@ def build_routee_features_with_osm(
     trips_df_list = [t_df for _, t_df in trip_links_df.groupby("trip_id")]
 
     if add_road_grade:
-        if gradeit_tile_path is None:
-            raise ValueError(
-                "A path to map tiles must be passed to build_routee_features_with_osm()"
-                "in order to add road grade."
-            )
-
         result_df = run_gradeit_parallel(
             trip_dfs_list=trips_df_list,
-            raster_path=gradeit_tile_path,
+            tile_resolution=tile_resolution,
             n_processes=n_processes,
         )
     else:
