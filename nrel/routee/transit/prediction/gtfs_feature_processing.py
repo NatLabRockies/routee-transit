@@ -365,7 +365,7 @@ def build_routee_features_with_osm(
             Defaults to False.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
             tiles to use for elevation and grade calculations. Defaults to
-            TileResolution.ONE_ARC_SECOND.
+            TileResolution.ONE_THIRD_ARC_SECOND.
         n_processes (int | None, optional): Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
 
