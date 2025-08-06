@@ -22,7 +22,7 @@ class TileResolution(Enum):
             )
 
     @classmethod
-    def from_int(self, int: int) -> TileResolution:
+    def from_int(cls, int: int) -> TileResolution:
         if int == 13:
             return TileResolution.ONE_THIRD_ARC_SECOND
         # elif int == 1:
