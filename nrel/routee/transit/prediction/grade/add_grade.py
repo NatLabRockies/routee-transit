@@ -22,7 +22,8 @@ def run_gradeit_parallel(
         trip_dfs_list (list[pd.DataFrame]): List of DataFrames, each containing shape
         traces with "shape_pt_lat" and "shape_pt_lon" for a single bus trip.
         raster_path (str | Path): Path to directory holding elevation raster data,
-            supplied as `usgs_db_path` to gradeit.
+        tile_resolution (TileResolution | str): The resolution of the USGS elevation tiles to use.
+            Determines the granularity of elevation data used for grade calculation.
         n_processes (int): Number of processes to run in parallel.
 
     Returns:
