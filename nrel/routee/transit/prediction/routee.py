@@ -21,7 +21,7 @@ def predict_trip_energy(
     Args:
         t_df (pd.DataFrame): DataFrame containing trip link data, including geometry,
             distance, travel time, and elevation.
-        routee_model_str: String specifying a nrel.routee.powertrain model for energy
+        routee_model_str (str): String specifying a nrel.routee.powertrain model for energy
             estimation. This could be the name of a model package with RouteE Powertrain
             or the path to a file hosting one.
         feature_cols (list of str): List of feature column names to use for prediction.

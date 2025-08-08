@@ -30,19 +30,19 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
 
     Interpolates latitude, longitude, and distance traveled, assuming a constant speed.
     The function performs the following steps:
-    - Calculates the distance between consecutive shape points using the great-circle
-        distance.
-    - Computes the cumulative distance traveled along the shape.
-    - Assigns timestamps to each point based on a constant speed (30 km/h).
-    - Resamples and linearly interpolates the shape to 1-second intervals.
-    - Returns a DataFrame with interpolated latitude, longitude, timestamp, distance
-        traveled, and shape ID.
+
+    * Calculates the distance between consecutive shape points using great-circle distance
+    * Computes the cumulative distance traveled along the shape  
+    * Assigns timestamps based on constant speed (30 km/h)
+    * Resamples and interpolates the shape to 1-second intervals
+    * Returns DataFrame with interpolated coordinates, timestamps, and distances
 
     Args:
-        shape_df (pd.DataFrame): DataFrame containing GTFS shape points with columns
+        shape_df: DataFrame containing GTFS shape points with columns
             'shape_pt_lat', 'shape_pt_lon', and 'shape_id'.
+
     Returns:
-        pd.DataFrame: Upsampled DataFrame with columns 'shape_pt_lat', 'shape_pt_lon',
+        Upsampled DataFrame with columns 'shape_pt_lat', 'shape_pt_lon',
         'shape_dist_traveled', 'timestamp', and 'shape_id', sampled at 1 Hz.
     """
 
@@ -361,8 +361,6 @@ def build_routee_features_with_osm(
             If None, all trips will be included. If an integer, that number of trips
             will be selected at random. Defaults to 100.
         add_road_grade (bool, optional): Whether to append road grade information.
-            Requires local elevation raster files specified with `gradeit_tile_path`.
-            Defaults to False.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
             tiles to use for elevation and grade calculations. Defaults to
             TileResolution.ONE_THIRD_ARC_SECOND.
