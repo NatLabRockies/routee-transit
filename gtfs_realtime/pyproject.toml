@@ -13,4 +13,5 @@ dependencies = [
 [dependency-groups]
 dev = [
     "types-requests>=2.32.4.20250809",
+    "ruff>=0.9,<1.0",
 ]
