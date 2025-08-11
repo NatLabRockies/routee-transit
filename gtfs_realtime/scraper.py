@@ -29,7 +29,7 @@ class GTFSRealtimeScraper:
     
     def __init__(self, 
                  feed_url: str,
-                 poll_interval: int = 60,
+                 poll_interval: int = 30,
                  log_dir: str = "logs",
                  max_retries: int = 3,
                  timeout: int = 10):
