@@ -1,0 +1,18 @@
+[project]
+name = "gtfs-realtime"
+version = "0.1.0"
+description = "Tooling for scraping GTFS realtime data for speed validation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gtfs-realtime-bindings>=1.0.0",
+    "protobuf>=6.31.1",
+    "requests>=2.32.4",
+    "urllib3>=2.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "types-requests>=2.32.4.20250809",
+    "ruff>=0.9,<1.0",
+]
