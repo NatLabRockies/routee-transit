@@ -7174,7 +7174,7 @@ packages:
 - pypi: ./
   name: nrel-routee-transit
   version: 0.1.0
-  sha256: b040bfd36d0588e56a6a85a444a099ebb35ddd2c90e5b83794b863c0e832bd44
+  sha256: 1264a739de2efc1496fa68a49447651f1aec92d905c34801538ad636f52d5d07
   requires_dist:
   - pandas>=2.0
   - gtfsblocks>=0.1.2,<0.2
@@ -10440,19 +10440,19 @@ packages:
   - pytest>=2.8.2 ; extra == 'test'
   - shapely ; extra == 'test'
   - sphinx-click ; extra == 'all'
-  - hypothesis ; extra == 'all'
-  - fsspec ; extra == 'all'
-  - ghp-import ; extra == 'all'
-  - shapely ; extra == 'all'
-  - boto3>=1.2.4 ; extra == 'all'
-  - ipython>=2.0 ; extra == 'all'
-  - matplotlib ; extra == 'all'
   - sphinx-rtd-theme ; extra == 'all'
-  - numpydoc ; extra == 'all'
-  - pytest-cov>=2.2.0 ; extra == 'all'
+  - shapely ; extra == 'all'
   - pytest>=2.8.2 ; extra == 'all'
   - sphinx ; extra == 'all'
+  - hypothesis ; extra == 'all'
+  - ghp-import ; extra == 'all'
+  - ipython>=2.0 ; extra == 'all'
+  - matplotlib ; extra == 'all'
+  - pytest-cov>=2.2.0 ; extra == 'all'
+  - fsspec ; extra == 'all'
+  - boto3>=1.2.4 ; extra == 'all'
   - packaging ; extra == 'all'
+  - numpydoc ; extra == 'all'
   requires_python: '>=3.9'
 - pypi: https://files.pythonhosted.org/packages/f3/fd/ba3850e4cbccc47d03037f2c96889f7f221a674a7be6665c7da7cd483a07/rasterio-1.4.3-cp311-cp311-macosx_10_15_x86_64.whl
   name: rasterio

@@ -70,7 +70,7 @@ lint_check = "ruff check"
 lint_fix = "ruff check --fix"
 typing = "mypy ."
 test = "pytest tests/"
-docs = "jupyter-book build docs"
+docs = "python docs/examples/_convert_examples.py && jupyter-book build docs"
 check = { depends-on = ["fmt_fix", "lint_fix", "typing", "test"] }
 ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 
