@@ -38,10 +38,10 @@ if __name__ == "__main__":
 
     from pathlib import Path
 
-    from nrel.routee.transit.prediction.gtfs_feature_processing import (
+    from nrel.routee.transit import (
         build_routee_features_with_osm,
+        predict_for_all_trips,
     )
-    from nrel.routee.transit.prediction.routee import predict_for_all_trips
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
     # TODO: resolve underlying issue that generates these warnings

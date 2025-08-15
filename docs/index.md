@@ -1,22 +1,50 @@
-# RouteE Transit
+# RouteE-Transit
 
-Welcome to the RouteE Transit documentation! This project provides tools for predicting energy consumption of transit bus trips based on NREL's [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) package. Core capabilities include:
+RouteE-Transit is a Python package that provides comprehensive tools for predicting energy consumption of transit bus systems. Built on top of NREL's [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) package, RouteE-Transit focuses on transit bus applications, predicting energy consumption for buses based on GTFS data.
 
-- Training new RouteE models for different models of transit buses based on historic energy consumption data from vehicle telematics, or outputs from simulation tools such as NREL's [FASTSim](https://github.com/NREL/fastsim).
+The package enables users to work with pre-trained transit bus energy models or their own RouteE-Powertrain models based on real-world telematics data or simulation outputs. RouteE-Transit models predict vehicle energy consumption for transit trips based on factors such as road grade, estimated vehicle speed, and distance.
 
-- Predicting energy consumption for individual bus trips, complete bus blocks including passenger and deadhead trips, or entire bus fleets based on GTFS data.
+## Key Features
 
-RouteE Transit is intended to be powertrain-agnostic and to provide accurate energy consumption predictions for various vehicle types including diesel, hybrid, and battery-electric buses.
+- **GTFS Integration**: Works with General Transit Feed Specification (GTFS) data to analyze entire transit networks
+- **Powertrain Agnostic**: Support for various vehicle types including diesel, hybrid, and battery-electric buses
+- **Fleet-wide Analysis**: Predict energy consumption for individual trips, complete bus blocks, or entire bus fleets
 
-## Repository Structure
-- `data/`: data used in routee-transit
-- `docs/`: project documentation used to build docs site with `mkdocs`
-- `reports/`: destination folder for model outputs
-- `routee_transit/`: core routee-transit Python packge
-    - `gtfs_processing/`: code related to aggregating US GTFS feeds using the Mobility Database. Likely to be moved to a separate repo in the future.
-    - `prediction/`: code for making predictions of transit bus energy consumption based on GTFS feeds and pre-trained RouteE models.
-    - `training/`: code for training new RouteE transit bus models based on telematics data or FASTSim outputs
-    - `utils/`: shared utilities across routee_transit submodules
-    - `vehicle_models/`: where trained RouteE models are stored so they can be accessed when making predictions
-- `scripts/`: scripts and examples of training and predicting with RouteE Transit
-- `tests/`: tests
+
+## Quickstart
+To install RouteE-Transit, see [](installation).
+
+```python
+from nrel.routee.transit import (
+    build_routee_features_with_osm,
+    predict_for_all_trips,
+)
+
+# Build features for predicting with RouteE-Powertrain
+routee_input_df = build_routee_features_with_osm(
+    input_directory="path/to/gtfs",
+    add_road_grade=True,  # Add elevation difference
+)
+
+# Run a RouteE-Powertrain model
+routee_results = predict_for_all_trips(
+    routee_input_df=routee_input_df,
+    routee_vehicle_model="Transit_Bus_Diesel",
+)
+```
+
+For a full example, see [](examples/Utah_Transit_Agency_example). That example can also be run as a script with `python scripts/single_agency_full_analysis.py`.
+
+
+## Available Models
+Pretrained transit bus models are included in the RouteE Powertrain package. You can list all available models (including transit buses and other vehicles) with:
+```python
+import nrel.routee.powertrain as pt
+
+# List all available pre-trained models
+print(pt.list_available_models())
+```
+
+Each model includes multiple estimators that account for different combinations of features such as speed, road grade, and stop frequency.
+
+

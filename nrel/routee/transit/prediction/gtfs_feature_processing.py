@@ -30,19 +30,19 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
 
     Interpolates latitude, longitude, and distance traveled, assuming a constant speed.
     The function performs the following steps:
-    - Calculates the distance between consecutive shape points using the great-circle
-        distance.
-    - Computes the cumulative distance traveled along the shape.
-    - Assigns timestamps to each point based on a constant speed (30 km/h).
-    - Resamples and linearly interpolates the shape to 1-second intervals.
-    - Returns a DataFrame with interpolated latitude, longitude, timestamp, distance
-        traveled, and shape ID.
+
+    * Calculates the distance between consecutive shape points using great-circle distance
+    * Computes the cumulative distance traveled along the shape
+    * Assigns timestamps based on constant speed (30 km/h)
+    * Resamples and interpolates the shape to 1-second intervals
+    * Returns DataFrame with interpolated coordinates, timestamps, and distances
 
     Args:
-        shape_df (pd.DataFrame): DataFrame containing GTFS shape points with columns
+        shape_df: DataFrame containing GTFS shape points with columns
             'shape_pt_lat', 'shape_pt_lon', and 'shape_id'.
+
     Returns:
-        pd.DataFrame: Upsampled DataFrame with columns 'shape_pt_lat', 'shape_pt_lon',
+        Upsampled DataFrame with columns 'shape_pt_lat', 'shape_pt_lon',
         'shape_dist_traveled', 'timestamp', and 'shape_id', sampled at 1 Hz.
     """
 
@@ -246,29 +246,29 @@ def extend_trip_traces(
     """Extend trip shapes with stop details and estimated timestamps from GTFS.
 
     This function processes GTFS trip and shape data to:
-    - Summarize stop times for each trip (first/last stop and times).
-    - Merge stop time summaries into the trips DataFrame.
-    - Attach stop coordinates to stop times.
-    - Merge trip and shape data to create ordered trip traces.
-    - Optionally, attach stop indicators to shape trace points.
-    - Estimate timestamps for each trace point based on scheduled trip duration and
-      distance.
+
+    * Summarize stop times for each trip (first/last stop and times)
+    * Merge stop time summaries into the trips DataFrame
+    * Attach stop coordinates to stop times
+    * Merge trip and shape data to create ordered trip traces
+    * Optionally, attach stop indicators to shape trace points
+    * Estimate timestamps for each trace point based on scheduled trip duration and distance
 
     Args:
-        trips_df (pd.DataFrame): DataFrame containing trip information, including
+        trips_df: DataFrame containing trip information, including
             'trip_id' and 'shape_id'.
-        matched_shapes_df (pd.DataFrame): DataFrame with shape points matched to trips,
+        matched_shapes_df: DataFrame with shape points matched to trips,
             including 'shape_id' and 'shape_dist_traveled'.
-        feed (gtfsblocks.Feed): GTFS feed object containing 'stop_times' and 'stops'
+        feed: GTFS feed object containing 'stop_times' and 'stops'
             DataFrames.
-        add_stop_flag (bool, optional): If True, attaches stop indicators to shape trace
+        add_stop_flag: If True, attaches stop indicators to shape trace
             points. Defaults to False.
-        n_processes (int | None, optional): Number of processes to run in parallel using
+        n_processes: Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
 
     Returns:
-        list: A list of DataFrames, one per trip, with extended trace information
-            including estimated timestamps.
+        A list of DataFrames, one per trip, with extended trace information
+        including estimated timestamps.
     """
 
     # 3) Estimate speeds
@@ -339,7 +339,7 @@ def extend_trip_traces(
 
 def build_routee_features_with_osm(
     input_directory: Union[str, Path],
-    n_trips: int | None = 100,
+    n_trips: int | None = None,
     add_road_grade: bool = False,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
@@ -361,8 +361,6 @@ def build_routee_features_with_osm(
             If None, all trips will be included. If an integer, that number of trips
             will be selected at random. Defaults to 100.
         add_road_grade (bool, optional): Whether to append road grade information.
-            Requires local elevation raster files specified with `gradeit_tile_path`.
-            Defaults to False.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
             tiles to use for elevation and grade calculations. Defaults to
             TileResolution.ONE_THIRD_ARC_SECOND.

@@ -1,11 +1,38 @@
 # Installation
 
-Instructions for installing RouteE Transit and its dependencies.
+## Prerequisites
 
-## Using Poetry
+- Python 3.9 or higher
+- Git
+
+## Installation with pip
+
+### 1. Clone the repository
 
 ```bash
-poetry install
+git clone https://github.com/NREL/routee-transit.git
+cd routee-transit
 ```
 
-See the README for more details.
+### 2. Create a virtual environment (recommended)
+e.g., using `conda`:
+
+```bash
+conda create -n routee-transit
+conda activate routee-transit
+```
+
+### 3. Install the package
+From the root directory,
+```bash
+pip install .
+```
+
+## Setup for developers
+See [](contributing)
+
+For development installation with all dependencies:
+```bash
+pip install -e ".[dev]"
+```
+

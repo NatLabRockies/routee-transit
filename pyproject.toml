@@ -23,6 +23,7 @@ dev = [
     "ipykernel>6.29,<7.0",
     "jupyter-book>=1.0,<2.0",
     "pandas-stubs>=2.0,<3.0",
+    # "nbformat>=5.10,<6.0",
     "types-requests"
 ]
 
@@ -69,7 +70,7 @@ lint_check = "ruff check"
 lint_fix = "ruff check --fix"
 typing = "mypy ."
 test = "pytest tests/"
-docs = "jupyter-book build docs"
+docs = "python docs/examples/_convert_examples.py && jupyter-book build docs"
 check = { depends-on = ["fmt_fix", "lint_fix", "typing", "test"] }
 ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 

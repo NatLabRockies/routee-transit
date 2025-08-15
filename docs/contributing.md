@@ -1,32 +1,47 @@
-# Contributing
+# Developer Guide
 
-Guidelines for contributing to RouteE Transit.
+## Set Up Development Environment with Pixi
 
-- How to submit issues and pull requests
-- Coding standards
-- Testing instructions
+[Pixi](https://pixi.sh/) is a modern package manager that handles both Python and system dependencies automatically.
 
-## Documentation
+The `routee-transit` `pyproject.toml` file defines various development environments with Pixi for different Python versions (e.g. `dev-py310`, `dev-py311`, etc.) to ease development and testing. Follow the instructions below to configure your environment with Pixi.
 
-### Install Documentation Dependencies
-To install the documentation dependencies, run:
+### 1. Install pixi
 
-```bash
-poetry install --with docs
-```
-
-### Serve Documentation Locally
-To preview the documentation site locally, run:
+Follow the installation instructions at [pixi.sh](https://pixi.sh/latest/#installation) or use:
 
 ```bash
-poetry run mkdocs serve
+# On macOS/Linux
+curl -fsSL https://pixi.sh/install.sh | sh
 ```
 
-This will start a local server (usually at http://127.0.0.1:8000/) where you can view the docs as you edit them.
+### 2. Clone and set up the project
 
-### Edit Documentation
-- All documentation source files are in the `docs/` directory as Markdown files (e.g., `index.md`, `usage.md`).
-- Edit or add Markdown files as needed. The navigation is controlled by `mkdocs.yml` at the project root.
-- For API documentation, use docstrings in your Python code. The `mkdocstrings` plugin will automatically include them in the docs if referenced in `api.md`.
+```bash
+git clone https://github.com/NREL/routee-transit.git
+cd routee-transit
+pixi install
+```
 
-After editing, refresh your browser to see changes reflected immediately.
+### 3. Activate the environment
+
+```bash
+pixi shell
+```
+
+To activate a specific environment (not just the default), use the `-e` flag:
+
+```bash
+pixi shell -e dev-py310
+```
+
+Alternatively, ou can use `pixi run -e dev-py310 myfile.py` to execute a python file in the environment specified. If you're using VS Code, the [Pixi VSCode](https://marketplace.visualstudio.com/items?itemName=jjjermiah.pixi-vscode) extension is useful.
+
+## Build Documentation
+To build the documentation locally with `jupyter-book`, use the pixi task defined in `pyproject.toml`:
+
+```bash
+pixi run docs
+```
+
+Be aware that `jupyter-book` will run all of the documentation examples when the docs are built, which can take a few minutes. To build the documentation faster, you can skip the examples by simply commenting them out in the table of contents (`docs/_toc.yml`).

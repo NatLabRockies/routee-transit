@@ -7,11 +7,16 @@ parts:
   - caption: Getting Started
     chapters:
       - file: installation
-      - file: usage
+      - file: data
 
   - caption: User Reference
     chapters:
+      - file: prediction
       - file: api
+
+  - caption: Examples
+    chapters:
+      - file: examples/Utah_Transit_Agency_example
 
   - caption: Developers
     chapters:

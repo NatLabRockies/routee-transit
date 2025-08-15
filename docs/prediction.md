@@ -1,16 +1,26 @@
 # RouteE-Transit Prediction Pipeline
-A core function of `routee_transit` is to predict the energy consumption of bus trips given a static GTFS feed. Predictions are made using NREL's [RouteE-PowerTrain](https://github.com/NREL/routee-powertrain) package. To prepare to run a RouteE model, GTFS features need to be adapted into RouteE features (such as vehicle speed, road grade, and distance along road links). In RouteE-Transit, this take place across the following steps:
+RouteE-Transit builds on [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:
 
-## 1) Specify GTFS Context
-First, users need to specify the scope of predictions by supplying a static GTFS feed. In the future, RouteE-Transit will have additional flexibility to set prediction scope based on a subset of trips specified by date range, route, etc. Currently, we will generate predictions for every trip in the feed.
+![Prediction Pipeline Overview](images/PredictionOverview.png)
 
-## 2) Refine Shapes
-In this step, we take the shapes provided in `shapes.txt`, upsample them to approximately 1 Hz resolution for better map matching accuracy, and match the shapes to map links on a base map using NREL's `mappymatch` package. We then calculate the distance between successive points in the shape.
+RouteE-Transit moves from static GTFS files to energy predictions in three steps:
 
-Finally, we use `gradeit` to add road grade information to each point.
+## 1) Specify GTFS Trip Data
+First, users need to specify the scope of predictions by supplying data from a static GTFS feed. See [](data:gtfs-reqs) for details on what GTFS data must be available. RouteE-Transit needs a set of trips along with their shape traces, stop locations, and stop times in order to proce estimated distance, road grade, and speed for RouteE-Powertrain models.
 
-## 3) Estimate Speeds
-This step pulls together the estimated distances from Step 2 with the time intervals between stops specified in `stop_times.txt` to obtain speed estimates. Speed profiles can be further enhanced with data from the map-matched links, including posted speed limits from OpenStreetMap or additional information such as time-dependent speed profiles and intersection signals from NREL's internal TomTom network.
+Users can supply an entire GTFS feed as input or filter down trips (e.g., only trips on a certain day or serving a certain route).
 
-## 4) Predict Energy Consumption Using RouteE
-In the last step, we read in a trained RouteE model for the transit bus model we'd like to evaluate and use it to predict energy consumption for each trip.
+## 2) Prepare RouteE-Powertrain Features
+Next, RouteE-Transit transforms the input GTFS data into link-level features on the road network so a RouteE-Powertrain model can be applied. The first step in this process is to upsample the shape traces from `shapes.txt` to approximately 1 Hz resolution for better map matching accuracy, and then match the shapes to OpenStreetMap road links using NREL's `mappymatch` package.
+
+The map-matched shapes are then used to calculate link distances and NREL's `gradeit` package appends road grade information to each link based on USGS National Map elevation data.
+
+Finally, the estimated distances are used along with the time intervals between stops from`stop_times.txt` to estimate bus average speed along each road link.
+
+## 3) Predict Energy Consumption with RouteE-Powertrain
+In the last step, a trained RouteE-Powertrain model is run to predict energy consumption for each trip. RouteE-Powertrain version 1.3.2 introduced two initial transit bus models (`Transit_Bus_Diesel` and `Transit_Bus_Battery_Electric`) and additional models for different bus styles and manufacturers will be rolled out over time.
+
+# Assumptions and Limitations
+This initial version of RouteE-Transit has the following limitations:
+* Weather impacts are not currently accounted for. Note that HVAC loads have a major impact on electric bus energy consumption, especially when temperatures are very low or very high.
+* Deadhead trips (including pull-out and pull-in trips from/to the depot as well as deadhead in between service trips) are not currently modeled.
