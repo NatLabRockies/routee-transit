@@ -1,12 +1,12 @@
-from functools import partial
 import logging
 import multiprocessing as mp
+from functools import partial
 
 import pandas as pd
 from gradeit.gradeit import gradeit
 
-from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 from nrel.routee.transit.prediction.grade.download import CACHE_DIR, download_usgs_tiles
+from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 
 log = logging.getLogger(__file__)
 
@@ -116,17 +116,11 @@ def add_grade_to_trip(
         lat_col="lat",
         lon_col="lon",
         filtering=True,
-    )
+    ).rename(columns={"grade_dec_unfiltered": "grade"})
 
     # When calculating grades, the first point from gradeit has zero distance/grade.
     # We'll shift these to appropriately match to links.
-    gradeit_cols = [
-        "elevation_ft",
-        "distances_ft",
-        "grade_dec_unfiltered",
-        "elevation_ft_filtered",
-        "grade_dec_filtered",
-    ]
+    gradeit_cols = ["grade"]  # for now, only include a single grade column
     trip_link_df.loc[:, gradeit_cols] = gradeit_out.shift(-1)[:-1].loc[:, gradeit_cols]
 
     return trip_link_df

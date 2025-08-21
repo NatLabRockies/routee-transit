@@ -334,7 +334,7 @@ def extend_trip_traces(
             estimate_trip_timestamps, trip_shapes_list
         )
     logger.info("Finished attaching timestamps")
-    return trips_with_timestamps_list
+    return pd.concat(trips_with_timestamps_list)
 
 
 def build_routee_features_with_osm(
@@ -387,7 +387,10 @@ def build_routee_features_with_osm(
     input_directory = Path(input_directory)
     gtfs_path = input_directory / "gtfs"
     feed = Feed.from_dir(gtfs_path, columns=req_cols)
-    logger.info(f"Feed contains {len(feed.trips)} trips and {len(feed.shapes)} shapes")
+    logger.info(
+        f"Feed contains {len(feed.trips)} trips and {feed.shapes.shape_id.nunique()} "
+        "shapes"
+    )
 
     # 1.5) Filter down feed to speed up testing
     if n_trips is not None:
@@ -425,13 +428,12 @@ def build_routee_features_with_osm(
     matched_shapes_df = pd.concat(matched_shapes_list)
 
     # Extend trip data with stop and schedule data
-    trips_ext_list = extend_trip_traces(
+    trips_df_ext = extend_trip_traces(
         trips_df=trips_df,
         matched_shapes_df=matched_shapes_df,
         feed=feed,
         add_stop_flag=False,
     )
-    trips_df_ext = pd.concat(trips_ext_list)
 
     # Aggregate data at road link level to reduce computational burden
     trip_links_df = (
@@ -445,10 +447,11 @@ def build_routee_features_with_osm(
             start_timestamp=pd.NamedAgg("timestamp", "first"),
             end_timestamp=pd.NamedAgg("timestamp", "last"),
             kilometers=pd.NamedAgg("kilometers", "mean"),
-            travel_time_osm=pd.NamedAgg("travel_time", "mean"),
+            travel_time_minutes=pd.NamedAgg("travel_time", "mean"),
         )
         .reset_index()
     )
+    trip_links_df["travel_time_minutes"] /= 60
     trips_df_list = [t_df for _, t_df in trip_links_df.groupby("trip_id")]
 
     if add_road_grade:
