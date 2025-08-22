@@ -14,7 +14,6 @@ from mappymatch.constructs.geofence import Geofence
 from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
-from numpy.random import default_rng
 
 from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
 from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
