@@ -31,6 +31,25 @@ def read_in_gtfs(
     date_incl: str | datetime.date | None = None,
     routes_incl: list[str] | None = None,
 ):
+    """
+    Reads a GTFS feed from a directory, optionally filtering trips by date and route.
+    Args:
+        path_to_feed (str | os.PathLike): Path to the GTFS feed directory.
+        date_incl (str | datetime.date | None, optional): Date to filter trips.
+            If None, includes all dates.
+        routes_incl (list[str] | None, optional): List of route_short_name values to
+            filter trips based on. If None, includes all routes.
+    Returns:
+        tuple:
+            - trips_df (pd.DataFrame): DataFrame of filtered trips.
+            - shapes_df (pd.DataFrame): DataFrame of shapes associated with the
+                filtered trips.
+            - feed (Feed): The loaded GTFS feed object.
+    Raises:
+        ValueError: If no trips are found for the specified date or routes.
+    """
+
+
     req_cols = {
         "stop_times": [
             "arrival_time",
@@ -41,20 +60,35 @@ def read_in_gtfs(
         "shapes": ["shape_dist_traveled"],
     }
     feed = Feed.from_dir(path_to_feed, columns=req_cols)
+    agencies_incl = feed.agency.agency_name.unique().tolist()
+
     logger.info(
-        f"Feed contains {len(feed.trips)} trips and "
+        f"Feed includes trips for the following agencies: {agencies_incl}. "
+        f"There are {len(feed.trips)} trips and "
         f"{feed.shapes.shape_id.nunique()} shapes"
     )
 
     # 1.5) Filter down feed by date and route
-    print(f"Including trips on routes {routes_incl}")
-    trips_day = feed.get_trips_from_date(date_incl)
-    trips_df = filter_blocks_by_route(
-        trips=trips_day,
-        routes=routes_incl,
-        route_column="route_short_name",
-        route_method="exclusive",
-    )
+    if date_incl is not None:
+        trips_df = feed.get_trips_from_date(date_incl)
+        if len(trips_df) == 0:
+            raise ValueError(f"Feed does not contain any trips on {date_incl}")
+    else:
+        trips_df = feed.trips
+
+    if routes_incl is not None:
+        trips_df = filter_blocks_by_route(
+            trips=trips_df,
+            routes=routes_incl,
+            route_column="route_short_name",
+            route_method="exclusive",
+        )
+
+        if len(trips_df) == 0:
+            raise ValueError(
+                "There are no active trips on your selected routes and date."
+            )
+
     shapes_incl = trips_df.shape_id.unique()
     shapes_df = feed.shapes[feed.shapes.shape_id.isin(shapes_incl)]
     logger.info(
