@@ -94,6 +94,7 @@ def read_in_gtfs(
     logger.info(
         f"Restricted feed to {len(trips_df)} trips and {len(shapes_incl)} shapes"
     )
+    # TODO: establish a routee-transit input class and return an object instead
     return trips_df, shapes_df, feed
 
 
@@ -409,72 +410,47 @@ def extend_trip_traces(
 
 def build_routee_features_with_osm(
     input_directory: Union[str, Path],
-    n_trips: int | None = None,
-    add_road_grade: bool = False,
+    date_incl: str | datetime.date | None = None,
+    routes_incl: list[str] | None = None,
+    add_road_grade: bool = True,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
 ) -> pd.DataFrame:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
 
-    This wrapper function processes a GTFS feed to estimate link-level bus speeds and
-    (optionally) elevation change for all scheduled trips. Optionally, n_trips can be
-    used to select only a random subset for faster testing and validation.
+    This function processes a GTFS feed to estimate link-level bus speeds and
+    (optionally) elevation change for all scheduled trips. It supports filtering
+    by date and route, and processes all trips in the feed unless otherwise filtered.
 
-    This function reads the GTFS data into a gtfsblocks.Feed object, matches all
-    relevant trip shapes to the OpenStreetMap network using mappymatch, and optionally
-    adds road grade information using gradeit. The output DataFrame includes the
-    features needed to run energy consumption prediction with a RouteE vehicle model.
+    The function reads the GTFS data, matches all relevant trip shapes to the
+    OpenStreetMap network using mappymatch, and optionally adds road grade
+    information using gradeit. The output DataFrame includes the features needed
+    to run energy consumption prediction with a RouteE vehicle model.
 
     Args:
-        input_directory (str | Path): Where the inputs are stored, including GTFS data
-        n_trips (int | None, optional): The number of trips to include in the analysis.
-            If None, all trips will be included. If an integer, that number of trips
-            will be selected at random. Defaults to 100.
+        input_directory (str | Path): Directory containing GTFS data.
+        date_incl (str | datetime.date | None, optional): Date to filter trips.
+            If None, includes all dates.
+        routes_incl (list[str] | None, optional): List of route_short_name values
+            to filter trips. If None, includes all routes.
         add_road_grade (bool, optional): Whether to append road grade information.
+            Defaults to True.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
             tiles to use for elevation and grade calculations. Defaults to
             TileResolution.ONE_THIRD_ARC_SECOND.
-        n_processes (int | None, optional): Number of processes to run in parallel using
+        n_processes (int, optional): Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
-
-    Raises:
-        ValueError: If `gradeit_tile_path` is None and `add_road_grade` is True.
 
     Returns:
         pd.DataFrame: DataFrame with link-level speed, distance, and (optionally)
             grade for all bus trips in scope.
     """
     # 1) Process GTFS inputs
-    req_cols = {
-        "stop_times": [
-            "arrival_time",
-            "departure_time",
-            "shape_dist_traveled",
-            "stop_id",
-        ],
-        "shapes": ["shape_dist_traveled"],
-    }
-    input_directory = Path(input_directory)
-    gtfs_path = input_directory / "gtfs"
-    feed = Feed.from_dir(gtfs_path, columns=req_cols)
-    logger.info(
-        f"Feed contains {len(feed.trips)} trips and {feed.shapes.shape_id.nunique()} "
-        "shapes"
+    trips_df, shapes_df, feed = read_in_gtfs(
+        path_to_feed=input_directory,
+        date_incl=date_incl,
+        routes_incl=routes_incl,
     )
-
-    # 1.5) Filter down feed to speed up testing
-    if n_trips is not None:
-        rng = default_rng(seed=100)
-        trips_incl = rng.choice(feed.trips.trip_id.unique(), n_trips, replace=False)
-        trips_df = feed.trips[feed.trips.trip_id.isin(trips_incl)]
-        shapes_incl = trips_df.shape_id.unique()
-        shapes_df = feed.shapes[feed.shapes.shape_id.isin(shapes_incl)]
-        logger.info(
-            f"Restricted feed to {len(trips_df)} trips and {len(shapes_incl)} shapes"
-        )
-    else:
-        trips_df = feed.trips
-        shapes_df = feed.shapes
 
     # 2) Refine shapes
     # Upsample all shapes
