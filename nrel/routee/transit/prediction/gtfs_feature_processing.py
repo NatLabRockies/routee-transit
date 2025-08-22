@@ -74,7 +74,7 @@ def read_in_gtfs(
         if len(trips_df) == 0:
             raise ValueError(f"Feed does not contain any trips on {date_incl}")
     else:
-        trips_df = feed.trips
+        trips_df = feed.get_trips_from_sids(feed.trips.service_id.unique())
 
     if routes_incl is not None:
         trips_df = filter_blocks_by_route(
