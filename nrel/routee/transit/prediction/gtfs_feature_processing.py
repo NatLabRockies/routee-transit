@@ -1,6 +1,7 @@
 import datetime
 import logging
 import multiprocessing as mp
+import os
 from functools import partial
 from pathlib import Path
 from typing import Union
@@ -8,7 +9,7 @@ from typing import Union
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
-from gtfsblocks import Feed
+from gtfsblocks import Feed, filter_blocks_by_route
 from mappymatch.constructs.geofence import Geofence
 from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
@@ -23,6 +24,43 @@ logger = logging.getLogger("gtfs_feature_processing")
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def read_in_gtfs(
+    path_to_feed: str | os.PathLike,
+    date_incl: str | datetime.date | None = None,
+    routes_incl: list[str] | None = None,
+):
+    req_cols = {
+        "stop_times": [
+            "arrival_time",
+            "departure_time",
+            "shape_dist_traveled",
+            "stop_id",
+        ],
+        "shapes": ["shape_dist_traveled"],
+    }
+    feed = Feed.from_dir(path_to_feed, columns=req_cols)
+    logger.info(
+        f"Feed contains {len(feed.trips)} trips and "
+        f"{feed.shapes.shape_id.nunique()} shapes"
+    )
+
+    # 1.5) Filter down feed by date and route
+    print(f"Including trips on routes {routes_incl}")
+    trips_day = feed.get_trips_from_date(date_incl)
+    trips_df = filter_blocks_by_route(
+        trips=trips_day,
+        routes=routes_incl,
+        route_column="route_short_name",
+        route_method="exclusive",
+    )
+    shapes_incl = trips_df.shape_id.unique()
+    shapes_df = feed.shapes[feed.shapes.shape_id.isin(shapes_incl)]
+    logger.info(
+        f"Restricted feed to {len(trips_df)} trips and {len(shapes_incl)} shapes"
+    )
+    return trips_df, shapes_df, feed
 
 
 def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
@@ -270,8 +308,6 @@ def extend_trip_traces(
         A list of DataFrames, one per trip, with extended trace information
         including estimated timestamps.
     """
-
-    # 3) Estimate speeds
     # Start by summarizing stop times: get first and last stop, plus start/end times
     stop_times_by_trip = (
         feed.stop_times.groupby("trip_id")
