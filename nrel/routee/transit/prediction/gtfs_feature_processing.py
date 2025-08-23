@@ -455,9 +455,8 @@ def build_routee_features_with_osm(
     df_shape_list = [group for _, group in shapes_df.groupby("shape_id")]
     with mp.Pool(n_processes) as pool:
         upsampled_shapes_list = pool.map(upsample_shape, df_shape_list)
-    logger.info("Finished upsampling")
-    logger.info("Original shapes length: {}".format(len(shapes_df)))
-    logger.info(
+    logger.debug("Original shapes length: {}".format(len(shapes_df)))
+    logger.debug(
         "Upsampled shapes length: {}".format(len(pd.concat(upsampled_shapes_list)))
     )
 
