@@ -313,7 +313,7 @@ def extend_trip_traces(
     feed: Feed,
     add_stop_flag: bool = False,
     n_processes: int | None = mp.cpu_count(),
-) -> list[pd.DataFrame]:
+) -> pd.DataFrame:
     """Extend trip shapes with stop details and estimated timestamps from GTFS.
 
     This function processes GTFS trip and shape data to:
