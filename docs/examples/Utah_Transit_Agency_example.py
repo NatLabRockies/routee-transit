@@ -2,6 +2,7 @@
 # Utah Transit Agency Example
 In this example, we'll predict the energy consumption for some trips operated by the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the GTFS data we are analyzing, processing it to produce RouteE-Powertrain inputs, and running a RouteE-Powertrain model to produce energy estimates.
 """
+
 import logging
 import multiprocessing as mp
 import os
