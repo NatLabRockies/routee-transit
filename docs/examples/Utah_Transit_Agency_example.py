@@ -10,6 +10,7 @@ import os
 from nrel.routee.transit import (
     build_routee_features_with_osm,
     predict_for_all_trips,
+    aggregate_results_by_trip,
     repo_root,
 )
 
@@ -23,27 +24,31 @@ logging.basicConfig(
 
 # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
 os.environ["PROJ_DEBUG"] = "0"
-# Set inputs
+# Set number of parallel processes
 n_proc = mp.cpu_count()
-input_directory = repo_root() / "sample-inputs/saltlake"
+# Specify input data location
+input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
 output_directory = repo_root() / "reports/saltlake"
 if not output_directory.exists():
     output_directory.mkdir(parents=True)
 """
 ## Process GTFS Data into RouteE Inputs
 `build_routee_features_with_osm()` analyzes a GTFS feed to prepare input features for energy prediction with RouteE-Powertrain. It performs the following steps:
+- Reads in GTFS data from the input directory
+- Filters down bus trips by date and route names, if desired (set `date_incl` and/or `routes_incl` to `None` and all dates/routes will be included).
 - Upsamples all shapes so they are suitable for map matching
 - Uses NREL's `mappymatch` package to match each shape to a set of OpenStreetMap road links.
 - Uses NREL's `gradeit` package to add estimated average grade to each road link. USGS elevation tiles are downloaded and cached if needed.
 """
 routee_input_df = build_routee_features_with_osm(
     input_directory=input_directory,
-    n_trips=30,  # make predictions for 30 randomly sampled trips
+    date_incl="2023/08/02",
+    routes_incl=["806", "807"],  # a few routes that each make a small number of trips
     add_road_grade=True,
     n_processes=n_proc,
 )
 """
-The output of `build_routee_features_with_osm()` is a DataFrame where each row represents the traversal of a particular road network edge during a particular bus trip. It includes the features needed to make energy predictions with RouteE, such as the travel time reported by OpenStreetMap (`travel_time_osm`), the distance (`distances_ft`), and the estimated road grade as a decimal value (`grade_dec_unfiltered`/`grade_dec_filtered`, depending on whether filtering is used in `gradeit`).
+The output of `build_routee_features_with_osm()` is a DataFrame where each row represents travel on a single road network edge during a single bus trip. It includes the features needed to make energy predictions with RouteE, such as the travel time reported by OpenStreetMap (`travel_time`), the distance (`kilometers`), and the estimated road grade as a decimal value (`grade`).
 """
 routee_input_df.head()
 """
@@ -65,13 +70,10 @@ routee_results.head()
 """
 We can aggregate over trip IDs to get the total energy estimated per trip.
 """
-energy_by_trip = routee_results.groupby("trip_id").agg(
-    {"kilometers": "sum", "kWhs": "sum"}
-)
-energy_by_trip["miles"] = 0.6213712 * energy_by_trip["kilometers"]
+energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 energy_by_trip["kwh_per_mi"] = energy_by_trip["kWhs"] / energy_by_trip["miles"]
-energy_by_trip.head(10)
-energy_by_trip["kwh_per_mi"].describe()
+# Check the results for some random trips
+energy_by_trip
 """
 Note that the predicted energy consumption values are relatively low because the current RouteE Transit pipeline does not account for HVAC loads, which are a major contributor to BEB energy usage.
 """

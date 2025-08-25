@@ -8,12 +8,11 @@ from typing import Union
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
-from gtfsblocks import Feed
+from gtfsblocks import Feed, filter_blocks_by_route
 from mappymatch.constructs.geofence import Geofence
 from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
-from numpy.random import default_rng
 
 from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
 from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
@@ -23,6 +22,77 @@ logger = logging.getLogger("gtfs_feature_processing")
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def read_in_gtfs(
+    path_to_feed: str | Path,
+    date_incl: str | datetime.date | None = None,
+    routes_incl: list[str] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, Feed]:
+    """
+    Reads a GTFS feed from a directory, optionally filtering trips by date and route.
+    Args:
+        path_to_feed (str | Path): Path to the GTFS feed directory.
+        date_incl (str | datetime.date | None, optional): Date to filter trips.
+            If None, includes all dates.
+        routes_incl (list[str] | None, optional): List of route_short_name values to
+            filter trips based on. If None, includes all routes.
+    Returns:
+        tuple:
+            - trips_df (pd.DataFrame): DataFrame of filtered trips.
+            - shapes_df (pd.DataFrame): DataFrame of shapes associated with the
+                filtered trips.
+            - feed (Feed): The loaded GTFS feed object.
+    Raises:
+        ValueError: If no trips are found for the specified date or routes.
+    """
+
+    req_cols = {
+        "stop_times": [
+            "arrival_time",
+            "departure_time",
+            "shape_dist_traveled",
+            "stop_id",
+        ],
+        "shapes": ["shape_dist_traveled"],
+    }
+    feed = Feed.from_dir(path_to_feed, columns=req_cols)
+    agencies_incl = feed.agency.agency_name.unique().tolist()
+
+    logger.info(
+        f"Feed includes trips for the following agencies: {agencies_incl}. "
+        f"There are {len(feed.trips)} trips and "
+        f"{feed.shapes.shape_id.nunique()} shapes"
+    )
+
+    # 1.5) Filter down feed by date and route
+    if date_incl is not None:
+        trips_df = feed.get_trips_from_date(date_incl)
+        if len(trips_df) == 0:
+            raise ValueError(f"Feed does not contain any trips on {date_incl}")
+    else:
+        trips_df = feed.get_trips_from_sids(feed.trips.service_id.unique().tolist())
+
+    if routes_incl is not None:
+        trips_df = filter_blocks_by_route(
+            trips=trips_df,
+            routes=routes_incl,
+            route_column="route_short_name",
+            route_method="exclusive",
+        )
+
+        if len(trips_df) == 0:
+            raise ValueError(
+                "There are no active trips on your selected routes and date."
+            )
+
+    shapes_incl = trips_df.shape_id.unique()
+    shapes_df = feed.shapes[feed.shapes.shape_id.isin(shapes_incl)]
+    logger.info(
+        f"Restricted feed to {len(trips_df)} trips and {len(shapes_incl)} shapes"
+    )
+    # TODO: establish a routee-transit input class and return an object instead
+    return trips_df, shapes_df, feed
 
 
 def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
@@ -242,7 +312,7 @@ def extend_trip_traces(
     feed: Feed,
     add_stop_flag: bool = False,
     n_processes: int | None = mp.cpu_count(),
-) -> list[pd.DataFrame]:
+) -> pd.DataFrame:
     """Extend trip shapes with stop details and estimated timestamps from GTFS.
 
     This function processes GTFS trip and shape data to:
@@ -270,8 +340,6 @@ def extend_trip_traces(
         A list of DataFrames, one per trip, with extended trace information
         including estimated timestamps.
     """
-
-    # 3) Estimate speeds
     # Start by summarizing stop times: get first and last stop, plus start/end times
     stop_times_by_trip = (
         feed.stop_times.groupby("trip_id")
@@ -334,83 +402,60 @@ def extend_trip_traces(
             estimate_trip_timestamps, trip_shapes_list
         )
     logger.info("Finished attaching timestamps")
-    return trips_with_timestamps_list
+    return pd.concat(trips_with_timestamps_list)
 
 
 def build_routee_features_with_osm(
     input_directory: Union[str, Path],
-    n_trips: int | None = None,
-    add_road_grade: bool = False,
+    date_incl: str | datetime.date | None = None,
+    routes_incl: list[str] | None = None,
+    add_road_grade: bool = True,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
 ) -> pd.DataFrame:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
 
-    This wrapper function processes a GTFS feed to estimate link-level bus speeds and
-    (optionally) elevation change for all scheduled trips. Optionally, n_trips can be
-    used to select only a random subset for faster testing and validation.
+    This function processes a GTFS feed to estimate link-level bus speeds and
+    (optionally) elevation change for all scheduled trips. It supports filtering
+    by date and route, and processes all trips in the feed unless otherwise filtered.
 
-    This function reads the GTFS data into a gtfsblocks.Feed object, matches all
-    relevant trip shapes to the OpenStreetMap network using mappymatch, and optionally
-    adds road grade information using gradeit. The output DataFrame includes the
-    features needed to run energy consumption prediction with a RouteE vehicle model.
+    The function reads the GTFS data, matches all relevant trip shapes to the
+    OpenStreetMap network using mappymatch, and optionally adds road grade
+    information using gradeit. The output DataFrame includes the features needed
+    to run energy consumption prediction with a RouteE vehicle model.
 
     Args:
-        input_directory (str | Path): Where the inputs are stored, including GTFS data
-        n_trips (int | None, optional): The number of trips to include in the analysis.
-            If None, all trips will be included. If an integer, that number of trips
-            will be selected at random. Defaults to 100.
+        input_directory (str | Path): Directory containing GTFS data.
+        date_incl (str | datetime.date | None, optional): Date to filter trips.
+            If None, includes all dates.
+        routes_incl (list[str] | None, optional): List of route_short_name values
+            to filter trips. If None, includes all routes.
         add_road_grade (bool, optional): Whether to append road grade information.
+            Defaults to True.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
             tiles to use for elevation and grade calculations. Defaults to
             TileResolution.ONE_THIRD_ARC_SECOND.
-        n_processes (int | None, optional): Number of processes to run in parallel using
+        n_processes (int, optional): Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
-
-    Raises:
-        ValueError: If `gradeit_tile_path` is None and `add_road_grade` is True.
 
     Returns:
         pd.DataFrame: DataFrame with link-level speed, distance, and (optionally)
             grade for all bus trips in scope.
     """
     # 1) Process GTFS inputs
-    req_cols = {
-        "stop_times": [
-            "arrival_time",
-            "departure_time",
-            "shape_dist_traveled",
-            "stop_id",
-        ],
-        "shapes": ["shape_dist_traveled"],
-    }
-    input_directory = Path(input_directory)
-    gtfs_path = input_directory / "gtfs"
-    feed = Feed.from_dir(gtfs_path, columns=req_cols)
-    logger.info(f"Feed contains {len(feed.trips)} trips and {len(feed.shapes)} shapes")
-
-    # 1.5) Filter down feed to speed up testing
-    if n_trips is not None:
-        rng = default_rng(seed=100)
-        trips_incl = rng.choice(feed.trips.trip_id.unique(), n_trips, replace=False)
-        trips_df = feed.trips[feed.trips.trip_id.isin(trips_incl)]
-        shapes_incl = trips_df.shape_id.unique()
-        shapes_df = feed.shapes[feed.shapes.shape_id.isin(shapes_incl)]
-        logger.info(
-            f"Restricted feed to {len(trips_df)} trips and {len(shapes_incl)} shapes"
-        )
-    else:
-        trips_df = feed.trips
-        shapes_df = feed.shapes
+    trips_df, shapes_df, feed = read_in_gtfs(
+        path_to_feed=input_directory,
+        date_incl=date_incl,
+        routes_incl=routes_incl,
+    )
 
     # 2) Refine shapes
     # Upsample all shapes
     df_shape_list = [group for _, group in shapes_df.groupby("shape_id")]
     with mp.Pool(n_processes) as pool:
         upsampled_shapes_list = pool.map(upsample_shape, df_shape_list)
-    logger.info("Finished upsampling")
-    logger.info("Original shapes length: {}".format(len(shapes_df)))
-    logger.info(
+    logger.debug("Original shapes length: {}".format(len(shapes_df)))
+    logger.debug(
         "Upsampled shapes length: {}".format(len(pd.concat(upsampled_shapes_list)))
     )
 
@@ -425,13 +470,12 @@ def build_routee_features_with_osm(
     matched_shapes_df = pd.concat(matched_shapes_list)
 
     # Extend trip data with stop and schedule data
-    trips_ext_list = extend_trip_traces(
+    trips_df_ext = extend_trip_traces(
         trips_df=trips_df,
         matched_shapes_df=matched_shapes_df,
         feed=feed,
         add_stop_flag=False,
     )
-    trips_df_ext = pd.concat(trips_ext_list)
 
     # Aggregate data at road link level to reduce computational burden
     trip_links_df = (
@@ -445,10 +489,11 @@ def build_routee_features_with_osm(
             start_timestamp=pd.NamedAgg("timestamp", "first"),
             end_timestamp=pd.NamedAgg("timestamp", "last"),
             kilometers=pd.NamedAgg("kilometers", "mean"),
-            travel_time_osm=pd.NamedAgg("travel_time", "mean"),
+            travel_time_minutes=pd.NamedAgg("travel_time", "mean"),
         )
         .reset_index()
     )
+    trip_links_df["travel_time_minutes"] /= 60
     trips_df_list = [t_df for _, t_df in trip_links_df.groupby("trip_id")]
 
     if add_road_grade:

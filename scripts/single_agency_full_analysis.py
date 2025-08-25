@@ -4,7 +4,7 @@ agency.
 
 It performs the following steps:
 1.  Reads in GTFS data into a gtfsblocks.Feed object and optionally filters down to a
-    random subset of trips (for faster testing).
+    subset of trips based on date and route names.
 2.  Processes the GTFS data to estimate speed and elevation along the set of road links
     traveled in each bus trip. This is done by (1) map-matching GTFS shapes to the
     OpenStreetMap road network with mappymatch, (2) aggregating map data to the link
@@ -22,8 +22,6 @@ Inputs can be adjusted manually within the script below and are as follows:
 -   raster_path (str): The directory path containing elevation raster data.
 
 Outputs are saved as .csv files in the reports/ directory:
--   reports/trip_features/{agency}_trip_features.csv: trip features that serve as inputs
-    to RouteE
 -   reports/energy_predictions/{agency}_link_energy_predictions.csv: link-level energy
     consumption predictions
 -   reports/energy_predictions/{agency}_trip_energy_predictions.csv: trip-level energy
@@ -35,12 +33,13 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-
+    import pandas as pd
     from pathlib import Path
 
     from nrel.routee.transit import (
         build_routee_features_with_osm,
         predict_for_all_trips,
+        aggregate_results_by_trip,
     )
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
@@ -62,26 +61,27 @@ if __name__ == "__main__":
     # Set inputs
     n_proc = mp.cpu_count()
     routee_vehicle_model = "Transit_Bus_Diesel"
-    input_directory = HERE / "../sample-inputs/saltlake"
+    input_directory = HERE / "../sample-inputs/saltlake/gtfs"
     output_directory = HERE / "../reports/saltlake"
     if not output_directory.exists():
         output_directory.mkdir(parents=True)
 
-    # Number of trips to include in analysis. If None, all will be analyzed.
-    n_trips_incl = 100
-
     start_time = time.time()
     routee_input_df = build_routee_features_with_osm(
         input_directory=input_directory,
-        n_trips=n_trips_incl,
+        date_incl="2023/08/02",
+        routes_incl=["9"],
         add_road_grade=True,
         n_processes=n_proc,
     )
 
     logger.info("Finished building RouteE features")
-    routee_input_df.to_csv(output_directory / "trip_features.csv", index=False)
+    # Save geometry data separate from energy predictions to save space
+    geom = pd.concat([routee_input_df["road_id"], routee_input_df.pop("geom")], axis=1)
+    geom = geom.drop_duplicates(subset="geom")
+    geom.to_csv(output_directory / "link_geometry.csv", index=False)
 
-    # 4) Predict energy consumption
+    # Predict energy consumption
     routee_results = predict_for_all_trips(
         routee_input_df=routee_input_df,
         routee_vehicle_model=routee_vehicle_model,
@@ -91,14 +91,7 @@ if __name__ == "__main__":
     routee_results.to_csv(output_directory / "link_energy_predictions.csv", index=False)
 
     # Summarize predictions by trip
-    agg_cols = [c for c in ["gallons", "kWhs"] if c in routee_results.columns]
-    energy_by_trip = routee_results.groupby("trip_id").agg(
-        {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
-    )
-    energy_by_trip["miles"] = 0.6213712 * energy_by_trip["kilometers"]
-    energy_by_trip["vehicle"] = routee_vehicle_model
-    # TODO: save geometry data separate from energy predictions to save space
-    energy_by_trip.drop(columns="kilometers").to_csv(
-        output_directory / "trip_energy_predictions.csv"
-    )
+    energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
+
+    energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
