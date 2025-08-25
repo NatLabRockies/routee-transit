@@ -1,7 +1,6 @@
 import datetime
 import logging
 import multiprocessing as mp
-import os
 from functools import partial
 from pathlib import Path
 from typing import Union
@@ -26,14 +25,14 @@ FT_TO_MILES = 0.000189394
 
 
 def read_in_gtfs(
-    path_to_feed: str | os.PathLike,
+    path_to_feed: str | Path,
     date_incl: str | datetime.date | None = None,
     routes_incl: list[str] | None = None,
-):
+) -> tuple[pd.DataFrame, pd.DataFrame, Feed]:
     """
     Reads a GTFS feed from a directory, optionally filtering trips by date and route.
     Args:
-        path_to_feed (str | os.PathLike): Path to the GTFS feed directory.
+        path_to_feed (str | Path): Path to the GTFS feed directory.
         date_incl (str | datetime.date | None, optional): Date to filter trips.
             If None, includes all dates.
         routes_incl (list[str] | None, optional): List of route_short_name values to
