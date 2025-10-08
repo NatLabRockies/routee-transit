@@ -11,6 +11,8 @@ dependencies = [
     "mappymatch>=0.6.1,<0.7",
     "geopandas>=1.1.1,<2",
     "requests>=2.31.0,<3",
+    "python-dotenv",
+    "rich"
 ]
 
 [project.optional-dependencies]
