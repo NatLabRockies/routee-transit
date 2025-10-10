@@ -144,20 +144,9 @@ def _(feeds_df):
 
 
 @app.cell
-def _(
-    Path,
-    active_feeds,
-    db_root,
-    extractor,
-    feeds_df,
-    io,
-    os,
-    pd,
-    requests,
-    zipfile,
-):
+def _(Path, db_root, extractor, feeds_df, io, os, pd, requests, zipfile):
     # Build table summarizing datasets
-    n_datasets = len(active_feeds)
+    n_datasets = 5  #len(active_feeds)
     dataset_info = list()
     for d_id in feeds_df["latest_dataset_id"].tolist()[:n_datasets]:
         # Grab the dataset
@@ -178,7 +167,7 @@ def _(
             download_zip = requests.get(this_dataset_summary["hosted_url"], timeout=60)
             download_zip.raise_for_status()
 
-            extract_path = Path(db_root / d_id)
+            extract_path = Path(db_root / d_id / "gtfs")
             os.makedirs(extract_path, exist_ok=True)
 
             with zipfile.ZipFile(io.BytesIO(download_zip.content)) as zip_ref:
@@ -245,11 +234,6 @@ def _(datasets_df):
 @app.cell
 def _(valid_datasets):
     valid_datasets
-    return
-
-
-@app.cell
-def _():
     return
 
 
