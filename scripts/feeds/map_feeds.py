@@ -1,5 +1,6 @@
-import folium
 import argparse
+
+import folium
 import pandas as pd
 
 if __name__ == "__main__":
@@ -27,4 +28,3 @@ if __name__ == "__main__":
         ).add_to(m)
 
     m.save(args.map_path)
-
