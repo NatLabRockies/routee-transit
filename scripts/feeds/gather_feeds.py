@@ -116,7 +116,7 @@ if __name__ == "__main__":
             bus_routes = routes[routes["route_type"] == 3]["route_id"].tolist()
             bus_trips = trips[trips["route_id"].isin(bus_routes)]
 
-            if len(bus_trips) > 1:
+            if len(bus_trips) >= 1:
                 print("\tDataset includes bus trips")
                 this_dataset_summary["includes_bus_trips"] = True
             else:
