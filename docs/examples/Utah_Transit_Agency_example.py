@@ -41,7 +41,7 @@ if not output_directory.exists():
 - Uses NREL's `mappymatch` package to match each shape to a set of OpenStreetMap road links.
 - Uses NREL's `gradeit` package to add estimated average grade to each road link. USGS elevation tiles are downloaded and cached if needed.
 """
-routee_input_df = build_routee_features_with_osm(
+routee_input_df, _ = build_routee_features_with_osm(
     input_directory=input_directory,
     depot_directory=depot_directory,
     date_incl="2023/08/02",
