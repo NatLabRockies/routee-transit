@@ -22,6 +22,7 @@ from nrel.routee.transit.prediction.create_betweenTrip_deadhead_trips import cre
 from nrel.routee.transit.prediction.create_betweenTrip_deadhead_stops import create_betweenTrip_deadhead_stops
 from nrel.routee.transit.prediction.add_depot_to_blocks import add_depot_to_blocks  
 from nrel.routee.transit.prediction.generate_deadhead_traces import add_deadhead_trips
+from nrel.routee.transit.prediction.add_temp_feature import add_HVAC_energy
 
 logger = logging.getLogger("gtfs_feature_processing")
 
@@ -419,7 +420,7 @@ def build_routee_features_with_osm(
     add_road_grade: bool = True,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
 
     This function processes a GTFS feed to estimate link-level bus speeds and
@@ -515,6 +516,7 @@ def build_routee_features_with_osm(
     feed.stops = pd.concat([feed.stops, deadhead_stops_df], ignore_index=True)
     # **********---------------End of adding depot deadhead trips_df, shapes_df, and feed---------------**********
 
+
     # **********---------------Add between trip deadhead trips_df, shapes_df, and feed---------------**********
     # 1.2) Add between trip deadhead trips, shapes, and update feed
     # Create between trip deadhead trips
@@ -609,4 +611,9 @@ def build_routee_features_with_osm(
     else:
         result_df = pd.concat(trips_df_list)
 
-    return result_df
+
+    # **********---------------Add HVAC and BTMS temp energy---------------**********
+    temp_energy_df = add_HVAC_energy(feed, trips_df_2)
+    # **********---------------End of adding HVAC and BTMS temp energy---------------**********
+
+    return result_df, temp_energy_df
