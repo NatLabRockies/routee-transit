@@ -1,11 +1,12 @@
-import geopandas as gpd
-import pandas as pd
+import os
+from typing import Any
+
 import boto3
+import geopandas as gpd
+import numpy as np
+import pandas as pd
 from botocore import UNSIGNED
 from botocore.config import Config
-import os
-import numpy as np
-from typing import Any
 
 
 def add_HVAC_energy(feed: Any, trips_df: pd.DataFrame) -> Any:

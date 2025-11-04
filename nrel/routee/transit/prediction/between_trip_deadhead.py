@@ -6,7 +6,7 @@ import pandas as pd
 from geopy.distance import geodesic
 
 
-def create_betweenTrip_deadhead_trips(
+def create_between_trip_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
 ) -> pd.DataFrame:
     """Create deadhead trips between consecutive trips for each block.
@@ -66,7 +66,7 @@ def create_betweenTrip_deadhead_trips(
     return deadhead_trips
 
 
-def create_betweenTrip_deadhead_stops(
+def create_between_trip_deadhead_stops(
     feed: Any, deadhead_trips: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Create stop_times and stops for deadhead trips between consecutive trips to generate the feed object for between trip deadhead trips.
@@ -75,7 +75,7 @@ def create_betweenTrip_deadhead_stops(
     feed: Any
         GTFS feed object (e.g. result from read_in_gtfs).
     deadhead_trips: pd.DataFrame
-        deadhead trip results from create_betweenTrip_deadhead_trips.py.
+        deadhead trip results from create_between_trip_deadhead_trips.py.
     Returns
     -------
     pd.DataFrame
@@ -186,7 +186,7 @@ def create_betweenTrip_deadhead_stops(
     ]
     stop_times_df["stop_id"] = range(1, len(stop_times_df) + 1)
     stop_times_df["stop_id"] = stop_times_df["stop_id"].apply(
-        lambda x: f"betweenTrip_deadhead_{x}"
+        lambda x: f"between_trip_deadhead_{x}"
     )
     stop_times_df["departure_time"] = stop_times_df["arrival_time"]
     stop_times_df["shape_dist_traveled"] = 0.0

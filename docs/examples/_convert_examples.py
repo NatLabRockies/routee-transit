@@ -1,7 +1,8 @@
-from pathlib import Path
-import nbformat
 import argparse
 import sys
+from pathlib import Path
+
+import nbformat
 
 
 def script_to_notebook(script_path: Path, notebook_path: Path) -> None:

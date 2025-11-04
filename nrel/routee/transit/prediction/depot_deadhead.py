@@ -11,6 +11,11 @@ from shapely.geometry import Point
 
 def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     """Create deadhead trips from and to depots for each block.
+
+    This function essentially creates rows for the trips.txt DataFrame.
+    It does not generate shape traces for them (that is handled by other
+    functions in this module).
+
     Parameters
     ----------
     trips_df : pd.DataFrame
@@ -92,10 +97,10 @@ def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     return deadhead_trips_df
 
 
-def add_depot_to_blocks(
+def infer_depot_trip_endpoints(
     trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path
 ) -> tuple[Any, Any]:
-    """Add origin/destination depot geometry to each block id.
+    """Add origin/destination depot geometry for each block.
 
     Parameters
     ----------
@@ -221,7 +226,8 @@ def create_depot_deadhead_stops(
     last_stops_gdf: gpd.GeoDataFrame,
     deadhead_trips: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Creat stop_times and stops for deadhead trips from and to depots for each block to generate the feed object for depot deadhead trips.
+    """Create stop_times and stops for deadhead trips from and to depots.
+
     Parameters
     ----------
     first_stops_gdf: gpd.GeoDataFrame

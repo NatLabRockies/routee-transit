@@ -8,9 +8,9 @@ import multiprocessing as mp
 import os
 
 from nrel.routee.transit import (
+    aggregate_results_by_trip,
     build_routee_features_with_osm,
     predict_for_all_trips,
-    aggregate_results_by_trip,
     repo_root,
 )
 
@@ -76,9 +76,13 @@ We can aggregate over trip IDs to get the total energy estimated per trip.
 energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 
 # Merge HVAC energy
-energy_by_trip = energy_by_trip.merge(temp_energy_df, on='trip_id', how='left')
-energy_by_trip["kwh_per_mi_winter"] = (energy_by_trip["kWhs"] + energy_by_trip["Winter_HVAC_Energy"]) / energy_by_trip["miles"]
-energy_by_trip["kwh_per_mi_summer"] = (energy_by_trip["kWhs"] + energy_by_trip["Summer_HVAC_Energy"]) / energy_by_trip["miles"]
+energy_by_trip = energy_by_trip.merge(temp_energy_df, on="trip_id", how="left")
+energy_by_trip["kwh_per_mi_winter"] = (
+    energy_by_trip["kWhs"] + energy_by_trip["Winter_HVAC_Energy"]
+) / energy_by_trip["miles"]
+energy_by_trip["kwh_per_mi_summer"] = (
+    energy_by_trip["kWhs"] + energy_by_trip["Summer_HVAC_Energy"]
+) / energy_by_trip["miles"]
 
 # Check the results for some random trips
 energy_by_trip

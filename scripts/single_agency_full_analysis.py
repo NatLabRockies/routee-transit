@@ -33,13 +33,14 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-    import pandas as pd
     from pathlib import Path
 
+    import pandas as pd
+
     from nrel.routee.transit import (
+        aggregate_results_by_trip,
         build_routee_features_with_osm,
         predict_for_all_trips,
-        aggregate_results_by_trip,
     )
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit

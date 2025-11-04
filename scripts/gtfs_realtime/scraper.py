@@ -4,19 +4,19 @@ Continuous GTFS Realtime scraper that polls feeds at regular intervals
 and logs complete records to files.
 """
 
+import argparse
 import json
 import logging
 import signal
 import sys
 import time
-import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import MessageToDict
+from google.transit import gtfs_realtime_pb2
 
 parser = argparse.ArgumentParser("GTFS scraper. runs until interrupted (ctl-c)")
 parser.add_argument("feed", help="URL to scrape GTFS data from")

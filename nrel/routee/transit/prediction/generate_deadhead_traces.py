@@ -1,23 +1,18 @@
-import pandas as pd
-import geopandas as gpd
-import osmnx as ox
-import networkx as nx
-from shapely.geometry import LineString
-from shapely.ops import linemerge, unary_union
 import math
 
 # single-global-graph approach; per-row cached graphs removed
 import multiprocessing as mp
-from typing import Tuple, Any
+from typing import Any, Tuple
 
+import geopandas as gpd
+import networkx as nx
+import osmnx as ox
+import pandas as pd
+from shapely.geometry import LineString
+from shapely.ops import linemerge, unary_union
 
 # Optionally hold a single pre-fetched graph for the whole study area.
 GLOBAL_GRAPH = None
-
-
-# Note: per-row cached graph fetch removed. This module now requires a single
-# pre-fetched study-area graph assigned to GLOBAL_GRAPH (via bbox in
-# `add_deadhead_trips`) and all routing workers use that graph.
 
 
 def _parallel_map(
@@ -31,6 +26,7 @@ def _parallel_map(
         for item in pool.imap(func, iterable, chunksize=chunksize):
             results.append(item)
     return results
+
 
 def _haversine_km(lat1: Any, lon1: Any, lat2: Any, lon2: Any) -> float:
     """Get the haversine distance between two points in kilometers."""
@@ -153,7 +149,7 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
         return []
 
 
-def add_deadhead_trips(
+def create_deadhead_shapes(
     df: gpd.GeoDataFrame,
     o_col: str = "geometry_origin",
     d_col: str = "geometry_destination",
@@ -171,9 +167,7 @@ def add_deadhead_trips(
     global GLOBAL_GRAPH
 
     # Create bounding box around for osmnx graph based on O/D geometry
-    all_points = pd.concat(
-        [df["geometry_origin"], df["geometry_destination"]]
-    )
+    all_points = pd.concat([df["geometry_origin"], df["geometry_destination"]])
     lons = all_points.apply(lambda p: p.x)
     lats = all_points.apply(lambda p: p.y)
     min_lon, max_lon = lons.min(), lons.max()  # Bounding box
