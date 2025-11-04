@@ -163,7 +163,6 @@ def add_deadhead_trips(
     network_type: str = "drive",
     road_buffer_m: int = 2000,
     n_processes: int | None = None,
-    bbox: tuple[float, float, float, float] | None = None,
 ) -> pd.DataFrame:
     """Compute deadhead route shapes between origin and destination.
 
@@ -175,16 +174,24 @@ def add_deadhead_trips(
     """
     # Require bbox: this function uses a single study-area graph for all routing.
     global GLOBAL_GRAPH
-    if bbox is None:
-        raise ValueError(
-            "bbox is required: provide a study-area bounding box (minx, miny, maxx, maxy)"
-        )
-    if ox is None:
-        raise ImportError("osmnx is required to fetch a global bbox graph")
-    # bbox expected as (minx, miny, maxx, maxy)
-    if len(bbox) != 4:
-        raise ValueError("bbox must be a 4-tuple (minx, miny, maxx, maxy)")
-    # ox.graph_from_bbox signature: (north, south, east, west)
+
+    # Create bounding box around for osmnx graph based on O/D geometry
+    all_points = pd.concat(
+        [df["geometry_origin"], df["geometry_destination"]]
+    )
+    lons = all_points.apply(lambda p: p.x)
+    lats = all_points.apply(lambda p: p.y)
+    min_lon, max_lon = lons.min(), lons.max()  # Bounding box
+    min_lat, max_lat = lats.min(), lats.max()  # Bounding box
+    buffer_deg_lat = 0.018  # Roughly 2 km buffer in degrees
+    buffer_deg_lon = 0.022  # Roughly 2 km buffer in degrees
+    bbox = (
+        min_lon - buffer_deg_lon,
+        min_lat - buffer_deg_lat,
+        max_lon + buffer_deg_lon,
+        max_lat + buffer_deg_lat,
+    )  # bounding box as (min_x, min_y, max_x, max_y)
+
     GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type="drive")
 
     task_args = []
