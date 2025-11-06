@@ -48,26 +48,53 @@ if __name__ == "__main__":
 
     feed_info = list()
     for f in active_feeds:
-        feed_info.append(
-            {
-                "id": f["id"],
-                "name": f["feed_name"],
-                "provider": f["provider"],
-                "status": f["status"],
-                "official": f["official"],
-                "latest_dataset_id": f["latest_dataset"]["id"],
-                "center_latitude": 0.5
-                * (
-                    f["bounding_box"]["minimum_latitude"]
-                    + f["bounding_box"]["maximum_latitude"]
-                ),
-                "center_longitude": 0.5
-                * (
-                    f["bounding_box"]["minimum_longitude"]
-                    + f["bounding_box"]["maximum_longitude"]
-                ),
-            }
-        )
+        # Make sure latest dataset and bounding box are available
+        bbox = f["bounding_box"]
+        latest_data = f["latest_dataset"]
+
+        if latest_data is None:
+            print(
+                f"Feed {f['id']} does not have a latest dataset identified. "
+                "Skipping this feed."
+            )
+            continue
+
+        if bbox is None:
+            # This should only happen if latest_data is also None, but we'll check
+            # the bounding box as well just in case.
+            print(
+                f"Feed {f['id']} is missing a service area bounding box. "
+                "Skiping this feed."
+            )
+            continue
+
+        try:
+            feed_info.append(
+                {
+                    "id": f["id"],
+                    "name": f["feed_name"],
+                    "provider": f["provider"],
+                    "status": f["status"],
+                    "official": f["official"],
+                    "latest_dataset_id": f["latest_dataset"]["id"],
+                    "center_latitude": 0.5
+                    * (
+                        f["bounding_box"]["minimum_latitude"]
+                        + f["bounding_box"]["maximum_latitude"]
+                    ),
+                    "center_longitude": 0.5
+                    * (
+                        f["bounding_box"]["minimum_longitude"]
+                        + f["bounding_box"]["maximum_longitude"]
+                    ),
+                }
+            )
+        except KeyError as err:
+            print(
+                f"KeyError: Missing key '{err.args[0]}' in feed with id "
+                f"'{f.get('id', 'unknown')}'. Skipping this feed."
+            )
+            continue
 
     feeds_df = pd.DataFrame(feed_info)
 
@@ -78,10 +105,20 @@ if __name__ == "__main__":
         # Grab the dataset
         dataset_response = extractor.query_mdb_dataset(dataset_id=d_id)
         val_report = dataset_response["validation_report"]
+        if val_report is None:
+            # The validation report is sometimes missing. In that case, we'll mark
+            # validation-related columns as NA.
+            print(f"Validation report is missing for dataset {d_id}.")
+            has_shapes = None
+            has_errors = None
+        else:
+            has_shapes = True if "Shapes" in val_report["features"] else False
+            has_errors = True if val_report["total_error"] > 0 else False
+
         this_dataset_summary = {
             "id": d_id,
-            "has_shapes": True if "Shapes" in val_report["features"] else False,
-            "has_errors": True if val_report["total_error"] > 0 else False,
+            "has_shapes": has_shapes,
+            "has_errors": has_errors,
             "service_date_range_start": dataset_response["service_date_range_start"],
             "service_date_range_end": dataset_response["service_date_range_end"],
             "hosted_url": dataset_response["hosted_url"],
