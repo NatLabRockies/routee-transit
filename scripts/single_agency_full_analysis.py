@@ -34,6 +34,7 @@ if __name__ == "__main__":
     import os
     import time
     from pathlib import Path
+    import warnings
 
     import pandas as pd
 
@@ -47,6 +48,8 @@ if __name__ == "__main__":
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
     # TODO: resolve underlying issue that generates these warnings
     os.environ["PROJ_DEBUG"] = "0"
+    # Suppress pandas FutureWarning that come from mappymatch library
+    warnings.filterwarnings('ignore', category=FutureWarning, module='mappymatch')
 
     # Set up logging: Clear any existing handlers
     logging.getLogger().handlers.clear()
@@ -63,6 +66,7 @@ if __name__ == "__main__":
     # Set inputs
     n_proc = mp.cpu_count()
     routee_vehicle_model = "Transit_Bus_Battery_Electric"
+    add_thermal_impacts = True
     input_directory = HERE / "../sample-inputs/saltlake/gtfs"
     depot_directory = HERE / "../FTA_Depot"
     output_directory = HERE / "../reports/saltlake"
@@ -100,7 +104,6 @@ if __name__ == "__main__":
     energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 
     # Add HVAC energy to trip
-    add_thermal_impacts = False
     if add_thermal_impacts:
         HVAC_energy_df = add_HVAC_energy(feed, trips_df)
         energy_by_trip = energy_by_trip.merge(HVAC_energy_df, on="trip_id", how="left")
