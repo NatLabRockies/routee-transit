@@ -63,90 +63,80 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
         block_id,
     ) = args
 
-    if ox is None or nx is None:
-        return []
-
     G = GLOBAL_GRAPH
-    if G is None:
-        return []
+
+    src = ox.nearest_nodes(G, start_x, start_y)
+    dst = ox.nearest_nodes(G, end_x, end_y)
+    route_nodes = nx.shortest_path(G, src, dst, weight="length")
+
+    edge_geoms = []
+    for u, v in zip(route_nodes[:-1], route_nodes[1:]):
+        data = G.get_edge_data(u, v)
+        if not data:
+            raise ValueError(f"Edge {(u, v)} is missing data.")
+        key = list(data.keys())[0]
+        attr = data[key]
+        geom = attr.get("geometry")
+        if geom is None:
+            ux = G.nodes[u].get("x")
+            uy = G.nodes[u].get("y")
+            vx = G.nodes[v].get("x")
+            vy = G.nodes[v].get("y")
+            geom = LineString([(ux, uy), (vx, vy)])
+        edge_geoms.append(geom)
+
+    if not edge_geoms:  # Return a link from start to end if no route found
+        # return []
+        return [
+            {
+                "shape_id": block_id,
+                "shape_pt_sequence": 1,
+                "shape_pt_lon": float(start_x),
+                "shape_pt_lat": float(start_y),
+                "shape_dist_traveled": 0.0,
+            },
+            {
+                "shape_id": block_id,
+                "shape_pt_sequence": 2,
+                "shape_pt_lon": float(end_x),
+                "shape_pt_lat": float(end_y),
+                "shape_dist_traveled": _haversine_km(start_y, start_x, end_y, end_x),
+            },
+        ]
 
     try:
-        src = ox.nearest_nodes(G, start_x, start_y)
-        dst = ox.nearest_nodes(G, end_x, end_y)
-        route_nodes = nx.shortest_path(G, src, dst, weight="length")
-
-        edge_geoms = []
-        for u, v in zip(route_nodes[:-1], route_nodes[1:]):
-            data = G.get_edge_data(u, v)
-            if not data:
-                continue
-            key = list(data.keys())[0]
-            attr = data[key]
-            geom = attr.get("geometry")
-            if geom is None:
-                ux = G.nodes[u].get("x")
-                uy = G.nodes[u].get("y")
-                vx = G.nodes[v].get("x")
-                vy = G.nodes[v].get("y")
-                geom = LineString([(ux, uy), (vx, vy)])
-            edge_geoms.append(geom)
-
-        if not edge_geoms:  # Return a link from start to end if no route found
-            # return []
-            return [
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": 1,
-                    "shape_pt_lon": float(start_x),
-                    "shape_pt_lat": float(start_y),
-                    "shape_dist_traveled": 0.0,
-                },
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": 2,
-                    "shape_pt_lon": float(end_x),
-                    "shape_pt_lat": float(end_y),
-                    "shape_dist_traveled": _haversine_km(
-                        start_y, start_x, end_y, end_x
-                    ),
-                },
-            ]
-
-        try:
-            merged = linemerge(edge_geoms)
-        except Exception:
-            merged = unary_union(edge_geoms)
-        if getattr(merged, "geom_type", "") == "MultiLineString":
-            coords = []
-            for part in merged:
-                coords.extend(list(part.coords))
-            merged = LineString(coords)
-
-        coords = list(merged.coords)  # list of (lon, lat)
-        rows = []
-        prev_lat = None
-        prev_lon = None
-        cum_km = 0.0
-        for seq, (lon, lat) in enumerate(coords, start=1):
-            if prev_lat is not None:
-                seg_km = _haversine_km(prev_lat, prev_lon, lat, lon)
-                cum_km += seg_km
-            else:
-                cum_km = 0.0
-            rows.append(
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": int(seq),
-                    "shape_pt_lon": float(lon),
-                    "shape_pt_lat": float(lat),
-                    "shape_dist_traveled": float(cum_km),
-                }
-            )
-            prev_lat, prev_lon = lat, lon
-
-        return rows
+        merged = linemerge(edge_geoms)
     except Exception:
-        return []
+        merged = unary_union(edge_geoms)
+    if getattr(merged, "geom_type", "") == "MultiLineString":
+        coords = []
+        for part in merged:
+            coords.extend(list(part.coords))
+        merged = LineString(coords)
+
+    coords = list(merged.coords)  # list of (lon, lat)
+    rows = []
+    prev_lat = None
+    prev_lon = None
+    cum_km = 0.0
+    for seq, (lon, lat) in enumerate(coords, start=1):
+        if prev_lat is not None:
+            seg_km = _haversine_km(prev_lat, prev_lon, lat, lon)
+            cum_km += seg_km
+        else:
+            cum_km = 0.0
+        rows.append(
+            {
+                "shape_id": block_id,
+                "shape_pt_sequence": int(seq),
+                "shape_pt_lon": float(lon),
+                "shape_pt_lat": float(lat),
+                "shape_dist_traveled": float(cum_km),
+            }
+        )
+        prev_lat, prev_lon = lat, lon
+
+    return rows
 
 
 def create_deadhead_shapes(
@@ -182,20 +172,20 @@ def create_deadhead_shapes(
     )  # bounding box as (min_x, min_y, max_x, max_y)
 
     GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type="drive")
+    # Have OSMNX project to a suitable CRS
+    GLOBAL_GRAPH = ox.project_graph(GLOBAL_GRAPH)
 
     task_args = []
     for _, r in df.iterrows():
-        origin = r.get(o_col)
-        destination = r.get(d_col)
-        if origin is None or destination is None:
-            continue
+        origin = r[o_col]
+        destination = r[d_col]
         task_args.append(
             (
                 float(origin.x),
                 float(origin.y),
                 float(destination.x),
                 float(destination.y),
-                r.get("block_id") if "block_id" in r else None,
+                r.get("block_id"),
             )
         )
 

@@ -207,7 +207,9 @@ def infer_depot_trip_endpoints(
     best_depot_idx = {}
     for block_id, first_row in first_proj.groupby("block_id"):
         first_geom = first_row.iloc[0].geometry
-        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[0]
+        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[
+            0
+        ]
 
         # Compute pull-out, pull-in, and total distances
         depots_proj["pullout"] = depots_proj.geometry.distance(first_geom)
@@ -217,12 +219,18 @@ def infer_depot_trip_endpoints(
         best_idx = depots_proj["total"].idxmin()
         best_depot_idx[block_id] = best_idx
 
-    first_stops_gdf["nearest_depot_idx"] = first_stops_gdf["block_id"].map(best_depot_idx)
+    first_stops_gdf["nearest_depot_idx"] = first_stops_gdf["block_id"].map(
+        best_depot_idx
+    )
     last_stops_gdf["nearest_depot_idx"] = last_stops_gdf["block_id"].map(best_depot_idx)
 
-    first_stops_gdf["geometry_origin"] = first_stops_gdf["nearest_depot_idx"].map(depots_geom_map)
+    first_stops_gdf["geometry_origin"] = first_stops_gdf["nearest_depot_idx"].map(
+        depots_geom_map
+    )
     first_stops_gdf["geometry_destination"] = first_stops_gdf.geometry
-    last_stops_gdf["geometry_destination"] = last_stops_gdf["nearest_depot_idx"].map(depots_geom_map)
+    last_stops_gdf["geometry_destination"] = last_stops_gdf["nearest_depot_idx"].map(
+        depots_geom_map
+    )
     last_stops_gdf["geometry_origin"] = last_stops_gdf.geometry
 
     # Set the arrival time as departure time for deadhead trip to depot for the last_stop_gdf

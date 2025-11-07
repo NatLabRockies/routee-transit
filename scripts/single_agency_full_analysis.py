@@ -33,16 +33,16 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-    import pandas as pd
     from pathlib import Path
 
+    import pandas as pd
+
     from nrel.routee.transit import (
+        aggregate_results_by_trip,
         build_routee_features_with_osm,
         predict_for_all_trips,
-        aggregate_results_by_trip,
     )
     from nrel.routee.transit.prediction.add_temp_feature import add_HVAC_energy
-
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
     # TODO: resolve underlying issue that generates these warnings
@@ -100,8 +100,9 @@ if __name__ == "__main__":
     energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 
     # Add HVAC energy to trip
-    HVAC_energy_df = add_HVAC_energy(feed, trips_df)
-    energy_by_trip_with_HVAC = energy_by_trip.merge(HVAC_energy_df, on="trip_id", how="left")
-
-    energy_by_trip_with_HVAC.to_csv(output_directory / "trip_energy_predictions.csv")
+    add_thermal_impacts = False
+    if add_thermal_impacts:
+        HVAC_energy_df = add_HVAC_energy(feed, trips_df)
+        energy_by_trip = energy_by_trip.merge(HVAC_energy_df, on="trip_id", how="left")
+    energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
