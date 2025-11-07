@@ -58,6 +58,9 @@ def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     )
     for block_id in block_ids:
         block_trips = existing_trips_df[existing_trips_df["block_id"] == block_id]
+        # Exclude any between-trip deadhead trips that may have been added
+        block_trips = block_trips.loc[block_trips["from_trip"].isna()]
+        # TODO: ensure trips have been sorted in chronological error
         first_trip = block_trips.iloc[0]
         last_trip = block_trips.iloc[-1]
         # Create trip from depot to first stop
