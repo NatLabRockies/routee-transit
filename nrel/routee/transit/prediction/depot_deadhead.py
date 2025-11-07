@@ -168,45 +168,6 @@ def infer_depot_trip_endpoints(
     last_proj = last_stops_gdf.to_crs(proj_crs).reset_index(drop=True)
     depots_proj = depots_df.to_crs(proj_crs).copy()
 
-    # -----------This is the old method that finds the nearest depot for each block's first and last trip separately---------
-    # # Use spatial join nearest to find the closest depot for each left row.
-    # # sjoin_nearest returns rows indexed by the left GeoDataFrame's index; if
-    # # multiple matches exist for the same left index we keep the closest (by
-    # # depot_dist_m). We then align back to the original stop GeoDataFrames by
-    # # resetting their indices to RangeIndex.
-    # first_nn = first_proj.sjoin_nearest(
-    #     depots_proj[["geometry"]], how="left", distance_col="depot_dist_m"
-    # )
-    # last_nn = last_proj.sjoin_nearest(
-    #     depots_proj[["geometry"]], how="left", distance_col="depot_dist_m"
-    # )
-
-    # # Drop duplicates
-    # first_nn = first_nn.drop_duplicates(subset=["block_id"])
-    # last_nn = last_nn.drop_duplicates(subset=["block_id"])
-
-    # # Align and assign nearest depot index to the original stop GeoDataFrames
-    # first_stops_gdf = first_stops_gdf.copy().reset_index(drop=True)
-    # last_stops_gdf = last_stops_gdf.copy().reset_index(drop=True)
-    # first_stops_gdf["nearest_depot_idx"] = (
-    #     first_nn["index_right"].reindex(first_stops_gdf.index).astype("Int64")
-    # )
-    # last_stops_gdf["nearest_depot_idx"] = (
-    #     last_nn["index_right"].reindex(last_stops_gdf.index).astype("Int64")
-    # )
-
-    # # Set stop geometry and map matched depot geometry from the original
-    # # depots DataFrame (index_right references that index)
-    # first_stops_gdf["geometry_destination"] = first_stops_gdf.geometry
-    # last_stops_gdf["geometry_origin"] = last_stops_gdf.geometry
-    # first_stops_gdf["geometry_origin"] = first_stops_gdf["nearest_depot_idx"].map(
-    #     depots_geom_map
-    # )
-    # last_stops_gdf["geometry_destination"] = last_stops_gdf["nearest_depot_idx"].map(
-    #     depots_geom_map
-    # )
-
-    # -----------NEW LOGIC: select ONE depot per block that minimizes total pull-out and pull-in distance-----------
     best_depot_idx = {}
     for block_id, first_row in first_proj.groupby("block_id"):
         first_geom = first_row.iloc[0].geometry
