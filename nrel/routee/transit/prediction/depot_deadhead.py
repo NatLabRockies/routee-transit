@@ -9,7 +9,7 @@ from geopy.distance import geodesic
 from shapely.geometry import Point
 
 
-def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
+def create_depot_deadhead_trips(trips_df: pd.DataFrame, stop_times_df: pd.DataFrame) -> pd.DataFrame:
     """Create deadhead trips from and to depots for each block.
 
     This function essentially creates rows for the trips.txt DataFrame.
@@ -20,6 +20,8 @@ def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     ----------
     trips_df : pd.DataFrame
         trips_df of selected date route (e.g. result from read_in_gtfs).
+    stop_times_df: pd.DataFrame
+        stop_times df in feed resulted from read_in_gtfs.
 
     Returns
     -------
@@ -59,8 +61,12 @@ def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     for block_id in block_ids:
         block_trips = existing_trips_df[existing_trips_df["block_id"] == block_id]
         # Exclude any between-trip deadhead trips that may have been added
-        block_trips = block_trips.loc[block_trips["from_trip"].isna()]
-        # TODO: ensure trips have been sorted in chronological error
+        if "from_trip" in block_trips.columns:
+            block_trips = block_trips.loc[block_trips["from_trip"].isna()]
+        # Ensure trips have been sorted in chronological order
+        trip_start = stop_times_df.groupby("trip_id")["arrival_time"].min().reset_index()
+        block_trips = block_trips.merge(trip_start, on = 'trip_id', how = 'left')
+        block_trips = block_trips.sort_values(by = 'arrival_time')
         first_trip = block_trips.iloc[0]
         last_trip = block_trips.iloc[-1]
         # Create trip from depot to first stop
