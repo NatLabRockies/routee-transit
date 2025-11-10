@@ -521,8 +521,8 @@ def build_routee_features_with_osm(
         )
 
     if add_depot_deadhead:
-        # Create depot deadhead trips
-        deadhead_trips_df = create_depot_deadhead_trips(trips_df)
+        #3) Optional, create depot deadhead trips
+        deadhead_trips_df = create_depot_deadhead_trips(trips_df, stop_times_df)
 
         # Create depot deadhead stop_times and stops
         first_stops_gdf, last_stops_gdf = infer_depot_trip_endpoints(
