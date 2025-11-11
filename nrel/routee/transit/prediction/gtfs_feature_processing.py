@@ -63,10 +63,8 @@ def read_in_gtfs(
         "stop_times": [
             "arrival_time",
             "departure_time",
-            "shape_dist_traveled",
             "stop_id",
         ],
-        "shapes": ["shape_dist_traveled"],
     }
     feed = Feed.from_dir(path_to_feed, columns=req_cols)
     agencies_incl = feed.agency.agency_name.unique().tolist()
