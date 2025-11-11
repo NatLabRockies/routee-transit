@@ -9,7 +9,9 @@ from geopy.distance import geodesic
 from shapely.geometry import Point
 
 
-def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
+def create_depot_deadhead_trips(
+    trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
+) -> pd.DataFrame:
     """Create deadhead trips from and to depots for each block.
 
     This function essentially creates rows for the trips.txt DataFrame.
@@ -20,83 +22,67 @@ def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
     ----------
     trips_df : pd.DataFrame
         trips_df of selected date route (e.g. result from read_in_gtfs).
+    stop_times_df: pd.DataFrame
+        stop_times df in feed resulted from read_in_gtfs.
 
     Returns
     -------
     pd.DataFrame: DataFrame with created deadhead trips.
     """
 
-    existing_trips_df = trips_df
-    block_ids = existing_trips_df["block_id"].dropna().unique().tolist()
+    block_ids = trips_df["block_id"].dropna().unique().tolist()
+
+    # Get earliest start time for each trip and merge then in to trips DF
+    trip_start_times = (
+        stop_times_df.groupby("trip_id")["arrival_time"].min().reset_index()
+    )
+    trips_with_times = trips_df.merge(trip_start_times, on="trip_id", how="left")
+
     # For each block id, create two deadhead trips: one from depot to first stop,
     # and one from last stop to depot.
-    to_depot_trips = pd.DataFrame(
-        {
-            "trip_id": [],
-            "route_id": [],
-            "service_id": [],
-            "block_id": [],
-            "shape_id": [],
-            "route_short_name": [],
-            "route_type": [],
-            "route_desc": [],
-            "agency_id": [],
-        }
-    )
-    from_depot_trips = pd.DataFrame(
-        {
-            "trip_id": [],
-            "route_id": [],
-            "service_id": [],
-            "block_id": [],
-            "shape_id": [],
-            "route_short_name": [],
-            "route_type": [],
-            "route_desc": [],
-            "agency_id": [],
-        }
-    )
+    depot_trips = list()
+
     for block_id in block_ids:
-        block_trips = existing_trips_df[existing_trips_df["block_id"] == block_id]
+        block_trips = trips_with_times[trips_with_times["block_id"] == block_id]
         # Exclude any between-trip deadhead trips that may have been added
-        block_trips = block_trips.loc[block_trips["from_trip"].isna()]
-        # TODO: ensure trips have been sorted in chronological error
+        if "from_trip" in block_trips.columns:
+            block_trips = block_trips.loc[block_trips["from_trip"].isna()]
+        # Ensure trips have been sorted in chronological order
+        block_trips = block_trips.sort_values(by="arrival_time")
         first_trip = block_trips.iloc[0]
         last_trip = block_trips.iloc[-1]
         # Create trip from depot to first stop
         from_depot_trip_id = f"depot_to_{first_trip['trip_id']}"
+        from_depot_route = f"from_depot_{block_id}"
         from_depot_trip = {
             "trip_id": from_depot_trip_id,
-            "route_id": first_trip["route_id"],
+            "route_id": from_depot_route,
             "service_id": first_trip["service_id"],
             "block_id": block_id,
-            "shape_id": f"from_depot_{block_id}",
-            "route_short_name": f"from_depot_{block_id}",
+            "shape_id": from_depot_route,
+            "route_short_name": from_depot_route,
             "route_type": 3,  # 3 means bus
             "route_desc": f"Deadhead from depot to {first_trip['trip_id']}",
             "agency_id": first_trip.get("agency_id", None),
         }
-        from_depot_trips = pd.concat(
-            [from_depot_trips, pd.DataFrame([from_depot_trip])], ignore_index=True
-        )
+        depot_trips.append(from_depot_trip)
         # Create trip from last stop to depot
         to_depot_trip_id = f"{last_trip['trip_id']}_to_depot"
+        to_depot_route = f"to_depot_{block_id}"
         to_depot_trip = {
             "trip_id": to_depot_trip_id,
-            "route_id": last_trip["route_id"],
+            "route_id": to_depot_route,
             "service_id": last_trip["service_id"],
             "block_id": block_id,
-            "shape_id": f"to_depot_{block_id}",
-            "route_short_name": last_trip.get("route_short_name", ""),
-            "route_type": last_trip.get("route_type", 3),  # Default to bus
+            "shape_id": to_depot_route,
+            "route_short_name": to_depot_route,
+            "route_type": 3,  # 3 means bus
             "route_desc": f"Deadhead from {last_trip['trip_id']} to depot",
             "agency_id": last_trip.get("agency_id", None),
         }
-        to_depot_trips = pd.concat(
-            [to_depot_trips, pd.DataFrame([to_depot_trip])], ignore_index=True
-        )
+        depot_trips.append(to_depot_trip)
 
-    deadhead_trips_df = pd.concat([from_depot_trips, to_depot_trips], ignore_index=True)
+    deadhead_trips_df = pd.DataFrame(depot_trips)
     return deadhead_trips_df
 
 
