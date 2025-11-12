@@ -2,110 +2,118 @@
 This script runs the full RouteE-Transit energy prediction pipeline for a single transit
 agency.
 
-It performs the following steps:
+It demonstrates two approaches:
+1. Simple approach: Use the high-level run() method (recommended for most users)
+2. Detailed approach: Chain individual methods for fine-grained control
+
+The pipeline performs the following steps:
 1.  Reads in GTFS data into a gtfsblocks.Feed object and optionally filters down to a
     subset of trips based on date and route names.
 2.  Processes the GTFS data to estimate speed and elevation along the set of road links
     traveled in each bus trip. This is done by (1) map-matching GTFS shapes to the
     OpenStreetMap road network with mappymatch, (2) aggregating map data to the link
-    level, and (3) using gradeit to get elevation data. Note that a path to local
-    elevation data must be provided (defaults to data/usgs_elevation).
-3.  Uses a RouteE vehicle model to predict energy consumption for each roadway link
-    and saves this data at both the (detailed) link and (aggregated) trip level. The
-    RouteE inputs are saved as well to support making repeated predictions without
-    running the entire pipeline over again.
+    level, and (3) using gradeit to get elevation data.
+3.  Uses RouteE vehicle model(s) to predict energy consumption for each roadway link
+    and saves this data at both the (detailed) link and (aggregated) trip level.
 
-Inputs can be adjusted manually within the script below and are as follows:
--   agency (str): The name of the transit agency to analyze, corresponding to a set of
-    GTFS files under data/gtfs
--   routee_vehicle_model (str): The file path to the RouteE vehicle model JSON.
--   raster_path (str): The directory path containing elevation raster data.
-
-Outputs are saved as .csv files in the reports/ directory:
--   reports/energy_predictions/{agency}_link_energy_predictions.csv: link-level energy
-    consumption predictions
--   reports/energy_predictions/{agency}_trip_energy_predictions.csv: trip-level energy
-    consumption predictions.
+Outputs are saved as .csv files in the specified output directory.
 """
 
 if __name__ == "__main__":
     import logging
-    import multiprocessing as mp
     import os
     import time
     import warnings
     from pathlib import Path
 
-    import pandas as pd
+    from nrel.routee.transit import GTFSEnergyPredictor
 
-    from nrel.routee.transit import (
-        aggregate_results_by_trip,
-        build_routee_features_with_osm,
-        predict_for_all_trips,
-    )
-    from nrel.routee.transit.prediction.add_temp_feature import add_HVAC_energy
-
-    # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
-    # TODO: resolve underlying issue that generates these warnings
+    # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
-    # Suppress pandas FutureWarning that come from mappymatch library
+    # Suppress pandas FutureWarning from mappymatch
     warnings.filterwarnings("ignore", category=FutureWarning, module="mappymatch")
 
-    # Set up logging: Clear any existing handlers
+    # Configure logging
     logging.getLogger().handlers.clear()
-
-    # Configure basic logging
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
     )
-
     logger = logging.getLogger("single_agency_analysis")
 
     HERE = Path(__file__).parent.resolve()
 
-    # Set inputs
-    n_proc = mp.cpu_count()
-    routee_vehicle_model = "Transit_Bus_Battery_Electric"
+    # Configuration
+    n_proc = 8
+    routee_vehicle_models = [
+        "Transit_Bus_Battery_Electric",
+        # Add more models here to run predictions for multiple vehicles
+    ]
     add_thermal_impacts = True
     input_directory = HERE / "../sample-inputs/saltlake/gtfs"
     depot_directory = HERE / "../FTA_Depot"
     output_directory = HERE / "../reports/saltlake"
-    if not output_directory.exists():
-        output_directory.mkdir(parents=True)
 
+    # ========================================================================
+    # APPROACH 1: Simple - Use the high-level run() method (RECOMMENDED)
+    # ========================================================================
+    logger.info("=" * 70)
+    logger.info("APPROACH 1: Using simple run() method")
+    logger.info("=" * 70)
+    
     start_time = time.time()
-    routee_input_df, trips_df, feed = build_routee_features_with_osm(
-        input_directory=input_directory,
-        depot_directory=depot_directory,
-        date_incl="2023/08/02",
-        routes_incl=["205"],
+
+    predictor = GTFSEnergyPredictor(
+        gtfs_path=input_directory,
+        depot_path=depot_directory,
+        n_processes=n_proc,
+    )
+    
+    # Run entire pipeline with one method call
+    results = predictor.run(
+        vehicle_models=routee_vehicle_models,
+        date="2023/08/02",
+        routes=["205"],
         add_between_trip_deadhead=True,
         add_depot_deadhead=True,
-        add_road_grade=True,
-        n_processes=n_proc,
+        add_grade=True,
+        add_hvac=add_thermal_impacts,
+        output_dir=output_directory,
+        save_results=True,
     )
 
-    logger.info("Finished building RouteE features")
-    # Save geometry data separate from energy predictions to save space
-    geom = pd.concat([routee_input_df["road_id"], routee_input_df.pop("geom")], axis=1)
-    geom = geom.drop_duplicates(subset="geom")
-    geom.to_csv(output_directory / "link_geometry.csv", index=False)
+    logger.info(f"Approach 1 completed in {time.time() - start_time:.2f} s")
+    logger.info(f"Predicted energy for {len(results)} trips")
 
-    # Predict energy consumption
-    routee_results = predict_for_all_trips(
-        routee_input_df=routee_input_df,
-        routee_vehicle_model=routee_vehicle_model,
-        n_processes=n_proc,
+    # ========================================================================
+    # APPROACH 2: Detailed - Chain individual methods for fine-grained control
+    # ========================================================================
+    # Uncomment below to see the detailed approach
+    
+    logger.info("=" * 70)
+    logger.info("APPROACH 2: Using detailed method chaining")
+    logger.info("=" * 70)
+    
+    start_time = time.time()
+    
+    predictor = (
+        GTFSEnergyPredictor(
+            gtfs_path=input_directory,
+            depot_path=depot_directory,
+            n_processes=n_proc,
+        )
+        .load_gtfs_data()
+        .filter_trips(date="2023/08/02", routes=["205"])
+        .add_between_trip_deadhead()
+        .add_depot_deadhead()
+        .match_shapes_to_network()
+        .add_road_grade()
     )
-    routee_results["vehicle"] = routee_vehicle_model
-    routee_results.to_csv(output_directory / "link_energy_predictions.csv", index=False)
-
-    # Summarize predictions by trip
-    energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
-
-    # Add HVAC energy to trip
-    if add_thermal_impacts:
-        HVAC_energy_df = add_HVAC_energy(feed, trips_df)
-        energy_by_trip = energy_by_trip.merge(HVAC_energy_df, on="trip_id", how="left")
-    energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
-    logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
+    
+    predictor.predict_energy(
+        vehicle_models=routee_vehicle_models,
+        add_hvac=add_thermal_impacts,
+    )
+    
+    predictor.save_results(output_directory)
+    
+    logger.info(f"Approach 2 completed in {time.time() - start_time:.2f} s")
