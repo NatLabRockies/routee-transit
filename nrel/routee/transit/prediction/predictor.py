@@ -26,7 +26,7 @@ from .depot_deadhead import (
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
-from .generate_deadhead_traces import create_deadhead_shapes
+from .generate_deadhead_traces import NetworkRouter
 from .grade.add_grade import run_gradeit_parallel
 from .grade.tile_resolution import TileResolution
 from .gtfs_feature_processing import (
@@ -374,7 +374,11 @@ class GTFSEnergyPredictor:
         ]
 
         # Generate shapes for deadhead trips
-        deadhead_shapes = create_deadhead_shapes(df=deadhead_ods, n_processes=1)
+        all_points = pd.concat(
+            [deadhead_ods["geometry_origin"], deadhead_ods["geometry_destination"]]
+        )
+        router = NetworkRouter.from_geometries(all_points)
+        deadhead_shapes = router.create_deadhead_shapes(df=deadhead_ods, n_processes=1)
 
         # Filter deadhead trips to only those with generated shapes
         deadhead_trips = deadhead_trips[
@@ -441,13 +445,25 @@ class GTFSEnergyPredictor:
         )
 
         # Generate shapes for trips from depot to first stop
-        from_depot_shapes = create_deadhead_shapes(df=first_stops_gdf, n_processes=1)
+        first_points = pd.concat(
+            [first_stops_gdf["geometry_origin"], first_stops_gdf["geometry_destination"]]
+        )
+        from_depot_router = NetworkRouter.from_geometries(first_points)
+        from_depot_shapes = from_depot_router.create_deadhead_shapes(
+            df=first_stops_gdf, n_processes=1
+        )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
         )
 
         # Generate shapes for trips from last stop to depot
-        to_depot_shapes = create_deadhead_shapes(df=last_stops_gdf, n_processes=1)
+        last_points = pd.concat(
+            [last_stops_gdf["geometry_origin"], last_stops_gdf["geometry_destination"]]
+        )
+        to_depot_router = NetworkRouter.from_geometries(last_points)
+        to_depot_shapes = to_depot_router.create_deadhead_shapes(
+            df=last_stops_gdf, n_processes=1
+        )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
         )

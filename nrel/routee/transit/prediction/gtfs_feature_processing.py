@@ -23,9 +23,7 @@ from nrel.routee.transit.prediction.depot_deadhead import (
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
-from nrel.routee.transit.prediction.generate_deadhead_traces import (
-    create_deadhead_shapes,
-)
+from nrel.routee.transit.prediction.generate_deadhead_traces import NetworkRouter
 from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
 from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 
@@ -486,7 +484,11 @@ def build_routee_features_with_osm(
         between_trip_ODs = between_trip_ODs[
             between_trip_ODs.geometry_origin != between_trip_ODs.geometry_destination
         ]
-        between_trip_deadhead_shapes_df = create_deadhead_shapes(
+        all_points = pd.concat(
+            [between_trip_ODs["geometry_origin"], between_trip_ODs["geometry_destination"]]
+        )
+        router = NetworkRouter.from_geometries(all_points)
+        between_trip_deadhead_shapes_df = router.create_deadhead_shapes(
             df=between_trip_ODs, n_processes=1
         )
 
@@ -531,7 +533,11 @@ def build_routee_features_with_osm(
         )
 
         # Generate deadhead trip shapes for trips from depot to first stop
-        from_depot_deadhead_shapes_df = create_deadhead_shapes(
+        first_points = pd.concat(
+            [first_stops_gdf["geometry_origin"], first_stops_gdf["geometry_destination"]]
+        )
+        from_depot_router = NetworkRouter.from_geometries(first_points)
+        from_depot_deadhead_shapes_df = from_depot_router.create_deadhead_shapes(
             df=first_stops_gdf, n_processes=1
         )
         from_depot_deadhead_shapes_df["shape_id"] = from_depot_deadhead_shapes_df[
@@ -539,7 +545,11 @@ def build_routee_features_with_osm(
         ].apply(lambda x: "from_depot_" + x)
 
         # Generate deadhead trip shapes for trips from last stop to depot
-        to_depot_deadhead_shapes_df = create_deadhead_shapes(
+        last_points = pd.concat(
+            [last_stops_gdf["geometry_origin"], last_stops_gdf["geometry_destination"]]
+        )
+        to_depot_router = NetworkRouter.from_geometries(last_points)
+        to_depot_deadhead_shapes_df = to_depot_router.create_deadhead_shapes(
             df=last_stops_gdf, n_processes=1
         )
         to_depot_deadhead_shapes_df["shape_id"] = to_depot_deadhead_shapes_df[

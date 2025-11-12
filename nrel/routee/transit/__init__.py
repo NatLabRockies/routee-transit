@@ -2,6 +2,7 @@ from pathlib import Path
 
 __all__ = [
     "GTFSEnergyPredictor",
+    "NetworkRouter",
     "build_routee_features_with_osm",
     "predict_for_all_trips",
     "aggregate_results_by_trip",
@@ -10,6 +11,7 @@ __all__ = [
 
 # New object-oriented interface
 from .prediction.predictor import GTFSEnergyPredictor
+from .prediction.generate_deadhead_traces import NetworkRouter
 
 # Legacy functional interface (maintained for backward compatibility)
 from .prediction.add_temp_feature import add_HVAC_energy
