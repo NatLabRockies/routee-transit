@@ -4,23 +4,20 @@ __all__ = [
     "GTFSEnergyPredictor",
     "NetworkRouter",
     "build_routee_features_with_osm",
-    "predict_for_all_trips",
-    "aggregate_results_by_trip",
     "add_HVAC_energy",
 ]
 
 # New object-oriented interface
-from .prediction.predictor import GTFSEnergyPredictor
-from .prediction.generate_deadhead_traces import NetworkRouter
+from .predictor import GTFSEnergyPredictor
+from .deadhead_router import NetworkRouter
 
 # Legacy functional interface (maintained for backward compatibility)
-from .prediction.add_temp_feature import add_HVAC_energy
-from .prediction.gtfs_feature_processing import build_routee_features_with_osm
-from .prediction.routee import aggregate_results_by_trip, predict_for_all_trips
+from .thermal_energy import add_HVAC_energy
+from .gtfs_processing import build_routee_features_with_osm
 
 
 def package_root() -> Path:
-    """Return the path to the nrel.routee.powertrain package"""
+    """Return the path to the nrel.routee.transit package"""
     return Path(__file__).parent
 
 

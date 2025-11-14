@@ -16,7 +16,7 @@ from gtfsblocks import Feed, filter_blocks_by_route
 
 import nrel.routee.powertrain as pt
 
-from .add_temp_feature import add_HVAC_energy
+from .thermal_energy import add_HVAC_energy
 from .between_trip_deadhead import (
     create_between_trip_deadhead_stops,
     create_between_trip_deadhead_trips,
@@ -26,10 +26,10 @@ from .depot_deadhead import (
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
-from .generate_deadhead_traces import NetworkRouter
+from .deadhead_router import NetworkRouter
 from .grade.add_grade import run_gradeit_parallel
 from .grade.tile_resolution import TileResolution
-from .gtfs_feature_processing import (
+from .gtfs_processing import (
     extend_trip_traces,
     match_shape_to_osm,
     upsample_shape,

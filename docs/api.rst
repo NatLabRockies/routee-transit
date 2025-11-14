@@ -12,7 +12,7 @@ Main Package
 GTFS Processing
 ---------------
 
-.. automodule:: nrel.routee.transit.prediction.gtfs_feature_processing
+.. automodule:: nrel.routee.transit.gtfs_feature_processing
     :members:
     :undoc-members:
     :show-inheritance:
@@ -20,7 +20,7 @@ GTFS Processing
 Prediction with RouteE-Powertrain
 ---------------------------------
 
-.. automodule:: nrel.routee.transit.prediction.routee
+.. automodule:: nrel.routee.transit.routee
     :members:
     :undoc-members:
     :show-inheritance:
