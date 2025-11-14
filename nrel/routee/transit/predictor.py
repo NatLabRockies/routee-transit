@@ -134,7 +134,7 @@ class GTFSEnergyPredictor:
     ) -> pd.DataFrame:
         """
         Run the complete energy prediction pipeline with a single method call.
-        
+
         This is a convenience method that chains together all processing steps:
         1. Load GTFS data
         2. Optionally filter trips
@@ -143,10 +143,10 @@ class GTFSEnergyPredictor:
         5. Optionally add road grade
         6. Predict energy consumption
         7. Optionally save results
-        
+
         For more control over individual steps, use the individual methods
         (load_gtfs_data, filter_trips, add_between_trip_deadhead, etc.).
-        
+
         Parameters
         ----------
         vehicle_models : list[str] or str
@@ -171,30 +171,30 @@ class GTFSEnergyPredictor:
             current working directory.
         save_results : bool, default=True
             Whether to save results to files.
-        
+
         Returns
         -------
         pd.DataFrame
             Trip-level energy predictions with columns for each vehicle model.
-        
+
         Examples
         --------
         Simple usage - predict energy for all trips:
-        
+
         >>> predictor = GTFSEnergyPredictor("data/gtfs")
         >>> results = predictor.run(vehicle_models=["BEB", "Diesel"])
-        
+
         Filter to specific date and routes:
-        
+
         >>> results = predictor.run(
         ...     vehicle_models="BEB",
         ...     date="2023-08-02",
         ...     routes=["205", "209"],
         ...     output_dir="reports/saltlake"
         ... )
-        
+
         Minimal processing (no deadhead, no grade):
-        
+
         >>> results = predictor.run(
         ...     vehicle_models="BEB",
         ...     add_between_trip_deadhead=False,
@@ -206,18 +206,18 @@ class GTFSEnergyPredictor:
         # Convert single model to list
         if isinstance(vehicle_models, str):
             vehicle_models = [vehicle_models]
-        
+
         # Step 1: Load GTFS data
         self.load_gtfs_data()
-        
+
         # Step 2: Filter trips if requested
         if date is not None or routes is not None:
             self.filter_trips(date=date, routes=routes)
-        
+
         # Step 3: Add deadhead trips
         if add_between_trip_deadhead:
             self.add_between_trip_deadhead()
-        
+
         if add_depot_deadhead:
             if self.depot_path is None:
                 self.logger.warning(
@@ -225,22 +225,22 @@ class GTFSEnergyPredictor:
                 )
             else:
                 self.add_depot_deadhead()
-        
+
         # Step 4: Match shapes to network
         self.match_shapes_to_network()
-        
+
         # Step 5: Add grade if requested
         if add_grade:
             self.add_road_grade()
-        
+
         # Step 6: Predict energy
         self.predict_energy(vehicle_models=vehicle_models, add_hvac=add_hvac)
-        
+
         # Step 7: Save results if requested
         if save_results:
             save_path = Path(output_dir) if output_dir else Path.cwd()
             self.save_results(save_path)
-        
+
         # Return trip-level predictions
         return self.get_trip_predictions()
 
@@ -446,7 +446,10 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from depot to first stop
         first_points = pd.concat(
-            [first_stops_gdf["geometry_origin"], first_stops_gdf["geometry_destination"]]
+            [
+                first_stops_gdf["geometry_origin"],
+                first_stops_gdf["geometry_destination"],
+            ]
         )
         from_depot_router = NetworkRouter.from_geometries(first_points)
         from_depot_shapes = from_depot_router.create_deadhead_shapes(

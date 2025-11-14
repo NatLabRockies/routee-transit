@@ -59,7 +59,7 @@ if __name__ == "__main__":
     logger.info("=" * 70)
     logger.info("APPROACH 1: Using simple run() method")
     logger.info("=" * 70)
-    
+
     start_time = time.time()
 
     predictor = GTFSEnergyPredictor(
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         depot_path=depot_directory,
         n_processes=n_proc,
     )
-    
+
     # Run entire pipeline with one method call
     results = predictor.run(
         vehicle_models=routee_vehicle_models,
@@ -88,13 +88,13 @@ if __name__ == "__main__":
     # APPROACH 2: Detailed - Chain individual methods for fine-grained control
     # ========================================================================
     # Uncomment below to see the detailed approach
-    
+
     logger.info("=" * 70)
     logger.info("APPROACH 2: Using detailed method chaining")
     logger.info("=" * 70)
-    
+
     start_time = time.time()
-    
+
     predictor = (
         GTFSEnergyPredictor(
             gtfs_path=input_directory,
@@ -108,12 +108,12 @@ if __name__ == "__main__":
         .match_shapes_to_network()
         .add_road_grade()
     )
-    
+
     predictor.predict_energy(
         vehicle_models=routee_vehicle_models,
         add_hvac=add_thermal_impacts,
     )
-    
+
     predictor.save_results(output_directory)
-    
+
     logger.info(f"Approach 2 completed in {time.time() - start_time:.2f} s")

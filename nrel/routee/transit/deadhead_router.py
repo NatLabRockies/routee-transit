@@ -28,10 +28,10 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 class NetworkRouter:
     """Manages OSM network routing for deadhead trip trace generation.
-    
+
     This class encapsulates the OSM network graph and provides methods for
     computing shortest-path routes between origin-destination pairs.
-    
+
     Attributes
     ----------
     bbox : tuple[float, float, float, float]
@@ -71,7 +71,7 @@ class NetworkRouter:
     ) -> list[dict[str, Any]]:
         """
         Compute shortest-path route for a single origin-destination pair.
-        
+
         This function finds the shortest path on the OSM network graph between
         the given origin and destination coordinates, then returns a list of
         shape points suitable for GTFS shapes.txt format.

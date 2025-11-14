@@ -3,7 +3,6 @@ from pathlib import Path
 __all__ = [
     "GTFSEnergyPredictor",
     "NetworkRouter",
-    "build_routee_features_with_osm",
     "add_HVAC_energy",
 ]
 
@@ -13,7 +12,6 @@ from .deadhead_router import NetworkRouter
 
 # Legacy functional interface (maintained for backward compatibility)
 from .thermal_energy import add_HVAC_energy
-from .gtfs_processing import build_routee_features_with_osm
 
 
 def package_root() -> Path:
