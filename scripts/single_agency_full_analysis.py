@@ -103,7 +103,7 @@ if __name__ == "__main__":
         )
         .load_gtfs_data()
         .filter_trips(date="2023/08/02", routes=["205"])
-        .add_between_trip_deadhead()
+        .add_mid_block_deadhead()
         .add_depot_deadhead()
         .match_shapes_to_network()
         .add_road_grade()

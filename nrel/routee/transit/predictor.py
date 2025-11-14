@@ -17,9 +17,9 @@ from gtfsblocks import Feed, filter_blocks_by_route
 import nrel.routee.powertrain as pt
 
 from .thermal_energy import add_HVAC_energy
-from .between_trip_deadhead import (
-    create_between_trip_deadhead_stops,
-    create_between_trip_deadhead_trips,
+from .mid_block_deadhead import (
+    create_mid_block_deadhead_stops,
+    create_mid_block_deadhead_trips,
 )
 from .depot_deadhead import (
     create_depot_deadhead_stops,
@@ -63,7 +63,7 @@ class GTFSEnergyPredictor:
         ... )
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
-        >>> predictor.add_between_trip_deadhead()
+        >>> predictor.add_mid_block_deadhead()
         >>> predictor.add_depot_deadhead()
         >>> predictor.match_shapes_to_network(add_grade=True)
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
@@ -123,7 +123,7 @@ class GTFSEnergyPredictor:
         date: str | None = None,
         routes: list[str] | None = None,
         # Processing options
-        add_between_trip_deadhead: bool = True,
+        add_mid_block_deadhead: bool = True,
         add_depot_deadhead: bool = True,
         add_grade: bool = True,
         # Energy prediction options
@@ -145,7 +145,7 @@ class GTFSEnergyPredictor:
         7. Optionally save results
 
         For more control over individual steps, use the individual methods
-        (load_gtfs_data, filter_trips, add_between_trip_deadhead, etc.).
+        (load_gtfs_data, filter_trips, add_mid_block_deadhead, etc.).
 
         Parameters
         ----------
@@ -157,7 +157,7 @@ class GTFSEnergyPredictor:
             If None, all trips across all service dates are included.
         routes : list[str], optional
             Filter trips to specific route IDs. If None, all routes are included.
-        add_between_trip_deadhead : bool, default=True
+        add_mid_block_deadhead : bool, default=True
             Whether to add deadhead trips between consecutive revenue trips.
         add_depot_deadhead : bool, default=True
             Whether to add deadhead trips from/to depots at start/end of blocks.
@@ -197,7 +197,7 @@ class GTFSEnergyPredictor:
 
         >>> results = predictor.run(
         ...     vehicle_models="BEB",
-        ...     add_between_trip_deadhead=False,
+        ...     add_mid_block_deadhead=False,
         ...     add_depot_deadhead=False,
         ...     add_grade=False,
         ...     save_results=False
@@ -215,8 +215,8 @@ class GTFSEnergyPredictor:
             self.filter_trips(date=date, routes=routes)
 
         # Step 3: Add deadhead trips
-        if add_between_trip_deadhead:
-            self.add_between_trip_deadhead()
+        if add_mid_block_deadhead:
+            self.add_mid_block_deadhead()
 
         if add_depot_deadhead:
             if self.depot_path is None:
@@ -336,7 +336,7 @@ class GTFSEnergyPredictor:
         logger.info(f"Filtered to {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
 
-    def add_between_trip_deadhead(self) -> Self:
+    def add_mid_block_deadhead(self) -> Self:
         """
         Add deadhead trips between consecutive trips in each block.
 
@@ -359,13 +359,13 @@ class GTFSEnergyPredictor:
         logger.info("Adding between-trip deadhead trips...")
 
         # Create between-trip deadhead trips
-        deadhead_trips = create_between_trip_deadhead_trips(
+        deadhead_trips = create_mid_block_deadhead_trips(
             self.trips, self.feed.stop_times
         )
 
         # Create stops and stop_times for deadhead trips
         deadhead_stop_times, deadhead_stops, deadhead_ods = (
-            create_between_trip_deadhead_stops(self.feed, deadhead_trips)
+            create_mid_block_deadhead_stops(self.feed, deadhead_trips)
         )
 
         # Remove ODs with same origin and destination (no travel needed)
