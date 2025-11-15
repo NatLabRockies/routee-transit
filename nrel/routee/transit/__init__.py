@@ -6,11 +6,8 @@ __all__ = [
     "add_HVAC_energy",
 ]
 
-# New object-oriented interface
 from .predictor import GTFSEnergyPredictor
 from .deadhead_router import NetworkRouter
-
-# Legacy functional interface (maintained for backward compatibility)
 from .thermal_energy import add_HVAC_energy
 
 

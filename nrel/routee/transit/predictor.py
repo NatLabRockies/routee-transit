@@ -1,5 +1,5 @@
 """
-Object-oriented interface for transit energy prediction.
+Transit energy prediction from GTFS data.
 
 This module provides the main GTFSEnergyPredictor class, which encapsulates
 the complete workflow for predicting transit bus energy consumption from GTFS data.
@@ -42,10 +42,9 @@ MI_PER_KM = 0.6213712
 
 class GTFSEnergyPredictor:
     """
-    Main class for predicting transit bus energy consumption from GTFS data.
+    Predict transit bus energy consumption from GTFS data.
 
-    This class provides an object-oriented interface for the complete RouteE-Transit
-    workflow, including:
+    This class provides a complete workflow for RouteE-Transit, including:
     - Loading and filtering GTFS data
     - Adding deadhead trips (between trips and to/from depot)
     - Matching shapes to road networks (OpenStreetMap by default)

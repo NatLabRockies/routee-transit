@@ -9,18 +9,63 @@ Main Package
     :undoc-members:
     :show-inheritance:
 
-GTFS Processing
+GTFSEnergyPredictor (Object-Oriented Interface)
+------------------------------------------------
+
+The primary interface for transit energy prediction.
+
+.. autoclass:: nrel.routee.transit.GTFSEnergyPredictor
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :special-members: __init__
+
+Network Routing
 ---------------
 
-.. automodule:: nrel.routee.transit.gtfs_feature_processing
+.. autoclass:: nrel.routee.transit.NetworkRouter
     :members:
     :undoc-members:
     :show-inheritance:
 
-Prediction with RouteE-Powertrain
----------------------------------
+HVAC Energy
+-----------
 
-.. automodule:: nrel.routee.transit.routee
+.. autofunction:: nrel.routee.transit.add_HVAC_energy
+
+GTFS Processing (Internal)
+---------------------------
+
+.. automodule:: nrel.routee.transit.gtfs_processing
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Grade Calculation (Internal)
+-----------------------------
+
+.. automodule:: nrel.routee.transit.grade.add_grade
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Deadhead Trips (Internal)
+--------------------------
+
+.. automodule:: nrel.routee.transit.mid_block_deadhead
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: nrel.routee.transit.depot_deadhead
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Thermal Energy (Internal)
+--------------------------
+
+.. automodule:: nrel.routee.transit.thermal_energy
     :members:
     :undoc-members:
     :show-inheritance:

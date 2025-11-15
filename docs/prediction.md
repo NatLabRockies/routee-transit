@@ -20,7 +20,38 @@ Finally, the estimated distances are used along with the time intervals between 
 ## 3) Predict Energy Consumption with RouteE-Powertrain
 In the last step, a trained RouteE-Powertrain model is run to predict energy consumption for each trip. RouteE-Powertrain version 1.3.2 introduced two initial transit bus models (`Transit_Bus_Diesel` and `Transit_Bus_Battery_Electric`) and additional models for different bus styles and manufacturers will be rolled out over time.
 
+# Using the GTFSEnergyPredictor Class
+
+RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class that simplifies the complete workflow:
+
+```python
+from nrel.routee.transit import GTFSEnergyPredictor
+
+# Initialize predictor
+predictor = GTFSEnergyPredictor(
+    gtfs_path="path/to/gtfs",
+    depot_path="path/to/depots",  # Optional
+)
+
+# Option 1: Use the convenience method (recommended)
+trip_results = predictor.run(
+    vehicle_models="Transit_Bus_Battery_Electric",
+    date="2023/08/02",
+    routes=["205"],
+    add_hvac=True,
+)
+
+# Option 2: Step-by-step processing for more control
+predictor.load_gtfs_data()
+predictor.filter_trips(date="2023/08/02", routes=["205"])
+predictor.add_mid_block_deadhead()  # Between-trip deadhead
+predictor.add_depot_deadhead()      # To/from depot
+predictor.match_shapes_to_network()
+predictor.add_road_grade()
+predictor.predict_energy(vehicle_models=["Transit_Bus_Battery_Electric"], add_hvac=True)
+```
+
 # Assumptions and Limitations
-This initial version of RouteE-Transit has the following limitations:
-* Weather impacts are not currently accounted for. Note that HVAC loads have a major impact on electric bus energy consumption, especially when temperatures are very low or very high.
-* Deadhead trips (including pull-out and pull-in trips from/to the depot as well as deadhead in between service trips) are not currently modeled.
+* **HVAC Energy**: Weather impacts are modeled through seasonal HVAC energy consumption (winter and summer) based on ambient temperature data from TMY3 files. Users can enable this with the `add_hvac=True` parameter.
+* **Deadhead Trips**: Both mid-block deadhead trips (between consecutive revenue trips) and depot deadhead trips (pull-out/pull-in) can be included in the analysis using the `add_mid_block_deadhead()` and `add_depot_deadhead()` methods, or by setting the corresponding parameters to `True` in the `run()` method.
+* **Network Data**: By default, OpenStreetMap is used for road network matching. The class is designed to be extended for use with proprietary network data (e.g., TomTom, HERE) by subclassing and overriding the `_match_shapes_to_network()` method.

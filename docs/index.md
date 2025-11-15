@@ -15,25 +15,55 @@ The package enables users to work with pre-trained transit bus energy models or 
 To install RouteE-Transit, see [](installation).
 
 ```python
-from nrel.routee.transit import (
-    build_routee_features_with_osm,
-    predict_for_all_trips,
+from nrel.routee.transit import GTFSEnergyPredictor
+
+# Create predictor and run complete pipeline
+predictor = GTFSEnergyPredictor(
+    gtfs_path="path/to/gtfs",
+    depot_path="path/to/depots",  # Optional, for depot deadhead trips
 )
 
-# Build features for predicting with RouteE-Powertrain
-routee_input_df = build_routee_features_with_osm(
-    input_directory="path/to/gtfs",
-    add_road_grade=True,  # Add elevation difference
-)
-
-# Run a RouteE-Powertrain model
-routee_results = predict_for_all_trips(
-    routee_input_df=routee_input_df,
-    routee_vehicle_model="Transit_Bus_Diesel",
+# Run the complete workflow with a single method call
+trip_results = predictor.run(
+    vehicle_models="Transit_Bus_Battery_Electric",
+    date="2023/08/02",  # Optional, filter to specific date
+    routes=["205"],     # Optional, filter to specific routes
+    add_hvac=True,      # Include HVAC energy impacts
+    output_dir="reports/output",
 )
 ```
 
 For a full example, see [](examples/Utah_Transit_Agency_example). That example can also be run as a script with `python scripts/single_agency_full_analysis.py`.
+
+### Alternative: Step-by-Step Processing
+
+For more control over the workflow, you can invoke each processing step individually:
+
+```python
+predictor = GTFSEnergyPredictor(gtfs_path="path/to/gtfs")
+
+# Load and process GTFS data
+predictor.load_gtfs_data()
+predictor.filter_trips(date="2023/08/02", routes=["205"])
+
+# Add deadhead trips (optional)
+predictor.add_mid_block_deadhead()
+predictor.add_depot_deadhead()
+
+# Match to road network and add grade
+predictor.match_shapes_to_network()
+predictor.add_road_grade()
+
+# Predict energy consumption
+predictor.predict_energy(
+    vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
+    add_hvac=True,
+)
+
+# Access results
+trip_results = predictor.get_trip_predictions()
+link_results = predictor.get_link_predictions()
+```
 
 
 ## Available Models

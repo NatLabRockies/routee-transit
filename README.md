@@ -3,6 +3,28 @@
 # RouteE-Transit (`nrel.routee.transit`)
 RouteE-Transit provides a complete pipeline for predicting the energy consumption of transit bus trips based on GTFS data and a [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) model. The package matches GTFS shapes to the OpenStreetMap road network, aggregates speed, distance, and grade estimates at the OSM road link level, and then uses a trained RouteE-Powertrain model to predict energy consumption.
 
+## Quick Start
+
+```python
+from nrel.routee.transit import GTFSEnergyPredictor
+
+# Create predictor and run complete pipeline
+predictor = GTFSEnergyPredictor(
+    gtfs_path="path/to/gtfs",
+    depot_path="path/to/depots",  # Optional
+)
+
+# Run analysis with a single method call
+trip_results = predictor.run(
+    vehicle_models="Transit_Bus_Battery_Electric",
+    date="2023/08/02",  # Optional: filter to specific date
+    routes=["205"],     # Optional: filter to specific routes
+    add_hvac=True,      # Include HVAC energy impacts
+)
+```
+
+See the [documentation](https://nrel.github.io/routee-transit/) for more examples and details.
+
 ## Setup
 ### Using Pixi (recommended for developers)
 Install Pixi following the instructions in [its documentation](https://pixi.sh/latest/).
@@ -14,8 +36,15 @@ This will create a virtual environment based on the dependencies described in `p
 ### Using pip
 You can also set up your environment using `pip`, if preferred. Create a new virtual environment using the tool of your choice (e.g., `conda create -n routee-transit` / `conda activate routee-transit` if using conda). In your virtual environment, run `pip install .` from the route directory. To include development dependencies, use `pip install ".[dev]"`.
 
-## Running the current pipeline
-`scripts/single_agency_full_analysis.py` shows how to use RouteE-Transit to predict energy consumption for some or all trips in an agency's GTFS feed.
+## Key Features
+
+- **Simple API**: Use the `run()` method for most workflows, or call individual methods for fine-grained control
+- **HVAC Energy**: Includes seasonal HVAC energy impacts for battery-electric buses
+- **Deadhead Trips**: Models both mid-block deadhead (between trips) and depot deadhead (pull-out/pull-in)
+- **Multiple Models**: Predict for multiple vehicle types in a single workflow
+
+## Running Examples
+`scripts/single_agency_full_analysis.py` shows how to use RouteE-Transit to predict energy consumption for some or all trips in an agency's GTFS feed. See also `docs/examples/Utah_Transit_Agency_example.py` for a documented example.
 
 
 ## Building and Viewing Documentation
