@@ -9,7 +9,7 @@ import logging
 import multiprocessing as mp
 from functools import partial
 from pathlib import Path
-from typing import Self, Union
+from typing_extensions import Self, Union
 
 import nrel.routee.powertrain as pt
 import pandas as pd
