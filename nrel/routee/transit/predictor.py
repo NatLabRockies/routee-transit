@@ -11,22 +11,17 @@ from functools import partial
 from pathlib import Path
 from typing import Self, Union
 
+import nrel.routee.powertrain as pt
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 
-import nrel.routee.powertrain as pt
-
-from .thermal_energy import add_HVAC_energy
-from .mid_block_deadhead import (
-    create_mid_block_deadhead_stops,
-    create_mid_block_deadhead_trips,
-)
+from .deadhead_router import NetworkRouter
 from .depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
+    get_default_depot_path,
     infer_depot_trip_endpoints,
 )
-from .deadhead_router import NetworkRouter
 from .grade.add_grade import run_gradeit_parallel
 from .grade.tile_resolution import TileResolution
 from .gtfs_processing import (
@@ -34,6 +29,11 @@ from .gtfs_processing import (
     match_shape_to_osm,
     upsample_shape,
 )
+from .mid_block_deadhead import (
+    create_mid_block_deadhead_stops,
+    create_mid_block_deadhead_trips,
+)
+from .thermal_energy import add_HVAC_energy
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,12 @@ class GTFSEnergyPredictor:
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     depot_path="data/depots",
+        ...     # depot_path is optional - uses NTD depot locations by default
         ... )
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
         >>> predictor.add_mid_block_deadhead()
-        >>> predictor.add_depot_deadhead()
+        >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
         >>> predictor.match_shapes_to_network(add_grade=True)
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
 
@@ -97,11 +97,17 @@ class GTFSEnergyPredictor:
         Args:
             gtfs_path: Path to directory containing GTFS feed files
             depot_path: Path to directory containing depot shapefile (Transit_Depot.shp).
-                Required if add_depot_deadhead() will be called.
+                If None (default), uses depot locations from the National Transit Database's
+                "Public Transit Facilities and Stations - 2023" dataset. This dataset covers
+                depot/facility locations for transit agencies across the United States.
+                Data source: https://data.transportation.gov/stories/s/gd62-jzra
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
         """
         self.gtfs_path = Path(gtfs_path)
-        self.depot_path = Path(depot_path) if depot_path else None
+        if depot_path is None:
+            self.depot_path = get_default_depot_path()
+        else:
+            self.depot_path = Path(depot_path) if depot_path else None
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
 
         # Internal state - populated by various methods
@@ -409,7 +415,9 @@ class GTFSEnergyPredictor:
 
         This method creates synthetic trips representing buses traveling from the
         depot to start their first scheduled trip of the day, and from their last
-        stop back to the depot.
+        stop back to the depot. Depot locations are matched from the National Transit
+        Database's "Public Transit Facilities and Stations - 2023" dataset unless
+        a custom depot_path was provided during initialization.
 
         Returns:
             Self for method chaining

@@ -30,7 +30,7 @@ from nrel.routee.transit import GTFSEnergyPredictor
 # Initialize predictor
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    depot_path="path/to/depots",  # Optional
+    # depot_path is optional - defaults to NTD depot locations
 )
 
 # Option 1: Use the convenience method (recommended)
@@ -45,7 +45,7 @@ trip_results = predictor.run(
 predictor.load_gtfs_data()
 predictor.filter_trips(date="2023/08/02", routes=["205"])
 predictor.add_mid_block_deadhead()  # Between-trip deadhead
-predictor.add_depot_deadhead()      # To/from depot
+predictor.add_depot_deadhead()      # To/from depot (uses NTD locations)
 predictor.match_shapes_to_network()
 predictor.add_road_grade()
 predictor.predict_energy(vehicle_models=["Transit_Bus_Battery_Electric"], add_hvac=True)
@@ -54,4 +54,5 @@ predictor.predict_energy(vehicle_models=["Transit_Bus_Battery_Electric"], add_hv
 # Assumptions and Limitations
 * **HVAC Energy**: Weather impacts are modeled through seasonal HVAC energy consumption (winter and summer) based on ambient temperature data from TMY3 files. Users can enable this with the `add_hvac=True` parameter.
 * **Deadhead Trips**: Both mid-block deadhead trips (between consecutive revenue trips) and depot deadhead trips (pull-out/pull-in) can be included in the analysis using the `add_mid_block_deadhead()` and `add_depot_deadhead()` methods, or by setting the corresponding parameters to `True` in the `run()` method.
+* **Depot Locations**: By default, depot locations come from the National Transit Database's "Public Transit Facilities and Stations - 2023" dataset (https://data.transportation.gov/stories/s/gd62-jzra). Users can provide custom depot locations by specifying `depot_path` when initializing the predictor.
 * **Network Data**: By default, OpenStreetMap is used for road network matching. The class is designed to be extended for use with proprietary network data (e.g., TomTom, HERE) by subclassing and overriding the `_match_shapes_to_network()` method.

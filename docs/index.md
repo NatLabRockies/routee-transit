@@ -20,7 +20,8 @@ from nrel.routee.transit import GTFSEnergyPredictor
 # Create predictor and run complete pipeline
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    depot_path="path/to/depots",  # Optional, for depot deadhead trips
+    # depot_path is optional - defaults to NTD depot locations from:
+    # https://data.transportation.gov/stories/s/gd62-jzra
 )
 
 # Run the complete workflow with a single method call

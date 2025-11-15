@@ -28,7 +28,6 @@ os.environ["PROJ_DEBUG"] = "0"
 
 # Specify input data location
 input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
-depot_directory = repo_root() / "FTA_Depot"
 output_directory = repo_root() / "reports/saltlake"
 
 """
@@ -40,19 +39,25 @@ processing steps and returns trip-level energy predictions.
 
 We'll analyze routes 806 and 807 on August 2nd, 2023, using the Battery Electric 
 Bus model with HVAC energy impacts included.
+
+Note: depot_path is not specified, so the predictor will use default depot locations
+from the National Transit Database's "Public Transit Facilities and Stations - 2023"
+dataset (https://data.transportation.gov/stories/s/gd62-jzra).
 """
 
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
-    depot_path=depot_directory,
 )
 
 trip_results = predictor.run(
     vehicle_models="Transit_Bus_Battery_Electric",
     date="2023/08/02",
     routes=["806", "807"],
+    add_depot_deadhead=True,
+    add_mid_block_deadhead=True,
     add_hvac=True,
     output_dir=output_directory,
+    save_results=False,
 )
 
 """
