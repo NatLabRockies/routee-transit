@@ -9,6 +9,27 @@ from geopy.distance import geodesic
 from shapely.geometry import Point
 
 
+# Default path to FTA depot shapefile, relative to repository root
+def get_default_depot_path() -> Path:
+    """
+    Return the default path to the FTA_Depot directory in the repository.
+
+    The default depot locations come from the National Transit Database's
+    "Public Transit Facilities and Stations - 2023" dataset, which contains
+    depot/facility locations for transit agencies across the United States.
+
+    Data source: https://data.transportation.gov/stories/s/gd62-jzra
+
+    Returns
+    -------
+    Path
+        Path to the FTA_Depot directory containing Transit_Depot.shp
+    """
+    # Navigate from this file up to the repo root:
+    #   - depot_deadhead.py -> transit -> routee -> nrel -> repo root
+    return Path(__file__).parent.parent.parent.parent / "FTA_Depot"
+
+
 def create_depot_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
 ) -> pd.DataFrame:

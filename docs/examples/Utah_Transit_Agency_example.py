@@ -1,19 +1,19 @@
 """
 # Utah Transit Agency Example
-In this example, we'll predict the energy consumption for some trips operated by the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the GTFS data we are analyzing, processing it to produce RouteE-Powertrain inputs, and running a RouteE-Powertrain model to produce energy estimates.
+
+In this example, we'll predict the energy consumption for some trips operated by
+the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the
+GTFS data we are analyzing, processing it to produce RouteE-Powertrain inputs,
+and running a RouteE-Powertrain model to produce energy estimates.
+
+This example uses the `GTFSEnergyPredictor` class, which provides a clean,
+extensible API for transit energy prediction.
 """
 
 import logging
-import multiprocessing as mp
 import os
 
-from nrel.routee.transit import (
-    add_HVAC_energy,
-    aggregate_results_by_trip,
-    build_routee_features_with_osm,
-    predict_for_all_trips,
-    repo_root,
-)
+from nrel.routee.transit import GTFSEnergyPredictor, repo_root
 
 # Set up logging: Clear any existing handlers
 logging.getLogger().handlers.clear()
@@ -25,72 +25,83 @@ logging.basicConfig(
 
 # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
 os.environ["PROJ_DEBUG"] = "0"
-# Set number of parallel processes
-n_proc = mp.cpu_count()
+
 # Specify input data location
 input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
-depot_directory = repo_root() / "FTA_Depot"
 output_directory = repo_root() / "reports/saltlake"
-if not output_directory.exists():
-    output_directory.mkdir(parents=True)
+
 """
-## Process GTFS Data into RouteE Inputs
-`build_routee_features_with_osm()` analyzes a GTFS feed to prepare input features for energy prediction with RouteE-Powertrain. It performs the following steps:
-- Reads in GTFS data from the input directory
-- Filters down bus trips by date and route names, if desired (set `date_incl` and/or `routes_incl` to `None` and all dates/routes will be included).
-- Upsamples all shapes so they are suitable for map matching
-- Uses NREL's `mappymatch` package to match each shape to a set of OpenStreetMap road links.
-- Uses NREL's `gradeit` package to add estimated average grade to each road link. USGS elevation tiles are downloaded and cached if needed.
+## Quick Start: Using the `run()` Method
+
+For most use cases, the `run()` method provides the simplest way to perform the 
+complete energy prediction workflow. This single method call chains together all 
+processing steps and returns trip-level energy predictions.
+
+We'll analyze routes 806 and 807 on August 2nd, 2023, using the Battery Electric 
+Bus model with HVAC energy impacts included.
+
+Note: depot_path is not specified, so the predictor will use default depot locations
+from the National Transit Database's "Public Transit Facilities and Stations - 2023"
+dataset (https://data.transportation.gov/stories/s/gd62-jzra).
 """
-routee_input_df, trips_df, feed = build_routee_features_with_osm(
-    input_directory=input_directory,
-    depot_directory=depot_directory,
-    date_incl="2023/08/02",
-    routes_incl=["806", "807"],  # a few routes that each make a small number of trips
-    add_road_grade=True,
-    n_processes=n_proc,
+
+predictor = GTFSEnergyPredictor(
+    gtfs_path=input_directory,
 )
-"""
-The first output of `build_routee_features_with_osm()` is a DataFrame where each row represents travel on a single road network edge during a single bus trip. It includes the features needed to make energy predictions with RouteE, such as the travel time reported by OpenStreetMap (`travel_time`), the distance (`kilometers`), and the estimated road grade as a decimal value (`grade`).
-The second output of `build_routee_features_with_osm()` is a DataFrame that stores HVAC and BTMS energy consumption for each trip_id.
-"""
-routee_input_df.head()
-"""
-## Predict Energy Consumption with RouteE-Powertrain
-We can now make energy predictions with the data in `routee_input_df` and any trained RouteE Powertrain model. We'll use `"Transit_Bus_Battery_Electric"`, included in `nrel.routee.powertrain` 1.3.2, which is trained on real-world energy data from an electric bus in Salt Lake City.
 
-`predict_with_all_trips()` provides a convenient wrapper for making energy consumption predictions given a RouteE model and the input variables necessary to predict with it:
-"""
-routee_vehicle_model = "Transit_Bus_Battery_Electric"
-routee_results = predict_for_all_trips(
-    routee_input_df=routee_input_df,
-    routee_vehicle_model=routee_vehicle_model,
-    n_processes=n_proc,
+trip_results = predictor.run(
+    vehicle_models="Transit_Bus_Battery_Electric",
+    date="2023/08/02",
+    routes=["806", "807"],
+    add_depot_deadhead=True,
+    add_mid_block_deadhead=True,
+    add_hvac=True,
+    output_dir=output_directory,
+    save_results=False,
 )
-"""
-`routee_results` contains link-level energy predictions for each trip.
-"""
-routee_results.head()
-"""
-We can aggregate over trip IDs to get the total energy estimated per trip.
-"""
-energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
-
-# Merge HVAC energy
-temp_energy_df = add_HVAC_energy(feed, trips_df)
-energy_by_trip = energy_by_trip.merge(temp_energy_df, on="trip_id", how="left")
-energy_by_trip["kwh_per_mi_winter"] = (
-    energy_by_trip["kWhs"] + energy_by_trip["Winter_HVAC_Energy"]
-) / energy_by_trip["miles"]
-energy_by_trip["kwh_per_mi_summer"] = (
-    energy_by_trip["kWhs"] + energy_by_trip["Summer_HVAC_Energy"]
-) / energy_by_trip["miles"]
-
-# Check the results for some random trips
-energy_by_trip
-"""
-Note that the predicted energy consumption values are relatively low because the current RouteE Transit pipeline does not account for HVAC loads, which are a major contributor to BEB energy usage.
-"""
-"""
 
 """
+The `run()` method automatically performs all these steps:
+1. Loads the GTFS feed
+2. Filters trips by date and routes
+3. Adds mid-block deadhead trips (between consecutive trips)
+4. Adds depot deadhead trips (to/from depot)
+5. Matches shapes to OpenStreetMap road network
+6. Adds road grade information using USGS elevation data
+7. Predicts energy consumption with RouteE-Powertrain
+8. Adds estimated HVAC energy impacts
+9. Saves results to CSV files
+
+Let's examine the results:
+"""
+
+trip_results.head()
+
+"""
+## Calculate Energy Efficiency Metrics
+
+We can calculate energy efficiency in kWh per mile, including HVAC loads.
+"""
+
+if "Winter_HVAC_Energy" in trip_results.columns:
+    trip_results["kwh_per_mi_winter"] = (
+        trip_results["kWhs"] + trip_results["Winter_HVAC_Energy"]
+    ) / trip_results["miles"]
+    trip_results["kwh_per_mi_summer"] = (
+        trip_results["kWhs"] + trip_results["Summer_HVAC_Energy"]
+    ) / trip_results["miles"]
+
+trip_results
+
+"""
+## Access Additional Results
+
+After running predictions, you can access link-level results and RouteE inputs:
+"""
+
+# Link-level predictions show energy for each road segment
+link_results = predictor.get_link_predictions()
+link_results.head()
+
+# RouteE inputs show the features used for prediction
+predictor.routee_inputs.head()

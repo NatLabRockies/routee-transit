@@ -5,8 +5,8 @@ from functools import partial
 import pandas as pd
 from gradeit.gradeit import gradeit
 
-from nrel.routee.transit.prediction.grade.download import CACHE_DIR, download_usgs_tiles
-from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
+from nrel.routee.transit.grade.download import CACHE_DIR, download_usgs_tiles
+from nrel.routee.transit.grade.tile_resolution import TileResolution
 
 log = logging.getLogger(__file__)
 

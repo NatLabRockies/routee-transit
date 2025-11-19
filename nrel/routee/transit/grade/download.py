@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
+from nrel.routee.transit.grade.tile_resolution import TileResolution
 
 log = logging.getLogger(__name__)
 
