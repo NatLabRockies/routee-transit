@@ -9,11 +9,12 @@ import logging
 import multiprocessing as mp
 from functools import partial
 from pathlib import Path
-from typing_extensions import Self, Union
 
 import nrel.routee.powertrain as pt
+import numpy as np
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
+from typing_extensions import Self, Union
 
 from .deadhead_router import NetworkRouter
 from .depot_deadhead import (
@@ -717,23 +718,17 @@ class GTFSEnergyPredictor:
         if self.routee_inputs.empty:
             raise RuntimeError("No RouteE inputs available for predictions.")
 
-        # Prepare data for prediction - split by trip
-        links_by_trip = [
-            self.routee_inputs[self.routee_inputs["trip_id"] == trip_id].copy()
-            for trip_id in self.routee_inputs["trip_id"].unique()
-        ]
-
+        # Split data into batches for multiprocessing
+        link_batches = np.array_split(self.routee_inputs, self.n_processes)
         # Run prediction in parallel
         # Note: We pass the model path/name, not the loaded model, to avoid pickling issues
         predict_partial = partial(self._predict_trip_with_model, model_path=model)
         with mp.Pool(self.n_processes) as pool:
-            predictions = pool.map(predict_partial, links_by_trip)
+            predictions = pool.map(predict_partial, link_batches)
 
-        all_predictions = pd.concat(predictions)
+        all_predictions = pd.concat(predictions, ignore_index=True)
 
-        results = pd.concat(
-            [self.routee_inputs.loc[all_predictions.index], all_predictions], axis=1
-        )
+        results = pd.concat([self.routee_inputs.reset_index(), all_predictions], axis=1)
 
         # Select relevant columns
         pred_cols = list(all_predictions.columns)
