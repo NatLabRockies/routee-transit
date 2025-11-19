@@ -1,6 +1,7 @@
 import datetime
 import logging
 import multiprocessing as mp
+import warnings
 from functools import partial
 
 import geopandas as gpd
@@ -11,7 +12,6 @@ from mappymatch.constructs.geofence import Geofence
 from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
-
 
 logger = logging.getLogger("gtfs_processing")
 
@@ -176,6 +176,12 @@ def match_shape_to_osm(upsampled_shape_df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: A DataFrame combining the original upsampled shape points with
             their corresponding OSM network matches.
     """
+    # Filter out warnings from mappymatch
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        message=".*Downcasting object dtype arrays.*",
+    )
     # Create mappymatch trace
     trace = Trace.from_dataframe(
         upsampled_shape_df, lat_column="shape_pt_lat", lon_column="shape_pt_lon"

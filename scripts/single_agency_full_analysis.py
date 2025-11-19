@@ -26,8 +26,8 @@ if __name__ == "__main__":
 
     # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
-    # Suppress pandas FutureWarning from mappymatch
-    warnings.filterwarnings("ignore", category=FutureWarning, module="mappymatch")
+    # Suppress pandas FutureWarning from RouteE-Powertrain
+    warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
 
     # Configure logging
     logging.getLogger().handlers.clear()
