@@ -7416,8 +7416,8 @@ packages:
   requires_python: '>=3.10,<3.13'
 - pypi: ./
   name: nrel-routee-transit
-  version: 0.1.0
-  sha256: 4126f659f97bcc886a94b0b4931185e46ad801ddb46acd744b2273de73725e18
+  version: 0.2.0
+  sha256: 707c01844eb4bfca4b8a88026b61ca4478a259c4d32ec71afb91825d05e614cc
   requires_dist:
   - pandas>=2.3.3,<3
   - gtfsblocks>=0.1.2,<0.2
