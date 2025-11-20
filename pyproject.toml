@@ -1,6 +1,6 @@
 [project]
 name = "nrel.routee.transit"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.10,<3.13"
 dependencies = [
     "pandas>=2.3.3,<3",
@@ -43,7 +43,6 @@ explicit_package_bases = true
 strict = true
 disallow_untyped_calls = false
 exclude = ["dist/", "build/", ".local", "notebooks/"]
-
 
 [tool.pixi.project]
 channels = ["conda-forge"]

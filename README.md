@@ -34,7 +34,7 @@ Once you have Pixi installed, from the root directory (`routee-transit`), instal
 This will create a virtual environment based on the dependencies described in `pyproject.toml`. To execute code in this virtual environment, use `pixi run <my_file.py>`, or `pixi shell` to run all subsequent commands in that environment. To use the development environment, add the `-e dev` flag, e.g., `pixi shell -e dev`.
 
 ### Using pip
-You can also set up your environment using `pip`, if preferred. Create a new virtual environment using the tool of your choice (e.g., `conda create -n routee-transit` / `conda activate routee-transit` if using conda). In your virtual environment, run `pip install .` from the route directory. To include development dependencies, use `pip install ".[dev]"`.
+You can also set up your environment using `pip`, if preferred. Create a new virtual environment using the tool of your choice (e.g., `conda create -n routee-transit` / `conda activate routee-transit` if using conda). In your virtual environment, run `pip install .` from the root directory. To include development dependencies, use `pip install ".[dev]"`.
 
 ## Key Features
 
