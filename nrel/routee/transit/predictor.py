@@ -507,7 +507,7 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Added {len(deadhead_trips)} depot deadhead trips")
         return self
-    
+
     @staticmethod
     def aggregate_inputs_by_link(trips_ext: pd.DataFrame) -> pd.DataFrame:
         """After map matching all trips, aggregate the data by road link."""

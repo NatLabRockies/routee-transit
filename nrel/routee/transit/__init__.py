@@ -6,8 +6,8 @@ __all__ = [
     "add_HVAC_energy",
 ]
 
-from .predictor import GTFSEnergyPredictor
 from .deadhead_router import NetworkRouter
+from .predictor import GTFSEnergyPredictor
 from .thermal_energy import add_HVAC_energy
 
 
