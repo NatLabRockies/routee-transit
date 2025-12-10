@@ -65,7 +65,7 @@ class GTFSEnergyPredictor:
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
         >>> predictor.add_mid_block_deadhead()
         >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
-        >>> predictor.match_shapes_to_network(add_grade=True)
+        >>> predictor.get_link_level_inputs(add_grade=True)
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
 
     For extending with custom network data:
@@ -233,7 +233,7 @@ class GTFSEnergyPredictor:
                 self.add_depot_deadhead()
 
         # Step 4: Match shapes to network
-        self.match_shapes_to_network()
+        self.get_link_level_inputs()
 
         # Step 5: Add grade if requested
         if add_grade:
@@ -507,8 +507,29 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Added {len(deadhead_trips)} depot deadhead trips")
         return self
+    
+    @staticmethod
+    def aggregate_inputs_by_link(trips_ext: pd.DataFrame) -> pd.DataFrame:
+        """After map matching all trips, aggregate the data by road link."""
+        df_by_link = (
+            trips_ext.groupby(by=["trip_id", "shape_id", "road_id"])
+            .agg(
+                start_lat=pd.NamedAgg("shape_pt_lat", "first"),
+                start_lon=pd.NamedAgg("shape_pt_lon", "first"),
+                end_lat=pd.NamedAgg("shape_pt_lat", "last"),
+                end_lon=pd.NamedAgg("shape_pt_lon", "last"),
+                geom=pd.NamedAgg("geom", "first"),
+                start_timestamp=pd.NamedAgg("timestamp", "first"),
+                end_timestamp=pd.NamedAgg("timestamp", "last"),
+                kilometers=pd.NamedAgg("kilometers", "mean"),
+                travel_time_minutes=pd.NamedAgg("travel_time", "mean"),
+            )
+            .reset_index()
+        )
+        df_by_link["travel_time_minutes"] /= 60
+        return df_by_link
 
-    def match_shapes_to_network(self) -> Self:
+    def get_link_level_inputs(self) -> Self:
         """
         Match GTFS shapes to road network and prepare RouteE inputs.
 
@@ -555,23 +576,7 @@ class GTFSEnergyPredictor:
         )
 
         # Step 4: Aggregate data at road link level
-        trip_links = (
-            trips_ext.groupby(by=["trip_id", "shape_id", "road_id"])
-            .agg(
-                start_lat=pd.NamedAgg("shape_pt_lat", "first"),
-                start_lon=pd.NamedAgg("shape_pt_lon", "first"),
-                end_lat=pd.NamedAgg("shape_pt_lat", "last"),
-                end_lon=pd.NamedAgg("shape_pt_lon", "last"),
-                geom=pd.NamedAgg("geom", "first"),
-                start_timestamp=pd.NamedAgg("timestamp", "first"),
-                end_timestamp=pd.NamedAgg("timestamp", "last"),
-                kilometers=pd.NamedAgg("kilometers", "mean"),
-                travel_time_minutes=pd.NamedAgg("travel_time", "mean"),
-            )
-            .reset_index()
-        )
-        trip_links["travel_time_minutes"] /= 60
-        self.routee_inputs = trip_links
+        self.routee_inputs = self.aggregate_inputs_by_link(trips_ext)
 
         return self
 
@@ -580,7 +585,7 @@ class GTFSEnergyPredictor:
         tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     ) -> Self:
         if self.routee_inputs.empty:
-            raise RuntimeError("Must run match_shapes_to_network() before adding grade")
+            raise RuntimeError("Must run get_link_level_inputs() before adding grade")
 
         logger.info("Adding road grade information...")
         trip_groups = [t_df for _, t_df in self.routee_inputs.groupby("trip_id")]
@@ -645,7 +650,7 @@ class GTFSEnergyPredictor:
         """
         if self.routee_inputs.empty:
             raise RuntimeError(
-                "Must call match_shapes_to_network() before predicting energy"
+                "Must call get_link_level_inputs() before predicting energy"
             )
 
         vehicle_models_list: list[str | Path]
@@ -674,7 +679,7 @@ class GTFSEnergyPredictor:
             link_results["vehicle"] = str(model)
 
             # Aggregate to trip level
-            trip_results = self._aggregate_to_trip_level(link_results, str(model))
+            trip_results = self._aggregate_predictions_by_trip(link_results, str(model))
 
             # Optionally add HVAC
             if add_hvac:
@@ -772,7 +777,7 @@ class GTFSEnergyPredictor:
         result = routee_model.predict(links_df=trip_df)
         return result.copy()
 
-    def _aggregate_to_trip_level(
+    def _aggregate_predictions_by_trip(
         self, link_results: pd.DataFrame, vehicle_name: str
     ) -> pd.DataFrame:
         """
