@@ -55,7 +55,7 @@ def create_mid_block_deadhead_trips(
         block_df["deadhead_trip"] = (
             block_df["trip_id"].astype(str) + "_to_" + block_df["to_trip"]
         )
-        
+
         block_df = block_df[
             ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
         ]
