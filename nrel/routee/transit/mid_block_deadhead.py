@@ -48,8 +48,10 @@ def create_mid_block_deadhead_trips(
     block_gb = trips_df.groupby("block_id")
     dh_dfs = list()
     for _, block_df in block_gb:
-        block_df["to_trip"] = block_df["trip_id"].shift(-1)
-        block_df["deadhead_trip"] = block_df["trip_id"] + "_to_" + block_df["to_trip"]
+        block_df["to_trip"] = block_df["trip_id"].shift(-1).astype(str)
+        block_df["deadhead_trip"] = (
+            block_df["trip_id"].astype(str) + "_to_" + block_df["to_trip"]
+        )
         block_df = block_df.dropna(subset=["to_trip"])
         block_df = block_df[
             ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
