@@ -27,6 +27,7 @@ def add_HVAC_energy(feed: Any, trips_df: pd.DataFrame) -> Any:
     """
     # Based on gtfs stops data, get counties served
     df_stops = feed.stops
+
     gdf_stops = gpd.GeoDataFrame(
         df_stops,
         geometry=gpd.points_from_xy(df_stops.stop_lon, df_stops.stop_lat),
@@ -38,13 +39,44 @@ def add_HVAC_energy(feed: Any, trips_df: pd.DataFrame) -> Any:
     gdf_county["county_id"] = (
         "G" + gdf_county["STATEFP"] + "0" + gdf_county["COUNTYFP"] + "0"
     )
+
+    # Make sure that both GDFs use the same CRS
+    if gdf_stops.crs != gdf_county.crs:
+        gdf_county = gdf_county.to_crs(gdf_stops.crs)
+
+    # Start by joining directly to counties
     gdf_stops = gpd.sjoin(
         gdf_stops,
         gdf_county[["geometry", "county_id"]],
         how="left",
         predicate="intersects",
     )
-    county_ids = gdf_stops.county_id.unique()
+
+    # If any county IDs are NA, use sjoin_nearest to map to the nearest county
+    na_mask = gdf_stops["county_id"].isna()
+    na_stops = gdf_stops[na_mask]
+    if not na_stops.empty:
+        na_stops = gdf_stops[na_mask].drop(columns=["index_right", "county_id"])
+        # Project for distance calculation
+        na_stops = na_stops.to_crs("ESRI:102003")
+        na_stops = na_stops.sjoin_nearest(
+            right=gdf_county[["geometry", "county_id"]].to_crs("ESRI:102003"),
+            how="left",
+            max_distance=3000,
+        )
+
+        if na_stops["county_id"].isna().sum() > 0:
+            raise ValueError(
+                "One or more stops are not within 3 km of a county boundary. Unable to "
+                "add county-level weather data and HVAC impacts."
+            )
+
+        stops_final = pd.concat([gdf_stops[~na_mask], na_stops.to_crs("EPSG:4269")])
+
+    else:
+        stops_final = gdf_stops
+
+    county_ids = stops_final.county_id.unique()
 
     # Download TMY Weather Data
     """TMY stands for Typical Meteorological Year, a dataset that provides representative hourly weather 
@@ -62,6 +94,7 @@ def add_HVAC_energy(feed: Any, trips_df: pd.DataFrame) -> Any:
     save_dir = "./TMY"  # Folder for saving the downloaded TMY data
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
+
     # Download files for each county
     for county_id in county_ids:
         file_key = f"{prefix}{county_id}_tmy3.csv"
