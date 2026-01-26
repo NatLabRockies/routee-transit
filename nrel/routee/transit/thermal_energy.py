@@ -13,7 +13,7 @@ TMY_DIR = "./TMY"  # Folder for saving the downloaded TMY data
 logger = logging.getLogger(__name__)
 
 
-def fetch_counties_gdf() -> gpd.DataFrame:
+def fetch_counties_gdf() -> gpd.GeoDataFrame:
     gdf_county = gpd.read_file(
         "https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip"
     )
