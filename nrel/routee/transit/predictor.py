@@ -340,6 +340,8 @@ class GTFSEnergyPredictor:
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
 
         logger.info(f"Filtered to {len(self.trips)} trips and {len(shape_ids)} shapes")
+
+        
         return self
 
     def add_mid_block_deadhead(self) -> Self:
@@ -681,7 +683,7 @@ class GTFSEnergyPredictor:
             # Aggregate to trip level
             trip_results = self._aggregate_predictions_by_trip(link_results, str(model))
 
-            # Optionally add HVAC
+            # Optionally add HVAC to trip-level results
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
                 if self.feed is None or self.trips.empty:
@@ -690,6 +692,8 @@ class GTFSEnergyPredictor:
                     )
                 hvac_energy = add_HVAC_energy(self.feed, self.trips)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
+                # Add HVAC energy to powertrain energy
+                trip_results["energy_used"] += trip_results["hvac_energy_kWh"]
 
             # Store results
             self.energy_predictions[f"{model}_link"] = link_results
@@ -705,6 +709,38 @@ class GTFSEnergyPredictor:
         if all_trip_results:
             self.energy_predictions["trip"] = pd.concat(
                 all_trip_results, ignore_index=True
+            )
+
+            # TODO: move these trip-level calculations elsewhere
+            # Add trip durations
+            st_incl = self.feed.stop_times[
+                self.feed.stop_times["trip_id"].isin(
+                    self.energy_predictions["trip"]["trip_id"].unique()
+                )
+            ]
+            trip_times = st_incl.groupby("trip_id").agg(
+                start_time=("arrival_time", "min"), end_time=("arrival_time", "max")
+            )
+            trip_times["trip_duration_minutes"] = (
+                trip_times["end_time"] - trip_times["start_time"]
+            ).dt.total_seconds() / 60
+            self.energy_predictions["trip"] = self.energy_predictions["trip"].merge(
+                trip_times[["trip_duration_minutes"]],
+                left_on="trip_id",
+                right_index=True,
+            )
+
+            # Add number of times each trip is run
+            sid_counts = (
+                self.feed.get_service_ids_all_dates()
+                .groupby("service_id")["date"]
+                .count()
+                .rename("trip_count")
+            )
+            self.energy_predictions["trip"] = self.energy_predictions["trip"].merge(
+                sid_counts,
+                left_on="service_id",
+                right_index=True,
             )
 
         logger.info("Energy prediction complete")
@@ -790,17 +826,33 @@ class GTFSEnergyPredictor:
         Returns:
             DataFrame with trip-level aggregated results
         """
+        vehicle_units = {
+            "Transit_Bus_Diesel": {
+                "routee_unit": "gallons",
+                "unit_name": "gallons_diesel",
+            },
+            "Transit_Bus_Battery_Electric": {"routee_unit": "kWhs", "unit_name": "kWh"},
+        }
+
         # Determine which energy columns to aggregate
-        agg_cols = [c for c in ["gallons", "kWhs"] if c in link_results.columns]
+        agg_col = vehicle_units[vehicle_name]["routee_unit"]
+
+        if agg_col not in link_results.columns:
+            raise ValueError(
+                f"No energy prediction found with unit {agg_col} for {vehicle_name}."
+                f"Results columns: {link_results.columns}"
+            )
 
         energy_by_trip = link_results.groupby("trip_id").agg(
-            {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
+            {"kilometers": "sum", agg_col: "sum"}
         )
 
         energy_by_trip["miles"] = MI_PER_KM * energy_by_trip["kilometers"]
         energy_by_trip["vehicle"] = vehicle_name
+        energy_by_trip["energy_used"] = energy_by_trip[agg_col]
+        energy_by_trip["energy_unit"] = vehicle_units[vehicle_name]["unit_name"]
 
-        return energy_by_trip.drop(columns="kilometers")
+        return energy_by_trip.drop(columns=["kilometers", agg_col])
 
     def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
@@ -883,7 +935,7 @@ class GTFSEnergyPredictor:
         # Save trip-level predictions
         if "trip" in self.energy_predictions:
             trip_path = output_path / "trip_energy_predictions.csv"
-            self.energy_predictions["trip"].to_csv(trip_path)
+            self.energy_predictions["trip"].to_csv(trip_path, index=False)
             logger.info(f"Saved trip predictions to {trip_path}")
 
         # Save RouteE inputs
