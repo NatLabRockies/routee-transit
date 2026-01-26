@@ -308,14 +308,14 @@ def add_HVAC_energy(feed: Feed, trips_df: pd.DataFrame) -> pd.DataFrame:
     for scen, subdf in thermal_power_vals.reset_index().groupby("scenario"):
         scenario_trips = trips_df.copy()
         scenario_trips["scenario"] = scen
-        scenario_trips["hvac_energy"] = compute_HVAC_energy(
+        scenario_trips["hvac_energy_kWh"] = compute_HVAC_energy(
             start_hours, end_hours, subdf["Power"].to_numpy()
         )
         hvac_df_list.append(scenario_trips)
 
     all_predictions = pd.concat(hvac_df_list).reset_index(drop=True)
     trips_df_out = trips_df.merge(
-        all_predictions[["trip_id", "scenario", "hvac_energy"]],
+        all_predictions[["trip_id", "scenario", "hvac_energy_kWh"]],
         on="trip_id",
         how="inner",
     )
