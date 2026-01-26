@@ -144,7 +144,7 @@ def compute_HVAC_energy(
         # sample in small steps for accurate integration
         ts = np.arange(s, e, 0.01)  # 0.01 h = 36 s resolution
         ps = np.array([interp_power(t) for t in ts])
-        energy = np.trapz(ps, ts)  # integrate kW over hours → kWh
+        energy = np.trapezoid(ps, ts)  # integrate kW over hours → kWh
         energies.append(energy)
 
     return np.array(energies)
