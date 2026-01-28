@@ -369,7 +369,7 @@ class GTFSEnergyPredictor:
             left_on="service_id",
             right_index=True,
         )
-        
+
         # Mark each of these original trips as service
         self.trips["trip_type"] = "service"
 
