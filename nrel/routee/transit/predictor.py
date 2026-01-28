@@ -370,6 +370,9 @@ class GTFSEnergyPredictor:
             right_index=True,
         )
 
+        # Mark each of these original trips as service
+        self.trips["trip_type"] = "service"
+
         return self
 
     def add_mid_block_deadhead(self) -> Self:

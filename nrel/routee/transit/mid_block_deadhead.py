@@ -68,6 +68,7 @@ def create_mid_block_deadhead_trips(
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
     deadhead_trips["agency_id"] = None
     deadhead_trips["shape_id"] = deadhead_trips["trip_id"]
+    deadhead_trips["trip_type"] = "mid_block_deadhead"
 
     return deadhead_trips
 
