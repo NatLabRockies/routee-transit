@@ -333,6 +333,7 @@ class GTFSEnergyPredictor:
         # Initialize with all trips and shapes
         service_ids = self.feed.trips.service_id.unique().tolist()
         self.trips = self.feed.get_trips_from_sids(service_ids)
+        self.trips["trip_type"] = "service"
 
         shape_ids = self.trips.shape_id.unique()
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
