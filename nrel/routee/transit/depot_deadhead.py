@@ -280,6 +280,12 @@ def create_depot_deadhead_stops(
 
     # Create stop_times df for deadhead trips
     deadhead_trips_df = deadhead_trips.copy()
+    deadhead_trips_df_from_depot = deadhead_trips_df[deadhead_trips_df.trip_type == 'pull-out'].copy()
+    deadhead_trips_df_from_depot = deadhead_trips_df_from_depot.merge(from_depot[['block_id','departure_time','arrival_time']], on = 'block_id')
+
+    deadhead_trips_df_to_depot = deadhead_trips_df[deadhead_trips_df.trip_type == 'pull-in'].copy()
+    deadhead_trips_df_to_depot = deadhead_trips_df_to_depot.merge(to_depot[['block_id','departure_time','arrival_time']], on = 'block_id')
+    deadhead_trips_df = pd.concat([deadhead_trips_df_from_depot, deadhead_trips_df_to_depot], ignore_index=True)
     stop_times_df = pd.DataFrame(
         columns=[
             "trip_id",
@@ -291,17 +297,13 @@ def create_depot_deadhead_stops(
         ]
     )
     stop_times_df["trip_id"] = deadhead_trips_df["trip_id"].repeat(2).values
+
     stop_times_df["stop_sequence"] = [1, 2] * len(deadhead_trips_df)
     stop_times_df["arrival_time"] = [
         x
         for pair in zip(
-            from_depot["departure_time"].to_list(), from_depot["arrival_time"].to_list()
-        )
-        for x in pair
-    ] + [
-        x
-        for pair in zip(
-            to_depot["departure_time"].to_list(), to_depot["arrival_time"].to_list()
+            deadhead_trips_df["departure_time"].to_list(),
+            deadhead_trips_df["arrival_time"].to_list(),
         )
         for x in pair
     ]
