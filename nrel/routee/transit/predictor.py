@@ -121,6 +121,51 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
+    def add_trip_times(self) -> None:
+        """Add trip time columns to self.trips"""
+        # Add trip durations
+        st_incl = self.feed.stop_times[
+            self.feed.stop_times["trip_id"].isin(self.trips["trip_id"].unique())
+        ]
+        trip_times = st_incl.groupby("trip_id").agg(
+            start_time=("arrival_time", "min"), end_time=("arrival_time", "max")
+        )
+        trip_times["trip_duration_minutes"] = (
+            trip_times["end_time"] - trip_times["start_time"]
+        ).dt.total_seconds() / 60
+
+        # Convert start/end times to GTFS-style strings
+        def format_timedelta(td: pd.Timedelta) -> str:
+            if pd.isna(td):
+                return ""
+            total_seconds = int(td.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
+        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
+
+        self.trips = self.trips.merge(
+            trip_times[["start_time", "end_time", "trip_duration_minutes"]],
+            left_on="trip_id",
+            right_index=True,
+        )
+
+        # Add number of times each trip is run
+        sid_counts = (
+            self.feed.get_service_ids_all_dates()
+            .groupby("service_id")["date"]
+            .count()
+            .rename("trip_count")
+        )
+        self.trips = self.trips.merge(
+            sid_counts,
+            left_on="service_id",
+            right_index=True,
+        )
+
     def run(
         self,
         vehicle_models: list[str] | str,
@@ -219,6 +264,9 @@ class GTFSEnergyPredictor:
         # Step 2: Filter trips if requested
         if date is not None or routes is not None:
             self.filter_trips(date=date, routes=routes)
+        
+        # Add start time, end time, and duration of each trip
+        self.add_trip_times()
 
         # Step 3: Add deadhead trips
         if add_mid_block_deadhead:
@@ -340,49 +388,6 @@ class GTFSEnergyPredictor:
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
 
         logger.info(f"Filtered to {len(self.trips)} trips and {len(shape_ids)} shapes")
-
-        # Add trip durations
-        st_incl = self.feed.stop_times[
-            self.feed.stop_times["trip_id"].isin(self.trips["trip_id"].unique())
-        ]
-        trip_times = st_incl.groupby("trip_id").agg(
-            start_time=("arrival_time", "min"), end_time=("arrival_time", "max")
-        )
-        trip_times["trip_duration_minutes"] = (
-            trip_times["end_time"] - trip_times["start_time"]
-        ).dt.total_seconds() / 60
-
-        # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
-        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
-
-        self.trips = self.trips.merge(
-            trip_times[["start_time", "end_time", "trip_duration_minutes"]],
-            left_on="trip_id",
-            right_index=True,
-        )
-
-        # Add number of times each trip is run
-        sid_counts = (
-            self.feed.get_service_ids_all_dates()
-            .groupby("service_id")["date"]
-            .count()
-            .rename("trip_count")
-        )
-        self.trips = self.trips.merge(
-            sid_counts,
-            left_on="service_id",
-            right_index=True,
-        )
 
         return self
 
