@@ -77,6 +77,7 @@ def create_depot_deadhead_trips(
         from_depot_route = f"from_depot_{block_id}"
         from_depot_trip = {
             "trip_id": from_depot_trip_id,
+            "trip_type": "pull-out",
             "route_id": from_depot_route,
             "service_id": first_trip["service_id"],
             "block_id": block_id,
@@ -92,6 +93,7 @@ def create_depot_deadhead_trips(
         to_depot_route = f"to_depot_{block_id}"
         to_depot_trip = {
             "trip_id": to_depot_trip_id,
+            "trip_type": "pull-in",
             "route_id": to_depot_route,
             "service_id": last_trip["service_id"],
             "block_id": block_id,
