@@ -123,6 +123,9 @@ class GTFSEnergyPredictor:
 
     def add_trip_times(self) -> None:
         """Add trip time columns to self.trips"""
+        # Make sure trips are available
+        if self.feed is None:
+            raise ValueError("Must call load_gtfs_data() before add_trip_times()")
         # Add trip durations
         st_incl = self.feed.stop_times[
             self.feed.stop_times["trip_id"].isin(self.trips["trip_id"].unique())
@@ -264,7 +267,7 @@ class GTFSEnergyPredictor:
         # Step 2: Filter trips if requested
         if date is not None or routes is not None:
             self.filter_trips(date=date, routes=routes)
-        
+
         # Add start time, end time, and duration of each trip
         self.add_trip_times()
 
