@@ -203,8 +203,8 @@ def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:
     Args:
         trip_shape_df (pd.DataFrame): DataFrame containing trip shape data with columns:
             - 'shape_dist_traveled': Cumulative distance traveled along the shape.
-            - 'o_time': Origin time (datetime) of the trip.
-            - 'd_time': Destination time (datetime) of the trip.
+            - 'start_time': Origin time (datetime) of the trip.
+            - 'end_time': Destination time (datetime) of the trip.
     Returns:
         pd.DataFrame: Modified DataFrame with additional columns:
             - 'segment_duration_delta': Estimated duration for each segment as timedelta.
@@ -213,17 +213,17 @@ def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:
             - 'hour': Hour component of the rounded timestamp.
             - 'minute': Minute component of the rounded timestamp.
     """
+    start_times = pd.to_timedelta(trip_shape_df["start_time"])
+    end_times = pd.to_timedelta(trip_shape_df["end_time"])
     trip_shape_df["segment_duration_delta"] = (
         trip_shape_df["shape_dist_traveled"]
         / (trip_shape_df["shape_dist_traveled"].max() + 0.0001)
-        * (trip_shape_df["d_time"] - trip_shape_df["o_time"])
+        * (end_times - start_times)
     )
     trip_shape_df["segment_duration_delta"] = trip_shape_df[
         "segment_duration_delta"
     ].apply(lambda x: datetime.timedelta(seconds=round(x.total_seconds())))
-    trip_shape_df["timestamp"] = (
-        trip_shape_df["o_time"] + trip_shape_df["segment_duration_delta"]
-    )
+    trip_shape_df["timestamp"] = start_times + trip_shape_df["segment_duration_delta"]
 
     ## get hour and minute of gps timestamp
     trip_shape_df["Datetime_nearest5"] = trip_shape_df["timestamp"].dt.round("5min")
@@ -269,42 +269,14 @@ def extend_trip_traces(
         A list of DataFrames, one per trip, with extended trace information
         including estimated timestamps.
     """
-    # Start by summarizing stop times: get first and last stop, plus start/end times
-    stop_times_by_trip = (
-        feed.stop_times.groupby("trip_id")
-        .agg(
-            {
-                "arrival_time": "first",
-                "departure_time": "last",
-                "stop_id": ["first", "last"],
-            }
-        )
-        .reset_index()
-    )
-    stop_times_by_trip.columns = [
-        "trip_id",
-        "o_time",
-        "d_time",
-        "o_stop_id",
-        "d_stop_id",
-    ]
-
-    # Add start/end times and stops to trips DF
-    # TODO: consider doing this with gtfsblocks add_trip_data()
-    trips_df = pd.merge(trips_df, stop_times_by_trip, how="left", on="trip_id")
-    trips_df["o_time"] = pd.to_timedelta(trips_df["o_time"])
-    trips_df["d_time"] = pd.to_timedelta(trips_df["d_time"])
-    trips_df["trip_duration"] = trips_df["d_time"] - trips_df["o_time"]
-
     # Add stop coordinates to stop_times
     stop_times_ext = feed.stop_times[["trip_id", "stop_sequence", "stop_id"]].merge(
         feed.stops[["stop_id", "stop_lat", "stop_lon"]], on="stop_id"
     )
 
-    # calculate approximate timestamps for each GPS trace
-    # TODO: I think this big merge can be avoided
+    # Calculate approximate timestamps for each trip
     trip_shape = pd.merge(
-        trips_df[["trip_id", "shape_id", "o_time", "d_time"]],
+        trips_df[["trip_id", "shape_id", "start_time", "end_time"]],
         matched_shapes_df,
         how="left",
         on="shape_id",

@@ -372,9 +372,11 @@ class GTFSEnergyPredictor:
 
         # Filter by date
         if date is not None:
-            self.trips = self.feed.get_trips_from_date(date)
+            sids = self.feed.get_service_ids_from_date(date)
+            self.trips = self.trips[self.trips["service_id"].isin(sids)].copy()
+
             if len(self.trips) == 0:
-                raise ValueError(f"Feed does not contain any trips on {date}")
+                raise ValueError(f"Feed does not contain any bus trips on {date}")
 
         # Filter by routes
         if routes is not None:
@@ -444,6 +446,54 @@ class GTFSEnergyPredictor:
             deadhead_trips["shape_id"].isin(deadhead_shapes["shape_id"].unique())
         ]
 
+        # Add trip start time, end time, and duration to deadhead trips
+        deadhead_trip_times = (
+            deadhead_stop_times.groupby("trip_id")
+            .agg(start_time=("arrival_time", "min"), end_time=("arrival_time", "max"))
+            .reset_index()
+        )
+
+        deadhead_trip_times["trip_duration_minutes"] = (
+            pd.to_timedelta(
+                deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
+            ).dt.total_seconds()
+            / 60
+        ).round(2)
+
+        # Convert start/end times to GTFS-style strings
+        def format_timedelta(td: pd.Timedelta) -> str:
+            if pd.isna(td):
+                return ""
+            total_seconds = int(td.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+        deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
+            format_timedelta
+        )
+        deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
+            format_timedelta
+        )
+
+        deadhead_trips = deadhead_trips.merge(
+            deadhead_trip_times[
+                ["trip_id", "start_time", "end_time", "trip_duration_minutes"]
+            ],
+            on="trip_id",
+            how="left",
+        )
+
+        # Add trip count column to deadhead trips, let it be the same as the service trips
+        # before or after the deadhead trip
+        deadhead_trips["before_trip"] = deadhead_trips["trip_id"].apply(
+            lambda x: x.split("_to_")[0]
+        )
+        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
+        deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
+        deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
+
         # Update internal state
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
         self.shapes = pd.concat([self.shapes, deadhead_shapes], ignore_index=True)
@@ -460,7 +510,7 @@ class GTFSEnergyPredictor:
             [self.feed.stops, deadhead_stops], ignore_index=True
         )
 
-        logger.info(f"Added {len(deadhead_trips)} between-trip deadhead trips")
+        logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
         return self
 
     def add_depot_deadhead(self) -> Self:
@@ -541,6 +591,58 @@ class GTFSEnergyPredictor:
         deadhead_trips = deadhead_trips[
             deadhead_trips["shape_id"].isin(deadhead_shapes["shape_id"].unique())
         ]
+
+        # Add trip start time, end time, and duration to deadhead trips
+        deadhead_trip_times = (
+            deadhead_stop_times.groupby("trip_id")
+            .agg(start_time=("arrival_time", "min"), end_time=("arrival_time", "max"))
+            .reset_index()
+        )
+
+        deadhead_trip_times["trip_duration_minutes"] = (
+            pd.to_timedelta(
+                deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
+            ).dt.total_seconds()
+            / 60
+        ).round(2)
+
+        # Convert start/end times to GTFS-style strings
+        def format_timedelta(td: pd.Timedelta) -> str:
+            if pd.isna(td):
+                return ""
+            total_seconds = int(td.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+        deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
+            format_timedelta
+        )
+        deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
+            format_timedelta
+        )
+
+        deadhead_trips = deadhead_trips.merge(
+            deadhead_trip_times[
+                ["trip_id", "start_time", "end_time", "trip_duration_minutes"]
+            ],
+            on="trip_id",
+            how="left",
+        )
+
+        # Add trip count column to deadhead trips, let it be the same as the service trips
+        # before or after the deadhead trip
+        deadhead_trips["before_or_after_trip"] = deadhead_trips["trip_id"].apply(
+            lambda x: x.split("depot_to_")[1]
+            if "depot_to_" in x
+            else x.split("_to_depot")[0]
+        )
+        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
+        deadhead_trips["trip_count"] = deadhead_trips["before_or_after_trip"].map(
+            trip_counts
+        )
+        deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
 
         # Update internal state
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
