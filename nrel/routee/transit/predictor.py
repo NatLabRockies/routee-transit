@@ -452,15 +452,11 @@ class GTFSEnergyPredictor:
         )
 
         deadhead_trip_times["trip_duration_minutes"] = (
-            (
-                (
-                    deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
-                ).dt.total_seconds()
-                / 60
-            )
-            .round()
-            .astype(int)
-        )
+            pd.to_timedelta(
+                deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
+            ).dt.total_seconds()
+            / 60
+        ).round(2)
 
         # Convert start/end times to GTFS-style strings
         def format_timedelta(td: pd.Timedelta) -> str:
@@ -602,15 +598,11 @@ class GTFSEnergyPredictor:
         )
 
         deadhead_trip_times["trip_duration_minutes"] = (
-            (
-                (
-                    deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
-                ).dt.total_seconds()
-                / 60
-            )
-            .round()
-            .astype(int)
-        )
+            pd.to_timedelta(
+                deadhead_trip_times["end_time"] - deadhead_trip_times["start_time"]
+            ).dt.total_seconds()
+            / 60
+        ).round(2)
 
         # Convert start/end times to GTFS-style strings
         def format_timedelta(td: pd.Timedelta) -> str:
