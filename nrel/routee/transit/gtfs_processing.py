@@ -223,9 +223,7 @@ def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:
     trip_shape_df["segment_duration_delta"] = trip_shape_df[
         "segment_duration_delta"
     ].apply(lambda x: datetime.timedelta(seconds=round(x.total_seconds())))
-    trip_shape_df["timestamp"] = (
-        start_times + trip_shape_df["segment_duration_delta"]
-    )
+    trip_shape_df["timestamp"] = start_times + trip_shape_df["segment_duration_delta"]
 
     ## get hour and minute of gps timestamp
     trip_shape_df["Datetime_nearest5"] = trip_shape_df["timestamp"].dt.round("5min")

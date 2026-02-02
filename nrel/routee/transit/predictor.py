@@ -373,9 +373,7 @@ class GTFSEnergyPredictor:
         # Filter by date
         if date is not None:
             sids = self.feed.get_service_ids_from_date(date)
-            self.trips = self.trips[
-                self.trips["service_id"].isin(sids)
-            ].copy()
+            self.trips = self.trips[self.trips["service_id"].isin(sids)].copy()
 
             if len(self.trips) == 0:
                 raise ValueError(f"Feed does not contain any bus trips on {date}")
