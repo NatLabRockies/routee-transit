@@ -372,9 +372,13 @@ class GTFSEnergyPredictor:
 
         # Filter by date
         if date is not None:
-            self.trips = self.feed.get_trips_from_date(date)
+            sids = self.feed.get_service_ids_from_date(date)
+            self.trips = self.trips[
+                self.trips["service_id"].isin(sids)
+            ].copy()
+
             if len(self.trips) == 0:
-                raise ValueError(f"Feed does not contain any trips on {date}")
+                raise ValueError(f"Feed does not contain any bus trips on {date}")
 
         # Filter by routes
         if routes is not None:
@@ -508,7 +512,7 @@ class GTFSEnergyPredictor:
             [self.feed.stops, deadhead_stops], ignore_index=True
         )
 
-        logger.info(f"Added {len(deadhead_trips)} between-trip deadhead trips")
+        logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
         return self
 
     def add_depot_deadhead(self) -> Self:
