@@ -65,7 +65,7 @@ class GTFSEnergyPredictor:
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
         >>> predictor.add_mid_block_deadhead()
         >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
-        >>> predictor.get_link_level_inputs(add_grade=True)
+        >>> predictor.get_link_level_inputs()
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
 
     For extending with custom network data:
@@ -179,7 +179,6 @@ class GTFSEnergyPredictor:
         # Processing options
         add_mid_block_deadhead: bool = True,
         add_depot_deadhead: bool = True,
-        add_grade: bool = True,
         # Energy prediction options
         add_hvac: bool = True,
         # Output options
@@ -194,7 +193,7 @@ class GTFSEnergyPredictor:
         2. Optionally filter trips (`date`, `routes`)
         3. Optionally add deadhead trips (`add_mid_block_deadhead`, `add_depot_deadhead`)
         4. Match shapes to OpenStreetMap network
-        5. Optionally add road grade (`add_grade`)
+        5. Add road grade
         6. Predict energy consumption
         7. Optionally save results (`save_results`)
 
@@ -216,8 +215,6 @@ class GTFSEnergyPredictor:
         add_depot_deadhead : bool, default=True
             Whether to add deadhead trips from/to depots at start/end of blocks.
             Requires depot_path to be set during initialization.
-        add_grade : bool, default=True
-            Whether to add road grade information using elevation data.
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
         output_dir : str or Path, optional
@@ -247,13 +244,12 @@ class GTFSEnergyPredictor:
         ...     output_dir="reports/saltlake"
         ... )
 
-        Minimal processing (no deadhead, no grade):
+        Minimal processing (no deadhead, no HVAC):
 
         >>> results = predictor.run(
         ...     vehicle_models="BEB",
         ...     add_mid_block_deadhead=False,
         ...     add_depot_deadhead=False,
-        ...     add_grade=False,
         ...     save_results=False
         ... )
         """
@@ -286,9 +282,8 @@ class GTFSEnergyPredictor:
         # Step 4: Match shapes to network
         self.get_link_level_inputs()
 
-        # Step 5: Add grade if requested
-        if add_grade:
-            self.add_road_grade()
+        # Step 5: Add grade
+        self.add_road_grade()
 
         # Step 6: Predict energy
         self.predict_energy(vehicle_models=vehicle_models, add_hvac=add_hvac)

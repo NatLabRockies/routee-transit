@@ -61,7 +61,6 @@ if __name__ == "__main__":
         routes=["205"],
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
-        add_grade=True,
         add_hvac=True,
         output_dir=output_directory,
         save_results=True,
