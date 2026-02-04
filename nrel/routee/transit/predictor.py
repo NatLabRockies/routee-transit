@@ -846,6 +846,9 @@ class GTFSEnergyPredictor:
                     kwh_mask, "hvac_energy_kWh"
                 ]
 
+            else:
+                trip_results = trip_results.merge(self.trips, on="trip_id")
+
             # Store results
             self.energy_predictions[f"{model}_link"] = link_results
             self.energy_predictions[f"{model}_trip"] = trip_results
