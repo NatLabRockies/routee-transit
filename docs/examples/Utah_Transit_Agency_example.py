@@ -13,7 +13,7 @@ extensible API for transit energy prediction.
 import logging
 import os
 
-from nrel.routee.transit import GTFSEnergyPredictor, repo_root
+from routee.transit import GTFSEnergyPredictor, repo_root
 
 # Set up logging: Clear any existing handlers
 logging.getLogger().handlers.clear()

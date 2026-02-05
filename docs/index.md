@@ -15,7 +15,7 @@ The package enables users to work with pre-trained transit bus energy models or 
 To install RouteE-Transit, see [](installation).
 
 ```python
-from nrel.routee.transit import GTFSEnergyPredictor
+from routee.transit import GTFSEnergyPredictor
 
 # Create predictor and run complete pipeline
 predictor = GTFSEnergyPredictor(

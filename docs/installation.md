@@ -10,7 +10,7 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/NREL/routee-transit.git
+git clone https://github.com/NatLabRockies/routee-transit.git
 cd routee-transit
 ```
 
