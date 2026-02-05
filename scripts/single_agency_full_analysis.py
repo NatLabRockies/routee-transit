@@ -22,7 +22,7 @@ if __name__ == "__main__":
     import warnings
     from pathlib import Path
 
-    from nrel.routee.transit import GTFSEnergyPredictor
+    from routee.transit import GTFSEnergyPredictor
 
     # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
