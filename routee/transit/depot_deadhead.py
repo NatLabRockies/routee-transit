@@ -26,8 +26,8 @@ def get_default_depot_path() -> Path:
         Path to the FTA_Depot directory containing Transit_Depot.shp
     """
     # Navigate from this file up to the repo root:
-    #   - depot_deadhead.py -> transit -> routee -> nrel -> repo root
-    return Path(__file__).parent.parent.parent.parent / "FTA_Depot"
+    #   - depot_deadhead.py -> transit -> routee -> repo root
+    return Path(__file__).parent.parent.parent / "FTA_Depot"
 
 
 def create_depot_deadhead_trips(
