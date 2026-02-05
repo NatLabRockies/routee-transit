@@ -30,7 +30,7 @@
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
-    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
@@ -50,7 +50,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="_static/togglebutton.js?v=1ae7504c"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -415,7 +415,7 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="routee-transit-prediction-pipeline">
 <h1>RouteE-Transit Prediction Pipeline<a class="headerlink" href="#routee-transit-prediction-pipeline" title="Link to this heading">#</a></h1>
-<p>RouteE-Transit builds on <a class="reference external" href="https://github.com/NREL/routee-powertrain">RouteE-Powertrain</a> to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:</p>
+<p>RouteE-Transit builds on <a class="reference external" href="https://github.com/NatLabRockies/routee-powertrain">RouteE-Powertrain</a> to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:</p>
 <p><img alt="Prediction Pipeline Overview" src="_images/PredictionOverview.png" /></p>
 <p>RouteE-Transit moves from static GTFS files to energy predictions in three steps:</p>
 <section id="specify-gtfs-trip-data">
@@ -437,7 +437,7 @@ document.write(`
 <section class="tex2jax_ignore mathjax_ignore" id="using-the-gtfsenergypredictor-class">
 <h1>Using the GTFSEnergyPredictor Class<a class="headerlink" href="#using-the-gtfsenergypredictor-class" title="Link to this heading">#</a></h1>
 <p>RouteE-Transit provides an object-oriented interface through the <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code> class that simplifies the complete workflow:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span>
 
 <span class="c1"># Initialize predictor</span>
 <span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>

@@ -30,7 +30,7 @@
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
-    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
@@ -50,7 +50,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -420,7 +420,7 @@ extensible API for transit energy prediction.</p>
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">repo_root</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">repo_root</span>
 
 <span class="c1"># Set up logging: Clear any existing handlers</span>
 <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
@@ -436,6 +436,11 @@ extensible API for transit energy prediction.</p>
 <span class="c1"># Specify input data location</span>
 <span class="n">input_directory</span> <span class="o">=</span> <span class="n">repo_root</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;sample-inputs/saltlake/gtfs&quot;</span>
 <span class="n">output_directory</span> <span class="o">=</span> <span class="n">repo_root</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;reports/saltlake&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:04.979456832 [W:onnxruntime:Default, device_discovery.cc:131 GetPciBusId] Skipping pci_bus_id for PCI path at &quot;/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/VMBUS:00/5620e0c7-8062-4dce-aeb7-520c7ef76171&quot; because filename &quot;&quot;5620e0c7-8062-4dce-aeb7-520c7ef76171&quot;&quot; dit not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+
 </pre></div>
 </div>
 </div>
@@ -470,10 +475,10 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2025-12-04 21:16:08,800 [INFO] nrel.routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:05,522 [INFO] routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2025-12-04 21:16:08,801 [INFO] nrel.routee.transit.predictor - Loading GTFS data...
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:05,523 [INFO] routee.transit.predictor - Loading GTFS data...
 </pre></div>
 </div>
 <div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
@@ -493,27 +498,27 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 <span class="g g-Whitespace">     </span><span class="mi">13</span>     <span class="n">save_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="g g-Whitespace">     </span><span class="mi">14</span> <span class="p">)</span>
 
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/nrel/routee/transit/predictor.py:217,</span> in <span class="ni">GTFSEnergyPredictor.run</span><span class="nt">(self, vehicle_models, date, routes, add_mid_block_deadhead, add_depot_deadhead, add_grade, add_hvac, output_dir, save_results)</span>
-<span class="g g-Whitespace">    </span><span class="mi">214</span>     <span class="n">vehicle_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">vehicle_models</span><span class="p">]</span>
-<span class="g g-Whitespace">    </span><span class="mi">216</span> <span class="c1"># Step 1: Load GTFS data</span>
-<span class="ne">--&gt; </span><span class="mi">217</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">219</span> <span class="c1"># Step 2: Filter trips if requested</span>
-<span class="g g-Whitespace">    </span><span class="mi">220</span> <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:261,</span> in <span class="ni">GTFSEnergyPredictor.run</span><span class="nt">(self, vehicle_models, date, routes, add_mid_block_deadhead, add_depot_deadhead, add_hvac, output_dir, save_results)</span>
+<span class="g g-Whitespace">    </span><span class="mi">258</span>     <span class="n">vehicle_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">vehicle_models</span><span class="p">]</span>
+<span class="g g-Whitespace">    </span><span class="mi">260</span> <span class="c1"># Step 1: Load GTFS data</span>
+<span class="ne">--&gt; </span><span class="mi">261</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
+<span class="g g-Whitespace">    </span><span class="mi">263</span> <span class="c1"># Step 2: Filter trips if requested</span>
+<span class="g g-Whitespace">    </span><span class="mi">264</span> <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/nrel/routee/transit/predictor.py:273,</span> in <span class="ni">GTFSEnergyPredictor.load_gtfs_data</span><span class="nt">(self)</span>
-<span class="g g-Whitespace">    </span><span class="mi">265</span> <span class="c1"># Load feed with required columns</span>
-<span class="g g-Whitespace">    </span><span class="mi">266</span> <span class="n">req_cols</span> <span class="o">=</span> <span class="p">{</span>
-<span class="g g-Whitespace">    </span><span class="mi">267</span>     <span class="s2">&quot;stop_times&quot;</span><span class="p">:</span> <span class="p">[</span>
-<span class="g g-Whitespace">    </span><span class="mi">268</span>         <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span>
-   <span class="p">(</span><span class="o">...</span><span class="p">)</span>    <span class="mi">271</span>     <span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">272</span> <span class="p">}</span>
-<span class="ne">--&gt; </span><span class="mi">273</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="o">=</span> <span class="n">Feed</span><span class="o">.</span><span class="n">from_dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gtfs_path</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">req_cols</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">275</span> <span class="n">agencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">agency</span><span class="o">.</span><span class="n">agency_name</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">276</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">277</span>     <span class="sa">f</span><span class="s2">&quot;Feed includes </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">agencies</span><span class="p">)</span><span class="si">}</span><span class="s2"> agencies: </span><span class="si">{</span><span class="n">agencies</span><span class="si">}</span><span class="s2">. &quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">278</span>     <span class="sa">f</span><span class="s2">&quot;Total trips: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">279</span>     <span class="sa">f</span><span class="s2">&quot;shapes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">shapes</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">280</span> <span class="p">)</span>
+<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:319,</span> in <span class="ni">GTFSEnergyPredictor.load_gtfs_data</span><span class="nt">(self)</span>
+<span class="g g-Whitespace">    </span><span class="mi">311</span> <span class="c1"># Load feed with required columns</span>
+<span class="g g-Whitespace">    </span><span class="mi">312</span> <span class="n">req_cols</span> <span class="o">=</span> <span class="p">{</span>
+<span class="g g-Whitespace">    </span><span class="mi">313</span>     <span class="s2">&quot;stop_times&quot;</span><span class="p">:</span> <span class="p">[</span>
+<span class="g g-Whitespace">    </span><span class="mi">314</span>         <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span>
+   <span class="p">(</span><span class="o">...</span><span class="p">)</span>    <span class="mi">317</span>     <span class="p">],</span>
+<span class="g g-Whitespace">    </span><span class="mi">318</span> <span class="p">}</span>
+<span class="ne">--&gt; </span><span class="mi">319</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="o">=</span> <span class="n">Feed</span><span class="o">.</span><span class="n">from_dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gtfs_path</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">req_cols</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">321</span> <span class="n">agencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">agency</span><span class="o">.</span><span class="n">agency_name</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="g g-Whitespace">    </span><span class="mi">322</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">323</span>     <span class="sa">f</span><span class="s2">&quot;Feed includes </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">agencies</span><span class="p">)</span><span class="si">}</span><span class="s2"> agencies: </span><span class="si">{</span><span class="n">agencies</span><span class="si">}</span><span class="s2">. &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">324</span>     <span class="sa">f</span><span class="s2">&quot;Total trips: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">325</span>     <span class="sa">f</span><span class="s2">&quot;shapes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">shapes</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">326</span> <span class="p">)</span>
 
 <span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:560,</span> in <span class="ni">Feed.from_dir</span><span class="nt">(cls, dir_name, columns)</span>
 <span class="g g-Whitespace">    </span><span class="mi">557</span> <span class="n">stops_file</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/stops.txt&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dir_name</span><span class="p">)</span>
