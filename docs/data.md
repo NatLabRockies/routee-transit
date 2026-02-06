@@ -11,4 +11,4 @@ RouteE-Transit relies on input data in the static [GTFS format](https://gtfs.org
 
 
 ## Elevation Tiles
-RouteE-Transit uses [gradeit](https://github.com/NREL/gradeit) to add road grade to links. Gradeit requires local raster files of elevation data to be available for usage. RouteE-Transit will automatically download and cache these files from the USGS [National Map](https://www.usgs.gov/core-science-systems/national-geospatial-program/national-map). If your analysis covers a large geographic area, this could take several minutes the first time. Future runs relying on cached files will be much faster.
+RouteE-Transit uses [gradeit](https://github.com/NatLabRockies/gradeit) to add road grade to links. Gradeit requires local raster files of elevation data to be available for usage. RouteE-Transit will automatically download and cache these files from the USGS [National Map](https://www.usgs.gov/core-science-systems/national-geospatial-program/national-map). If your analysis covers a large geographic area, this could take several minutes the first time. Future runs relying on cached files will be much faster.

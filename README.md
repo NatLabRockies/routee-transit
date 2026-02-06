@@ -1,12 +1,12 @@
 # <img src="docs/images/routeelogo.png" alt="Routee Powertrain" width="100"/>
 
-# RouteE-Transit (`nrel.routee.transit`)
+# RouteE-Transit (`routee.transit`)
 RouteE-Transit provides a complete pipeline for predicting the energy consumption of transit bus trips based on GTFS data and a [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) model. The package matches GTFS shapes to the OpenStreetMap road network, aggregates speed, distance, and grade estimates at the OSM road link level, and then uses a trained RouteE-Powertrain model to predict energy consumption.
 
 ## Quick Start
 
 ```python
-from nrel.routee.transit import GTFSEnergyPredictor
+from routee.transit import GTFSEnergyPredictor
 
 # Create predictor and run complete pipeline
 predictor = GTFSEnergyPredictor(
@@ -23,7 +23,7 @@ trip_results = predictor.run(
 )
 ```
 
-See the [documentation](https://nrel.github.io/routee-transit/) for more examples and details.
+See the [documentation](https://NatLabRockies.github.io/routee-transit/) for more examples and details.
 
 ## Setup
 ### Using Pixi (recommended for developers)

@@ -18,4 +18,4 @@ def package_root() -> Path:
 
 def repo_root() -> Path:
     """Return the path to the root directory of the repository"""
-    return Path(__file__).parent.parent.parent.parent
+    return Path(__file__).parent.parent.parent

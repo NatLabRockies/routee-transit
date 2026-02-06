@@ -7505,33 +7505,6 @@ packages:
   - scikit-learn==1.6.1 ; extra == 'scikit'
   - skl2onnx>=1.19.1,<1.20 ; extra == 'scikit'
   requires_python: '>=3.10,<3.13'
-- pypi: ./
-  name: nrel-routee-transit
-  version: 0.2.1
-  sha256: 34c9ab9f28b09d3817f0db64b3601f89cc758e17fc7b62afdd5c3183659f9912
-  requires_dist:
-  - pandas>=2.3.3,<3
-  - gtfsblocks>=0.1.2,<0.2
-  - nrel-routee-powertrain>=1.4.0,<2
-  - geopy>=2.4.1,<3
-  - gradeit>=0.1.2,<0.2
-  - mappymatch>=0.6.1,<0.7
-  - geopandas>=1.1.1,<2
-  - boto3
-  - requests>=2.32.5,<3
-  - pytest>=8.3,<9.0 ; extra == 'dev'
-  - mypy>=1.14,<2.0 ; extra == 'dev'
-  - pytest-order>=1.3,<2.0 ; extra == 'dev'
-  - ruff>=0.14,<1.0 ; extra == 'dev'
-  - hatch>=1.14,<2.0 ; extra == 'dev'
-  - ipykernel>6.29,<7.0 ; extra == 'dev'
-  - jupyter-book>=1.0,<2.0 ; extra == 'dev'
-  - pandas-stubs>=2.0,<3.0 ; extra == 'dev'
-  - types-requests ; extra == 'dev'
-  - folium>=0.19 ; extra == 'dev'
-  - python-dotenv>=1.2.1,<2 ; extra == 'dev'
-  requires_python: '>=3.10,<3.13'
-  editable: true
 - pypi: https://files.pythonhosted.org/packages/22/c2/4b9221495b2a132cc9d2eb862e21d42a009f5a60e45fc44b00118c174bff/numpy-2.2.6-cp310-cp310-macosx_11_0_arm64.whl
   name: numpy
   version: 2.2.6
@@ -11021,6 +10994,33 @@ packages:
   - markdown-it-py>=2.2.0
   - pygments>=2.13.0,<3.0.0
   requires_python: '>=3.8.0'
+- pypi: ./
+  name: routee-transit
+  version: 0.3.0
+  sha256: bf9bbe33079c43cb1fc3a9dde915c3c734aee710916b3c3f8b8d87c9e191650e
+  requires_dist:
+  - pandas>=2.3.3,<3
+  - gtfsblocks>=0.1.2,<0.2
+  - nrel-routee-powertrain>=1.4.0,<2
+  - geopy>=2.4.1,<3
+  - gradeit>=0.1.2,<0.2
+  - mappymatch>=0.6.1,<0.7
+  - geopandas>=1.1.1,<2
+  - boto3
+  - requests>=2.32.5,<3
+  - pytest>=8.3,<9.0 ; extra == 'dev'
+  - mypy>=1.14,<2.0 ; extra == 'dev'
+  - pytest-order>=1.3,<2.0 ; extra == 'dev'
+  - ruff>=0.14,<1.0 ; extra == 'dev'
+  - hatch>=1.14,<2.0 ; extra == 'dev'
+  - ipykernel>6.29,<7.0 ; extra == 'dev'
+  - jupyter-book>=1.0,<2.0 ; extra == 'dev'
+  - pandas-stubs>=2.0,<3.0 ; extra == 'dev'
+  - types-requests ; extra == 'dev'
+  - folium>=0.19 ; extra == 'dev'
+  - python-dotenv>=1.2.1,<2 ; extra == 'dev'
+  requires_python: '>=3.10,<3.13'
+  editable: true
 - pypi: https://files.pythonhosted.org/packages/03/e7/98a2f4ac921d82f33e03f3835f5bf3a4a40aa1bfdc57975e74a97b2b4bdd/rpds_py-0.30.0-cp312-cp312-macosx_10_12_x86_64.whl
   name: rpds-py
   version: 0.30.0

@@ -1,5 +1,5 @@
 # RouteE-Transit Prediction Pipeline
-RouteE-Transit builds on [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:
+RouteE-Transit builds on [RouteE-Powertrain](https://github.com/NatLabRockies/routee-powertrain) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:
 
 ![Prediction Pipeline Overview](images/PredictionOverview.png)
 
@@ -25,7 +25,7 @@ In the last step, a trained RouteE-Powertrain model is run to predict energy con
 RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class that simplifies the complete workflow:
 
 ```python
-from nrel.routee.transit import GTFSEnergyPredictor
+from routee.transit import GTFSEnergyPredictor
 
 # Initialize predictor
 predictor = GTFSEnergyPredictor(
