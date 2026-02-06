@@ -2,11 +2,11 @@ from pathlib import Path
 
 __all__ = [
     "GTFSEnergyPredictor",
-    "NetworkRouter",
+    "create_deadhead_shapes",
     "add_HVAC_energy",
 ]
 
-from .deadhead_router import NetworkRouter
+from .deadhead_router import create_deadhead_shapes
 from .predictor import GTFSEnergyPredictor
 from .thermal_energy import add_HVAC_energy
 

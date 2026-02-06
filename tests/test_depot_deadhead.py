@@ -8,7 +8,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 
-from nrel.routee.transit.depot_deadhead import (
+from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
     get_default_depot_path,

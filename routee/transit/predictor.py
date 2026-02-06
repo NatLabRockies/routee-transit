@@ -15,8 +15,9 @@ import numpy as np
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from typing_extensions import Self, Union
+from nrel.routee.compass import CompassApp
 
-from routee.transit.deadhead_router import NetworkRouter
+from routee.transit.deadhead_router import create_deadhead_shapes
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
@@ -91,6 +92,7 @@ class GTFSEnergyPredictor:
         gtfs_path: str | Path,
         depot_path: str | Path | None = None,
         n_processes: int | None = None,
+        compass_app: CompassApp | None = None,
     ):
         """
         Initialize the GTFSEnergyPredictor.
@@ -103,6 +105,7 @@ class GTFSEnergyPredictor:
                 depot/facility locations for transit agencies across the United States.
                 Data source: https://data.transportation.gov/stories/s/gd62-jzra
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
+            compass_app: An optional pre-initialized CompassApp instance.
         """
         self.gtfs_path = Path(gtfs_path)
         if depot_path is None:
@@ -110,6 +113,7 @@ class GTFSEnergyPredictor:
         else:
             self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
+        self.app = compass_app
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -336,6 +340,41 @@ class GTFSEnergyPredictor:
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
 
+    def load_compass_app(self, buffer_deg: float = 0.05) -> None:
+        """
+        Initialize the CompassApp using the bounding box of the loaded shapes.
+
+        Args:
+            buffer_deg: Buffer in degrees to add to the bounding box.
+        """
+        if self.app is not None:
+            return
+
+        if self.shapes.empty:
+            raise ValueError(
+                "Must load GTFS data (and shapes) before initializing CompassApp"
+            )
+
+        import osmnx as ox
+
+        logger.info("Building CompassApp from GTFS shapes bounding box...")
+
+        min_lon = self.shapes.shape_pt_lon.min()
+        max_lon = self.shapes.shape_pt_lon.max()
+        min_lat = self.shapes.shape_pt_lat.min()
+        max_lat = self.shapes.shape_pt_lat.max()
+
+        bbox = (
+            min_lon - buffer_deg,
+            min_lat - buffer_deg,
+            max_lon + buffer_deg,
+            max_lat + buffer_deg,
+        )
+
+        graph = ox.graph_from_bbox(bbox, network_type="drive")
+        self.app = CompassApp.from_graph(graph)
+        logger.info("CompassApp initialized")
+
     def filter_trips(
         self,
         date: str | None = None,
@@ -430,11 +469,8 @@ class GTFSEnergyPredictor:
         ]
 
         # Generate shapes for deadhead trips
-        all_points = pd.concat(
-            [deadhead_ods["geometry_origin"], deadhead_ods["geometry_destination"]]
-        )
-        router = NetworkRouter.from_geometries(all_points)
-        deadhead_shapes = router.create_deadhead_shapes(df=deadhead_ods, n_processes=1)
+        self.load_compass_app()
+        deadhead_shapes = create_deadhead_shapes(app=self.app, df=deadhead_ods)
 
         # Filter deadhead trips to only those with generated shapes
         deadhead_trips = deadhead_trips[
@@ -551,28 +587,15 @@ class GTFSEnergyPredictor:
         )
 
         # Generate shapes for trips from depot to first stop
-        first_points = pd.concat(
-            [
-                first_stops_gdf["geometry_origin"],
-                first_stops_gdf["geometry_destination"],
-            ]
-        )
-        from_depot_router = NetworkRouter.from_geometries(first_points)
-        from_depot_shapes = from_depot_router.create_deadhead_shapes(
-            df=first_stops_gdf, n_processes=1
-        )
+        self.load_compass_app()
+        from_depot_shapes = create_deadhead_shapes(app=self.app, df=first_stops_gdf)
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
         )
 
         # Generate shapes for trips from last stop to depot
-        last_points = pd.concat(
-            [last_stops_gdf["geometry_origin"], last_stops_gdf["geometry_destination"]]
-        )
-        to_depot_router = NetworkRouter.from_geometries(last_points)
-        to_depot_shapes = to_depot_router.create_deadhead_shapes(
-            df=last_stops_gdf, n_processes=1
-        )
+        self.load_compass_app()
+        to_depot_shapes = create_deadhead_shapes(app=self.app, df=last_stops_gdf)
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
         )
@@ -904,6 +927,8 @@ class GTFSEnergyPredictor:
         ]
         if "grade" in results.columns:
             result_cols.append("grade")
+        if "geom" in results.columns:
+            result_cols.append("geom")
         result_cols.extend(pred_cols)
 
         return results[result_cols]
