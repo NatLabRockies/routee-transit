@@ -6,17 +6,17 @@ from routee.transit.predictor import GTFSEnergyPredictor
 
 
 class TestPredictor(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.gtfs_path = "/tmp/fake_gtfs"
         self.predictor = GTFSEnergyPredictor(self.gtfs_path)
 
-    def test_init(self):
+    def test_init(self) -> None:
         self.assertEqual(self.predictor.gtfs_path, Path(self.gtfs_path))
         self.assertTrue(self.predictor.trips.empty)
         self.assertTrue(self.predictor.shapes.empty)
 
     @patch("routee.transit.predictor.Feed.from_dir")
-    def test_load_gtfs_data(self, mock_from_dir):
+    def test_load_gtfs_data(self, mock_from_dir: MagicMock) -> None:
         # Mock Feed
         mock_feed = MagicMock()
 
@@ -42,7 +42,7 @@ class TestPredictor(unittest.TestCase):
         self.assertEqual(len(self.predictor.shapes), 1)
 
     @patch("routee.transit.predictor.filter_blocks_by_route")
-    def test_filter_trips(self, mock_filter):
+    def test_filter_trips(self, mock_filter: MagicMock) -> None:
         # Setup pre-loaded state
         self.predictor.feed = MagicMock()
         self.predictor.feed.get_service_ids_from_date.return_value = ["S1"]
@@ -60,7 +60,7 @@ class TestPredictor(unittest.TestCase):
         self.assertEqual(len(self.predictor.trips), 1)
         self.assertEqual(self.predictor.trips.iloc[0]["service_id"], "S1")
 
-    def test_add_trip_times(self):
+    def test_add_trip_times(self) -> None:
         # Setup pre-loaded state
         self.predictor.feed = MagicMock()
         self.predictor.feed.stop_times = pd.DataFrame(

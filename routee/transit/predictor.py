@@ -5,14 +5,15 @@ This module provides the main GTFSEnergyPredictor class, which encapsulates
 the complete workflow for predicting transit bus energy consumption from GTFS data.
 """
 
+from __future__ import annotations
+
 import logging
 import multiprocessing as mp
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
-from typing_extensions import Self, Union
 from nrel.routee.compass import CompassApp
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
@@ -104,6 +105,8 @@ class GTFSEnergyPredictor:
         depot_path: str | Path | None = None,
         n_processes: int | None = None,
         compass_app: CompassApp | None = None,
+        output_dir: str | Path | None = None,
+        vehicle_models: list[str] | None = None,
     ):
         """
         Initialize the GTFSEnergyPredictor.
@@ -125,6 +128,8 @@ class GTFSEnergyPredictor:
             self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
         self.app = compass_app
+        self.output_dir = Path(output_dir) if output_dir else None
+        self.vehicle_models = vehicle_models
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -186,7 +191,6 @@ class GTFSEnergyPredictor:
 
     def run(
         self,
-        vehicle_models: list[str] | str,
         *,
         # Filtering options
         date: str | None = None,
@@ -266,9 +270,6 @@ class GTFSEnergyPredictor:
         ...     save_results=False
         ... )
         """
-        # Convert single model to list
-        if isinstance(vehicle_models, str):
-            vehicle_models = [vehicle_models]
 
         # Step 1: Load GTFS data
         self.load_gtfs_data()
@@ -293,17 +294,18 @@ class GTFSEnergyPredictor:
                 self.add_depot_deadhead()
 
         # Step 4: Predict energy using CompassApp
-        self.predict_energy(vehicle_models=vehicle_models, add_hvac=add_hvac)
+        self.predict_energy(add_hvac=add_hvac)
 
         # Step 7: Save results if requested
         if save_results:
-            save_path = Path(output_dir) if output_dir else Path.cwd()
-            self.save_results(save_path)
+            if output_dir:
+                self.output_dir = Path(output_dir)
+            self.save_results()
 
         # Return trip-level predictions
         return self.get_trip_predictions()
 
-    def load_gtfs_data(self) -> Self:
+    def load_gtfs_data(self) -> "GTFSEnergyPredictor":
         """
         Load GTFS data from the feed directory.
 
@@ -375,14 +377,20 @@ class GTFSEnergyPredictor:
         )
 
         graph = ox.graph_from_bbox(bbox, network_type="drive")
-        self.app = CompassApp.from_graph(graph)
+        if self.output_dir is not None:
+            cache_dir = self.output_dir / "compass_app"
+        else:
+            cache_dir = None
+        self.app = CompassApp.from_graph(
+            graph, cache_dir=cache_dir, vehicle_models=self.vehicle_models
+        )
         logger.info("CompassApp initialized")
 
     def filter_trips(
         self,
         date: str | None = None,
         routes: list[str] | None = None,
-    ) -> Self:
+    ) -> "GTFSEnergyPredictor":
         """
         Filter trips by date and/or routes.
 
@@ -434,7 +442,7 @@ class GTFSEnergyPredictor:
 
         return self
 
-    def add_mid_block_deadhead(self) -> Self:
+    def add_mid_block_deadhead(self) -> "GTFSEnergyPredictor":
         """
         Add deadhead trips between consecutive trips in each block.
 
@@ -473,6 +481,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for deadhead trips
         self.load_compass_app()
+        assert self.app is not None
         deadhead_shapes = create_deadhead_shapes(app=self.app, df=deadhead_ods)
 
         # Filter deadhead trips to only those with generated shapes
@@ -547,7 +556,7 @@ class GTFSEnergyPredictor:
         logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
         return self
 
-    def add_depot_deadhead(self) -> Self:
+    def add_depot_deadhead(self) -> "GTFSEnergyPredictor":
         """
         Add deadhead trips from depot to first stop and from last stop to depot.
 
@@ -591,6 +600,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from depot to first stop
         self.load_compass_app()
+        assert self.app is not None
         from_depot_shapes = create_deadhead_shapes(app=self.app, df=first_stops_gdf)
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -598,6 +608,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         self.load_compass_app()
+        assert self.app is not None
         to_depot_shapes = create_deadhead_shapes(app=self.app, df=last_stops_gdf)
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
@@ -655,9 +666,9 @@ class GTFSEnergyPredictor:
         # Add trip count column to deadhead trips, let it be the same as the service trips
         # before or after the deadhead trip
         deadhead_trips["before_or_after_trip"] = deadhead_trips["trip_id"].apply(
-            lambda x: x.split("depot_to_")[1]
-            if "depot_to_" in x
-            else x.split("_to_depot")[0]
+            lambda x: (
+                x.split("depot_to_")[1] if "depot_to_" in x else x.split("_to_depot")[0]
+            )
         )
         trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
         deadhead_trips["trip_count"] = deadhead_trips["before_or_after_trip"].map(
@@ -705,7 +716,7 @@ class GTFSEnergyPredictor:
         df_by_link["travel_time_minutes"] /= 60
         return df_by_link
 
-    def get_link_level_inputs(self) -> Self:
+    def get_link_level_inputs(self) -> "GTFSEnergyPredictor":
         """
         Match GTFS shapes to road network and prepare RouteE inputs.
 
@@ -737,7 +748,12 @@ class GTFSEnergyPredictor:
         logger.debug(f"Upsampled {len(shape_groups)} shapes")
 
         # Step 2: Match to network
-        matched_shapes = self._match_shapes_to_network(upsampled_shapes)
+        model_name = (
+            self.vehicle_models[0]
+            if self.vehicle_models
+            else "Transit_Bus_Battery_Electric"
+        )
+        matched_shapes = self._match_shapes_to_network(upsampled_shapes, model_name)
         self.matched_shapes = matched_shapes
 
         logger.info("Finished map matching")
@@ -857,11 +873,10 @@ class GTFSEnergyPredictor:
         if "kilometers" in gdf.columns:
             gdf["kilometers"] = gdf["kilometers"] / MI_PER_KM
 
-        return gdf
+        return cast(pd.DataFrame, gdf)
 
     def predict_energy(
         self,
-        vehicle_models: Union[str, list[str]],
         add_hvac: bool = False,
     ) -> dict[str, pd.DataFrame]:
         """
@@ -891,11 +906,12 @@ class GTFSEnergyPredictor:
         if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError("Must call load_gtfs_data() before predicting energy")
 
-        vehicle_models_list: list[str]
-        if isinstance(vehicle_models, str):
-            vehicle_models_list = [vehicle_models]
+        if self.vehicle_models is None:
+            vehicle_models_list = list(VEHICLE_MODELS.keys())
+        elif isinstance(self.vehicle_models, str):
+            vehicle_models_list = [self.vehicle_models]
         else:
-            vehicle_models_list = list(vehicle_models)
+            vehicle_models_list = list(self.vehicle_models)
 
         # Validate vehicle models
         for model in vehicle_models_list:
@@ -1067,7 +1083,7 @@ class GTFSEnergyPredictor:
 
     def save_results(
         self,
-        output_dir: str | Path,
+        output_dir: str | Path | None = None,
         save_geometry: bool = True,
         save_inputs: bool = True,
     ) -> None:
@@ -1075,7 +1091,8 @@ class GTFSEnergyPredictor:
         Save prediction results to CSV files.
 
         Args:
-            output_dir: Directory to save results
+            output_dir: Directory to save results. If None, uses self.output_dir,
+                defaulting to the current working directory if that is also None.
             save_geometry: Whether to save link geometry separately
             save_inputs: Whether to save RouteE input features
 
@@ -1085,7 +1102,13 @@ class GTFSEnergyPredictor:
         if not self.energy_predictions:
             raise RuntimeError("No predictions to save. Call predict_energy() first.")
 
-        output_path = Path(output_dir)
+        if output_dir:
+            output_path = Path(output_dir)
+        elif self.output_dir:
+            output_path = self.output_dir
+        else:
+            output_path = Path.cwd()
+
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Save link-level predictions

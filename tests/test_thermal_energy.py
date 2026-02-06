@@ -12,7 +12,7 @@ from routee.transit.thermal_energy import (
 
 
 class TestThermalEnergy(unittest.TestCase):
-    def test_load_thermal_lookup_table(self):
+    def test_load_thermal_lookup_table(self) -> None:
         df = load_thermal_lookup_table()
         self.assertIsInstance(df, pd.DataFrame)
         self.assertIn("Temp_C", df.columns)
@@ -22,7 +22,7 @@ class TestThermalEnergy(unittest.TestCase):
         val_20 = df[df["Temp_C"] == 20.0]["Power"].values[0]
         self.assertAlmostEqual(val_20, 1.1, places=1)
 
-    def test_compute_HVAC_energy(self):
+    def test_compute_HVAC_energy(self) -> None:
         # 0 to 1 hour, constant 10kW power
         start_hours = pd.Series([0.0])
         end_hours = pd.Series([1.0])
@@ -37,7 +37,12 @@ class TestThermalEnergy(unittest.TestCase):
     @patch("routee.transit.thermal_energy.fetch_counties_gdf")
     @patch("routee.transit.thermal_energy.download_tmy_files")
     @patch("routee.transit.thermal_energy.get_hourly_temperature")
-    def test_add_HVAC_energy(self, mock_get_hourly, mock_download, mock_fetch_counties):
+    def test_add_HVAC_energy(
+        self,
+        mock_get_hourly: MagicMock,
+        mock_download: MagicMock,
+        mock_fetch_counties: MagicMock,
+    ) -> None:
         # Setup mock Feed
         mock_feed = MagicMock()
         mock_feed.stops = pd.DataFrame(

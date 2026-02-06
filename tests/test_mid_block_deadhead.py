@@ -1,6 +1,5 @@
 import unittest
 import pandas as pd
-import numpy as np
 from unittest.mock import MagicMock
 from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_trips,
@@ -9,7 +8,7 @@ from routee.transit.mid_block_deadhead import (
 
 
 class TestMidBlockDeadhead(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Sample trips on two blocks
         self.trips_df = pd.DataFrame(
             {
@@ -48,7 +47,7 @@ class TestMidBlockDeadhead(unittest.TestCase):
             }
         )
 
-    def test_create_mid_block_deadhead_trips(self):
+    def test_create_mid_block_deadhead_trips(self) -> None:
         # Should find one deadhead trip: T1 -> T2
         deadhead_trips = create_mid_block_deadhead_trips(
             self.trips_df, self.stop_times_df
@@ -59,7 +58,7 @@ class TestMidBlockDeadhead(unittest.TestCase):
         self.assertEqual(deadhead_trips.iloc[0]["trip_type"], "mid_block_deadhead")
         self.assertEqual(deadhead_trips.iloc[0]["block_id"], "B1")
 
-    def test_create_mid_block_deadhead_stops(self):
+    def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(
             self.trips_df, self.stop_times_df
         )

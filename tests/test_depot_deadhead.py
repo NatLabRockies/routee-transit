@@ -17,14 +17,14 @@ from routee.transit.depot_deadhead import (
 
 
 class TestGetDefaultDepotPath(unittest.TestCase):
-    def test_get_default_depot_path(self):
+    def test_get_default_depot_path(self) -> None:
         path = get_default_depot_path()
         self.assertIsInstance(path, Path)
         self.assertTrue(str(path).endswith("FTA_Depot"))
 
 
 class TestCreateDepotDeadheadTrips(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Create sample trips and stop_times dataframes
         self.trips_df = pd.DataFrame(
             {
@@ -49,7 +49,7 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
             }
         )
 
-    def test_create_depot_deadhead_trips_basic(self):
+    def test_create_depot_deadhead_trips_basic(self) -> None:
         result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
 
         # Should create 2 trips per block (pull-out and pull-in)
@@ -65,7 +65,7 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         self.assertEqual(len(pullin_trips), 2)
         self.assertTrue(all(pullin_trips["trip_id"].str.endswith("_to_depot")))
 
-    def test_create_depot_deadhead_trips_columns(self):
+    def test_create_depot_deadhead_trips_columns(self) -> None:
         result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
 
         required_columns = [
@@ -84,13 +84,13 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         for col in required_columns:
             self.assertIn(col, result.columns)
 
-    def test_create_depot_deadhead_trips_route_type(self):
+    def test_create_depot_deadhead_trips_route_type(self) -> None:
         result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
 
         # All route types should be 3 (bus)
         self.assertTrue(all(result["route_type"] == 3))
 
-    def test_create_depot_deadhead_trips_with_existing_deadhead(self):
+    def test_create_depot_deadhead_trips_with_existing_deadhead(self) -> None:
         # Add a between-trip deadhead to trips
         trips_with_deadhead = self.trips_df.copy()
         trips_with_deadhead["from_trip"] = [None, "trip1", None, None]
@@ -102,7 +102,7 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
 
 
 class TestInferDepotTripEndpoints(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Create sample trips
         self.trips_df = pd.DataFrame(
             {
@@ -143,13 +143,13 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
         )
         depot_gdf.to_file(self.depot_path, driver="GeoJSON")
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         # Clean up temporary files
         import shutil
 
         shutil.rmtree(self.temp_dir)
 
-    def test_infer_depot_trip_endpoints_returns_geodataframes(self):
+    def test_infer_depot_trip_endpoints_returns_geodataframes(self) -> None:
         first_stops, last_stops = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
@@ -157,7 +157,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
         self.assertIsInstance(first_stops, gpd.GeoDataFrame)
         self.assertIsInstance(last_stops, gpd.GeoDataFrame)
 
-    def test_infer_depot_trip_endpoints_columns(self):
+    def test_infer_depot_trip_endpoints_columns(self) -> None:
         first_stops, last_stops = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
@@ -168,7 +168,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             self.assertIn("geometry_origin", gdf.columns)
             self.assertIn("geometry_destination", gdf.columns)
 
-    def test_infer_depot_trip_endpoints_geometry_types(self):
+    def test_infer_depot_trip_endpoints_geometry_types(self) -> None:
         first_stops, last_stops = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
@@ -180,13 +180,13 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             for geom in gdf["geometry_destination"]:
                 self.assertEqual(geom.geom_type, "Point")
 
-    def test_infer_depot_trip_endpoints_file_not_found(self):
+    def test_infer_depot_trip_endpoints_file_not_found(self) -> None:
         with self.assertRaises(FileNotFoundError):
             infer_depot_trip_endpoints(
                 self.trips_df, self.feed, "/nonexistent/path/to/depots.geojson"
             )
 
-    def test_infer_depot_trip_endpoints_crs(self):
+    def test_infer_depot_trip_endpoints_crs(self) -> None:
         first_stops, last_stops = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
@@ -197,7 +197,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
 
 
 class TestCreateDepotDeadheadStops(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Create sample GeoDataFrames with proper geometry column
         self.first_stops_gdf = gpd.GeoDataFrame(
             {
@@ -229,7 +229,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             }
         )
 
-    def test_create_depot_deadhead_stops_returns_dataframes(self):
+    def test_create_depot_deadhead_stops_returns_dataframes(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
@@ -237,7 +237,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         self.assertIsInstance(stop_times, pd.DataFrame)
         self.assertIsInstance(stops, pd.DataFrame)
 
-    def test_create_depot_deadhead_stops_columns(self):
+    def test_create_depot_deadhead_stops_columns(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
@@ -259,7 +259,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         for col in required_stops_cols:
             self.assertIn(col, stops.columns)
 
-    def test_create_depot_deadhead_stops_count(self):
+    def test_create_depot_deadhead_stops_count(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
@@ -269,7 +269,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         self.assertEqual(len(stop_times), 4)
         self.assertEqual(len(stops), 4)
 
-    def test_create_depot_deadhead_stops_sequences(self):
+    def test_create_depot_deadhead_stops_sequences(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
@@ -280,7 +280,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             sequences = sorted(trip_stops["stop_sequence"].tolist())
             self.assertEqual(sequences, [1, 2])
 
-    def test_create_depot_deadhead_stops_stop_ids(self):
+    def test_create_depot_deadhead_stops_stop_ids(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
@@ -289,7 +289,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         for stop_id in stops["stop_id"]:
             self.assertTrue(stop_id.startswith("depot_deadhead_"))
 
-    def test_create_depot_deadhead_stops_coordinates(self):
+    def test_create_depot_deadhead_stops_coordinates(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )

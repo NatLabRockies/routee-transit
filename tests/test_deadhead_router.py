@@ -13,15 +13,15 @@ from routee.transit.deadhead_router import (
 
 
 class TestDeadheadRouter(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = MagicMock()
 
-    def test_haversine_km(self):
+    def test_haversine_km(self) -> None:
         # Distance between (0,0) and (0,1) lat is approx 111.19 km
         dist = _haversine_km(0, 0, 1, 0)
         self.assertAlmostEqual(dist, 111.19, places=1)
 
-    def test_haversine_km_edge_cases(self):
+    def test_haversine_km_edge_cases(self) -> None:
         # Same point should return 0
         dist = _haversine_km(39.0, -105.0, 39.0, -105.0)
         self.assertAlmostEqual(dist, 0.0, places=5)
@@ -30,7 +30,7 @@ class TestDeadheadRouter(unittest.TestCase):
         dist = _haversine_km(0, 0, 0, 1)
         self.assertAlmostEqual(dist, 111.19, places=1)
 
-    def test_route_single_trip_no_route_fallback(self):
+    def test_route_single_trip_no_route_fallback(self) -> None:
         # Test fallback when no edges are found
         rows = route_single_trip_fallback(-105.0, 39.0, -104.9, 39.1, "B1")
 
@@ -40,7 +40,7 @@ class TestDeadheadRouter(unittest.TestCase):
         self.assertGreater(rows[-1]["shape_dist_traveled"], 0)
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
-    def test_create_deadhead_shapes(self, mock_geom_from_route):
+    def test_create_deadhead_shapes(self, mock_geom_from_route: MagicMock) -> None:
         from shapely.geometry import LineString
 
         # Setup mock app
@@ -63,7 +63,9 @@ class TestDeadheadRouter(unittest.TestCase):
         self.assertEqual(out_df.iloc[0]["shape_pt_sequence"], 1)
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
-    def test_route_single_trip_with_geometry(self, mock_geom_from_route):
+    def test_route_single_trip_with_geometry(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
         from shapely.geometry import LineString
 
         # Test with result that has geometry
@@ -92,7 +94,9 @@ class TestDeadheadRouter(unittest.TestCase):
         self.assertEqual(out_df.iloc[1]["shape_pt_lon"], -104.95)
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
-    def test_create_deadhead_shapes_multiple_trips(self, mock_geom_from_route):
+    def test_create_deadhead_shapes_multiple_trips(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
         from shapely.geometry import LineString
 
         # Test with multiple trips
@@ -121,7 +125,9 @@ class TestDeadheadRouter(unittest.TestCase):
         self.assertEqual(len(unique_shapes), 2)
 
     @patch("routee.transit.deadhead_router.log")
-    def test_create_deadhead_shapes_compass_error_fallback(self, mock_log):
+    def test_create_deadhead_shapes_compass_error_fallback(
+        self, mock_log: MagicMock
+    ) -> None:
         # Test that a compass error triggers a fallback and a warning log
         self.app.run.return_value = [{"error": "Something went wrong"}]
 
@@ -143,8 +149,8 @@ class TestDeadheadRouter(unittest.TestCase):
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
     def test_create_deadhead_shapes_geometry_parsing_failure(
-        self, mock_geom_from_route
-    ):
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
         # Test that geometry parsing failure raises an error
         self.app.run.return_value = [{"route": {"path": "corrupt"}}]
         mock_geom_from_route.side_effect = ValueError("Parsing failed")

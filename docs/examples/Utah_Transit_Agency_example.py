@@ -47,16 +47,16 @@ dataset (https://data.transportation.gov/stories/s/gd62-jzra).
 
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
+    output_dir=output_directory,
+    vehicle_models=["Transit_Bus_Battery_Electric"],
 )
 
 trip_results = predictor.run(
-    vehicle_models="Transit_Bus_Battery_Electric",
     date="2023/08/02",
     routes=["806", "807"],
     add_depot_deadhead=True,
     add_mid_block_deadhead=True,
     add_hvac=True,
-    output_dir=output_directory,
     save_results=False,
 )
 
@@ -75,23 +75,19 @@ The `run()` method automatically performs all these steps:
 Let's examine the results:
 """
 
-trip_results.head()
+print(trip_results.head())
 
 """
 ## Calculate Energy Efficiency Metrics
 
 We can calculate energy efficiency in kWh per mile, including HVAC loads.
+The results now include a 'scenario' column (summer/winter) for HVAC impacts.
 """
 
-if "Winter_HVAC_Energy" in trip_results.columns:
-    trip_results["kwh_per_mi_winter"] = (
-        trip_results["kWhs"] + trip_results["Winter_HVAC_Energy"]
-    ) / trip_results["miles"]
-    trip_results["kwh_per_mi_summer"] = (
-        trip_results["kWhs"] + trip_results["Summer_HVAC_Energy"]
-    ) / trip_results["miles"]
+if "scenario" in trip_results.columns:
+    trip_results["kwh_per_mi"] = trip_results["energy_used"] / trip_results["miles"]
 
-trip_results
+print(trip_results.groupby("scenario")["kwh_per_mi"].mean())
 
 """
 ## Access Additional Results
@@ -101,7 +97,4 @@ After running predictions, you can access link-level results and RouteE inputs:
 
 # Link-level predictions show energy for each road segment
 link_results = predictor.get_link_predictions()
-link_results.head()
-
-# RouteE inputs show the features used for prediction
-predictor.routee_inputs.head()
+print(link_results.head())

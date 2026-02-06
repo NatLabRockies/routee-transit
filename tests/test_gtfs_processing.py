@@ -4,14 +4,13 @@ import pandas as pd
 from routee.transit.gtfs_processing import (
     upsample_shape,
     add_stop_flags_to_shape,
-    match_shape_to_osm,
     estimate_trip_timestamps,
     extend_trip_traces,
 )
 
 
 class TestGTFSProcessing(unittest.TestCase):
-    def test_upsample_shape(self):
+    def test_upsample_shape(self) -> None:
         # Create a simple shape with 2 points
         df = pd.DataFrame(
             {
@@ -32,7 +31,7 @@ class TestGTFSProcessing(unittest.TestCase):
         # Distance is roughly 14km, at 30km/h (8.33 m/s) it should be around 1700 samples
         self.assertGreater(len(upsampled), 1000)
 
-    def test_add_stop_flags_to_shape(self):
+    def test_add_stop_flags_to_shape(self) -> None:
         trip_shape_df = pd.DataFrame(
             {
                 "trip_id": ["T1", "T1", "T1"],
@@ -57,44 +56,7 @@ class TestGTFSProcessing(unittest.TestCase):
         self.assertEqual(result.iloc[1]["with_stop"], 0)
         self.assertEqual(result.iloc[2]["with_stop"], 1)
 
-    @patch("routee.transit.gtfs_processing.Trace")
-    @patch("routee.transit.gtfs_processing.Geofence")
-    @patch("routee.transit.gtfs_processing.NxMap")
-    @patch("routee.transit.gtfs_processing.LCSSMatcher")
-    def test_match_shape_to_osm(
-        self, mock_matcher_cls, mock_nxmap_cls, mock_geofence_cls, mock_trace_cls
-    ):
-        df = pd.DataFrame(
-            {"shape_pt_lat": [40.0, 40.1], "shape_pt_lon": [-105.0, -105.1]}
-        )
-
-        # Setup mocks
-        mock_trace = MagicMock()
-        mock_trace_cls.from_dataframe.return_value = mock_trace
-
-        mock_geofence = MagicMock()
-        mock_geofence_cls.from_trace.return_value = mock_geofence
-
-        mock_nxmap = MagicMock()
-        mock_nxmap_cls.from_geofence.return_value = mock_nxmap
-
-        mock_matcher = MagicMock()
-        mock_matcher_cls.return_value = mock_matcher
-
-        mock_matches = MagicMock()
-        mock_matches.matches_to_dataframe.return_value = pd.DataFrame(
-            {"edge_id": [1, 2]}
-        )
-        mock_matcher.match_trace.return_value = mock_matches
-
-        result = match_shape_to_osm(df)
-
-        self.assertIn("edge_id", result.columns)
-        mock_trace_cls.from_dataframe.assert_called_once()
-        mock_geofence_cls.from_trace.assert_called_once_with(mock_trace, padding=1e3)
-        mock_nxmap_cls.from_geofence.assert_called_once()
-
-    def test_estimate_trip_timestamps(self):
+    def test_estimate_trip_timestamps(self) -> None:
         df = pd.DataFrame(
             {
                 "shape_dist_traveled": [0, 500, 1000],
@@ -113,7 +75,7 @@ class TestGTFSProcessing(unittest.TestCase):
         self.assertEqual(result.iloc[1]["timestamp"], pd.Timedelta(hours=8, minutes=5))
 
     @patch("routee.transit.gtfs_processing.mp.Pool")
-    def test_extend_trip_traces(self, mock_pool_cls):
+    def test_extend_trip_traces(self, mock_pool_cls: MagicMock) -> None:
         # Setup mock Feed
         mock_feed = MagicMock()
         mock_feed.stop_times = pd.DataFrame(

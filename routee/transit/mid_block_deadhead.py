@@ -152,10 +152,12 @@ def create_mid_block_deadhead_stops(
     )
     # Calculate distance from origin to destination for deadhead trips
     deadhead_trips["distance_m"] = deadhead_trips.apply(
-        lambda row: geodesic(
-            (row.geometry_origin.y, row.geometry_origin.x),
-            (row.geometry_destination.y, row.geometry_destination.x),
-        ).meters,
+        lambda row: (
+            geodesic(
+                (row.geometry_origin.y, row.geometry_origin.x),
+                (row.geometry_destination.y, row.geometry_destination.x),
+            ).meters
+        ),
         axis=1,
     )
     # Assume average speed of 30 km/h (to be consistant with the number adopted in gtfs_feature_processing.py)

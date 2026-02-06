@@ -63,15 +63,7 @@ pip install ".[dev]"      # Install with dev dependencies
 Pixi tasks are defined in `pyproject.toml` under `[tool.pixi.feature.dev.tasks]`:
 
 ```bash
-pixi run fmt_fix          # Format code with ruff
-pixi run fmt_check        # Check formatting
-pixi run lint_fix         # Fix linting issues
-pixi run lint_check       # Check linting
-pixi run typing           # Run mypy type checking
-pixi run test             # Run pytest
-pixi run docs             # Build documentation
-pixi run check            # Run all checks and fixes
-pixi run ci               # Run CI checks (no auto-fix)
+pixi run -e dev-py312 check            # Run all checks and fixes
 ```
 
 ### Code Quality Standards

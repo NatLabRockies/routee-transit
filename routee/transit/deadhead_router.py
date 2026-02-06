@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import geopandas as gpd
 import pandas as pd
@@ -32,7 +33,7 @@ def route_single_trip_fallback(
     end_lon: float,
     end_lat: float,
     block_id: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Return a simple straight-line link from start to end if no route found.
     """
@@ -134,7 +135,7 @@ def create_deadhead_shapes(
         prev_lat, prev_lon = None, None
         cum_km = 0.0
         for seq, (lon, lat) in enumerate(coords, start=1):
-            if prev_lat is not None:
+            if prev_lat is not None and prev_lon is not None:
                 cum_km += _haversine_km(prev_lat, prev_lon, lat, lon)
             shape_rows.append(
                 {
