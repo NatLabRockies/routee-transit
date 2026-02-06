@@ -345,13 +345,18 @@ class GTFSEnergyPredictor:
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
 
-    def load_compass_app(self, buffer_deg: float = 0.05) -> None:
+    def load_compass_app(
+        self, buffer_deg: float = 0.05, n_processes: int | None = None
+    ) -> None:
         """
         Initialize the CompassApp using the bounding box of the loaded shapes.
 
         Args:
             buffer_deg: Buffer in degrees to add to the bounding box.
+            n_processes: Number of processes for parallelism.
         """
+        if n_processes is not None:
+            self.n_processes = n_processes
         if self.app is not None:
             return
 
@@ -382,7 +387,10 @@ class GTFSEnergyPredictor:
         else:
             cache_dir = None
         self.app = CompassApp.from_graph(
-            graph, cache_dir=cache_dir, vehicle_models=self.vehicle_models
+            graph,
+            cache_dir=cache_dir,
+            vehicle_models=self.vehicle_models,
+            parallelism=self.n_processes,
         )
         logger.info("CompassApp initialized")
 
