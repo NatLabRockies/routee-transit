@@ -1,18 +1,18 @@
-import math
-import multiprocessing as mp
-from functools import partial
-from typing import Any
+import logging
 
 import geopandas as gpd
-import networkx as nx
-import osmnx as ox
 import pandas as pd
-from shapely.geometry import LineString
-from shapely.ops import linemerge, unary_union
+
+from nrel.routee.compass import CompassApp
+from nrel.routee.compass.utils.geometry import geometry_from_route
+
+log = logging.getLogger(__name__)
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Get the haversine distance between two points in kilometers."""
+    import math
+
     R = 6371.0
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -38,8 +38,8 @@ class NetworkRouter:
         Bounding box as (min_lon, min_lat, max_lon, max_lat)
     network_type : str
         OSMnx network type (e.g., "drive", "walk", "bike")
-    graph : nx.MultiDiGraph or None
-        The OSM network graph, loaded lazily on first use
+    app : CompassApp or None
+        The CompassApp instance, loaded lazily on first use
     """
 
     def __init__(
@@ -59,121 +59,37 @@ class NetworkRouter:
         """
         self.bbox = bbox
         self.network_type = network_type
-        self.graph = None
+        self.app = None
 
-    def _route_single_trip(
+    def _route_single_trip_fallback(
         self,
         start_lon: float,
         start_lat: float,
         end_lon: float,
         end_lat: float,
         block_id: str,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict]:
         """
-        Compute shortest-path route for a single origin-destination pair.
-
-        This function finds the shortest path on the OSM network graph between
-        the given origin and destination coordinates, then returns a list of
-        shape points suitable for GTFS shapes.txt format.
-
-        Parameters
-        ----------
-        start_lon : float
-            Origin longitude
-        start_lat : float
-            Origin latitude
-        end_lon : float
-            Destination longitude
-        end_lat : float
-            Destination latitude
-        block_id : str
-            Block identifier used as shape_id
-
-        Returns
-        -------
-        list[dict[str, Any]]
-            List of dicts with fields:
-            - 'shape_id' (str): Block identifier
-            - 'shape_pt_sequence' (int): 1-based sequence number
-            - 'shape_pt_lon' (float): Longitude
-            - 'shape_pt_lat' (float): Latitude
-            - 'shape_dist_traveled' (float): Cumulative distance in km from route start
+        Return a simple straight-line link from start to end if no route found.
         """
-        assert self.graph is not None
-        graph = self.graph
-        src = ox.nearest_nodes(graph, start_lon, start_lat)
-        dst = ox.nearest_nodes(graph, end_lon, end_lat)
-        route_nodes = nx.shortest_path(graph, src, dst, weight="length")
-
-        edge_geoms = []
-        for u, v in zip(route_nodes[:-1], route_nodes[1:]):
-            data = graph.get_edge_data(u, v)
-            if not data:
-                raise ValueError(f"Edge {(u, v)} is missing data.")
-            key = list(data.keys())[0]
-            attr = data[key]
-            geom = attr.get("geometry")
-            if geom is None:
-                ux = graph.nodes[u].get("x")
-                uy = graph.nodes[u].get("y")
-                vx = graph.nodes[v].get("x")
-                vy = graph.nodes[v].get("y")
-                geom = LineString([(ux, uy), (vx, vy)])
-            edge_geoms.append(geom)
-
-        if not edge_geoms:  # Return a link from start to end if no route found
-            return [
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": 1,
-                    "shape_pt_lon": float(start_lon),
-                    "shape_pt_lat": float(start_lat),
-                    "shape_dist_traveled": 0.0,
-                },
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": 2,
-                    "shape_pt_lon": float(end_lon),
-                    "shape_pt_lat": float(end_lat),
-                    "shape_dist_traveled": _haversine_km(
-                        start_lat, start_lon, end_lat, end_lon
-                    ),
-                },
-            ]
-
-        try:
-            merged = linemerge(edge_geoms)
-        except Exception:
-            merged = unary_union(edge_geoms)
-        if getattr(merged, "geom_type", "") == "MultiLineString":
-            coords = []
-            for part in merged:
-                coords.extend(list(part.coords))
-            merged = LineString(coords)
-
-        coords = list(merged.coords)  # list of (lon, lat)
-        rows = []
-        prev_lat = None
-        prev_lon = 0.0
-        cum_km = 0.0
-        for seq, (lon, lat) in enumerate(coords, start=1):
-            if prev_lat is not None:
-                seg_km = _haversine_km(prev_lat, prev_lon, lat, lon)
-                cum_km += seg_km
-            else:
-                cum_km = 0.0
-            rows.append(
-                {
-                    "shape_id": block_id,
-                    "shape_pt_sequence": int(seq),
-                    "shape_pt_lon": float(lon),
-                    "shape_pt_lat": float(lat),
-                    "shape_dist_traveled": float(cum_km),
-                }
-            )
-            prev_lat, prev_lon = lat, lon
-
-        return rows
+        return [
+            {
+                "shape_id": block_id,
+                "shape_pt_sequence": 1,
+                "shape_pt_lon": float(start_lon),
+                "shape_pt_lat": float(start_lat),
+                "shape_dist_traveled": 0.0,
+            },
+            {
+                "shape_id": block_id,
+                "shape_pt_sequence": 2,
+                "shape_pt_lon": float(end_lon),
+                "shape_pt_lat": float(end_lat),
+                "shape_dist_traveled": _haversine_km(
+                    start_lat, start_lon, end_lat, end_lon
+                ),
+            },
+        ]
 
     @classmethod
     def from_geometries(
@@ -218,11 +134,13 @@ class NetworkRouter:
 
         return cls(bbox, network_type)
 
-    def _ensure_graph_loaded(self) -> None:
-        """Lazy-load the OSM graph if not already loaded."""
-        if self.graph is None:
-            self.graph = ox.graph_from_bbox(self.bbox, network_type=self.network_type)
-            self.graph = ox.project_graph(self.graph)
+    def _ensure_app_loaded(self) -> None:
+        """Lazy-load the CompassApp if not already loaded."""
+        if self.app is None:
+            import osmnx as ox
+
+            graph = ox.graph_from_bbox(self.bbox, network_type=self.network_type)
+            self.app = CompassApp.from_graph(graph)
 
     def create_deadhead_shapes(
         self,
@@ -234,9 +152,8 @@ class NetworkRouter:
         """
         Compute deadhead route shapes between origin and destination.
 
-        For each row in `df`, this computes a shortest-path on the OSM network
-        between the origin (o_col) and destination (d_col). Returns a pandas
-        DataFrame with per-point GTFS-like shape rows.
+        For each row in `df`, this computes a shortest-path using CompassApp.
+        Returns a pandas DataFrame with per-point GTFS-like shape rows.
 
         Parameters
         ----------
@@ -247,8 +164,7 @@ class NetworkRouter:
         d_col : str, optional
             Column name for destination geometries (default: "geometry_destination")
         n_processes : int or None, optional
-            Number of processes for parallel routing. If None or 1, runs serially.
-            Serial processing is recommended for small datasets.
+            Ignored. CompassApp handles parallelization internally.
 
         Returns
         -------
@@ -257,40 +173,69 @@ class NetworkRouter:
             'shape_pt_lat', 'shape_dist_traveled'] where `shape_dist_traveled` is
             cumulative distance in kilometers from the route start.
         """
-        self._ensure_graph_loaded()
+        self._ensure_app_loaded()
+        assert self.app is not None
 
-        # Prepare task arguments - each is a tuple of (start_lon, start_lat, end_lon, end_lat, block_id)
-        task_args = []
-        for _, r in df.iterrows():
+        # Prepare queries
+        queries = []
+        df_indices = []
+        for i, r in df.iterrows():
             origin = r[o_col]
             destination = r[d_col]
-            task_args.append(
-                (
-                    float(origin.x),
-                    float(origin.y),
-                    float(destination.x),
-                    float(destination.y),
-                    r.get("block_id"),
-                )
+            queries.append(
+                {
+                    "origin_x": float(origin.x),
+                    "origin_y": float(origin.y),
+                    "destination_x": float(destination.x),
+                    "destination_y": float(destination.y),
+                    "model_name": "Transit_Bus_Battery_Electric",
+                    "weights": {"trip_time": 1.0},
+                }
             )
+            df_indices.append(i)
 
-        # Create a partial function with graph pre-bound
-        route_func = partial(self._route_single_trip)
+        # Run queries in parallel
+        results = self.app.run(queries)
+        if isinstance(results, dict):
+            results = [results]
 
-        # Process routes (serial or parallel)
-        if not n_processes or n_processes <= 1:
-            # Serial processing
-            results = [route_func(*args) for args in task_args]
-        else:
-            # Parallel processing using multiprocessing.Pool with starmap
-            with mp.Pool(n_processes) as pool:
-                results = pool.starmap(route_func, task_args, chunksize=8)
-
-        # Flatten results and build DataFrame
+        # Flatten results into GTFS shape point rows
         shape_rows = []
-        for route_rows in results:
-            if route_rows:
-                shape_rows.extend(route_rows)
+        for i, result in zip(df_indices, results):
+            block_id = df.loc[i].get("block_id")
+            origin = df.loc[i][o_col]
+            destination = df.loc[i][d_col]
+
+            if "error" in result or result.get("route") is None:
+                # Fallback to straight line if error or no route
+                cp_error = result.get("error", "No route found")
+                log.warning(
+                    f"CompassApp failed for block_id {block_id}: {cp_error}. "
+                    "Creating a straight-line fallback route."
+                )
+                rows = self._route_single_trip_fallback(
+                    origin.x, origin.y, destination.x, destination.y, block_id
+                )
+                shape_rows.extend(rows)
+                continue
+
+            line = geometry_from_route(result["route"])
+            coords = list(line.coords)
+            prev_lat, prev_lon = None, None
+            cum_km = 0.0
+            for seq, (lon, lat) in enumerate(coords, start=1):
+                if prev_lat is not None:
+                    cum_km += _haversine_km(prev_lat, prev_lon, lat, lon)
+                shape_rows.append(
+                    {
+                        "shape_id": block_id,
+                        "shape_pt_sequence": int(seq),
+                        "shape_pt_lon": float(lon),
+                        "shape_pt_lat": float(lat),
+                        "shape_dist_traveled": float(cum_km),
+                    }
+                )
+                prev_lat, prev_lon = lat, lon
 
         out_df = pd.DataFrame(
             shape_rows,
