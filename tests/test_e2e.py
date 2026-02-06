@@ -68,6 +68,8 @@ def test_e2e_uta():
         trip_results["energy_unit"] == "kWh"
     ).all(), "Energy unit should be kWh for electric bus"
 
+    print(trip_results.describe())
+
     # Verify HVAC energy calculation if present
     if "scenario" in trip_results.columns:
         winter_results = trip_results[trip_results["scenario"] == "winter"]
@@ -87,26 +89,26 @@ def test_e2e_uta():
     link_results = predictor.get_link_predictions()
     if (
         not isinstance(link_results, gpd.GeoDataFrame)
-        and "geom" in link_results.columns
+        and "geometry" in link_results.columns
     ):
-        link_results = gpd.GeoDataFrame(link_results, geometry="geom", crs="EPSG:4326")
+        link_results = gpd.GeoDataFrame(
+            link_results, geometry="geometry", crs="EPSG:4326"
+        )
 
     assert isinstance(
         link_results, gpd.GeoDataFrame
     ), "link_results should be a GeoDataFrame"
     assert not link_results.empty, "link_results should not be empty"
-    assert "kWhs" in link_results.columns, "link_results should contain kWhs"
-
-    # RouteE inputs
-    routee_inputs = predictor.routee_inputs
-    assert isinstance(
-        routee_inputs, pd.DataFrame
-    ), "routee_inputs should be a pandas DataFrame"
-    assert not routee_inputs.empty, "routee_inputs should not be empty"
     assert (
-        "kilometers" in routee_inputs.columns
-    ), "routee_inputs should contain kilometers"
-    assert "grade" in routee_inputs.columns, "routee_inputs should contain grade"
+        "edge_energy_electric" in link_results.columns
+    ), "link_results should contain edge_energy_electric"
+
+    # Matched shapes (map matching result)
+    matched_shapes = predictor.matched_shapes
+    assert isinstance(
+        matched_shapes, (pd.DataFrame, gpd.GeoDataFrame)
+    ), "matched_shapes should be a pandas DataFrame or GeoDataFrame"
+    assert not matched_shapes.empty, "matched_shapes should not be empty"
 
 
 if __name__ == "__main__":
