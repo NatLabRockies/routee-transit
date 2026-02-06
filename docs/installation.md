@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python version >=3.10, <3.13
 - Git
 
 ## Installation with pip
