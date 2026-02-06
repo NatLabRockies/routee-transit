@@ -233,12 +233,14 @@ class GTFSEnergyPredictor:
         Simple usage - predict energy for all trips:
 
         >>> predictor = GTFSEnergyPredictor("data/gtfs")
-        >>> results = predictor.run(vehicle_models=["BEB", "Diesel"])
+        >>> results = predictor.run(
+        ...     vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"]
+        ... )
 
         Filter to specific date and routes:
 
         >>> results = predictor.run(
-        ...     vehicle_models="BEB",
+        ...     vehicle_models="Transit_Bus_Battery_Electric",
         ...     date="2023-08-02",
         ...     routes=["205", "209"],
         ...     output_dir="reports/saltlake"
@@ -247,9 +249,10 @@ class GTFSEnergyPredictor:
         Minimal processing (no deadhead, no HVAC):
 
         >>> results = predictor.run(
-        ...     vehicle_models="BEB",
+        ...     vehicle_models="Transit_Bus_Battery_Electric",
         ...     add_mid_block_deadhead=False,
         ...     add_depot_deadhead=False,
+        ...     add_hvac=False,
         ...     save_results=False
         ... )
         """
@@ -1019,7 +1022,7 @@ class GTFSEnergyPredictor:
         self,
         output_dir: str | Path,
         save_geometry: bool = True,
-        save_inputs: bool = True,
+        save_inputs: bool = False,
     ) -> None:
         """
         Save prediction results to CSV files.
