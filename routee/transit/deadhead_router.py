@@ -133,6 +133,17 @@ def create_deadhead_shapes(
 
         line = geometry_from_route(result["route"])
 
+        if line.is_empty:
+            log.warning(
+                f"CompassApp returned an empty route for block_id {block_id}. "
+                "Creating a straight-line fallback route."
+            )
+            rows = route_single_trip_fallback(
+                origin.x, origin.y, destination.x, destination.y, block_id
+            )
+            shape_rows.extend(rows)
+            continue
+
         coords = shapely.get_coordinates(line)
         prev_lat, prev_lon = None, None
         cum_km = 0.0
