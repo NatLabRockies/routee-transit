@@ -52,11 +52,11 @@ if __name__ == "__main__":
     predictor = GTFSEnergyPredictor(
         gtfs_path=input_directory,
         n_processes=n_proc,
+        vehicle_models=routee_vehicle_models,
     )
 
     # Run entire pipeline with one method call
     results = predictor.run(
-        vehicle_models=routee_vehicle_models,
         date="2023/08/02",
         routes=["205"],
         add_mid_block_deadhead=True,

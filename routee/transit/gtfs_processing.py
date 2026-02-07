@@ -1,17 +1,12 @@
 import datetime
 import logging
 import multiprocessing as mp
-import warnings
 from functools import partial
 
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
 from gtfsblocks import Feed
-from mappymatch.constructs.geofence import Geofence
-from mappymatch.constructs.trace import Trace
-from mappymatch.maps.nx.nx_map import NetworkType, NxMap
-from mappymatch.matchers.lcss.lcss import LCSSMatcher
 
 logger = logging.getLogger("gtfs_processing")
 
@@ -48,12 +43,14 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
     # Calculate the distance between consecutive points using great_circle
     # TODO: move away from apply() for speed
     shape_df["distance_km"] = shape_df.apply(
-        lambda row: great_circle(
-            (row["prev_latitude"], row["prev_longitude"]),  # Previous point
-            (row["shape_pt_lat"], row["shape_pt_lon"]),  # Current point
-        ).kilometers
-        if pd.notnull(row["prev_latitude"])
-        else 0,
+        lambda row: (
+            great_circle(
+                (row["prev_latitude"], row["prev_longitude"]),  # Previous point
+                (row["shape_pt_lat"], row["shape_pt_lon"]),  # Current point
+            ).kilometers
+            if pd.notnull(row["prev_latitude"])
+            else 0
+        ),
         axis=1,
     )
 
@@ -156,45 +153,6 @@ def add_stop_flags_to_shape(
 
     df_tmp = trip_gdf.drop(["geometry"], axis=1)
     return df_tmp
-
-
-def match_shape_to_osm(upsampled_shape_df: pd.DataFrame) -> pd.DataFrame:
-    """Match a given GTFS shape DataFrame to the OpenStreetMap (OSM) road network.
-
-    This function uses mappymatch to add OSM network information to the shape trace.
-    The trace should be upsampled beforehand to approximately 1 Hz/8 m for the most
-    accurate expected mapping performance. The function creates a Trace from the input
-    DataFrame, constructs a geofence around the trace, extracts the OSM road network
-    within the geofence, and applies the mappymatch LCSS matcher to align the trace to
-    the network. The output DataFrame retains the full shape while adding network
-    information to each row.
-
-    Args:
-        upsampled_shape_df (pd.DataFrame): DataFrame containing the shape points with
-            latitude and longitude columns ("shape_pt_lat" and "shape_pt_lon").
-    Returns:
-        pd.DataFrame: A DataFrame combining the original upsampled shape points with
-            their corresponding OSM network matches.
-    """
-    # Filter out warnings from mappymatch
-    warnings.filterwarnings(
-        "ignore",
-        category=FutureWarning,
-        message=".*Downcasting object dtype arrays.*",
-    )
-    # Create mappymatch trace
-    trace = Trace.from_dataframe(
-        upsampled_shape_df, lat_column="shape_pt_lat", lon_column="shape_pt_lon"
-    )
-    # Create geofence and use it to pull network
-    geofence = Geofence.from_trace(trace, padding=1e3)
-    nxmap = NxMap.from_geofence(geofence, network_type=NetworkType.DRIVE)
-    # Run map matching algorithm
-    matcher = LCSSMatcher(nxmap)
-    matches = matcher.match_trace(trace).matches_to_dataframe()
-    # Combine shape with network details
-    df_result = pd.concat([upsampled_shape_df, matches], axis=1)
-    return df_result
 
 
 def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:

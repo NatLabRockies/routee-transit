@@ -5,13 +5,11 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "pandas>=2.3.3,<3",
     "gtfsblocks>=0.1.2,<0.2",
-    "nrel-routee-powertrain>=1.4.0,<2",
     "geopy>=2.4.1,<3",
-    "gradeit>=0.1.2,<0.2",
-    "mappymatch>=0.6.1,<0.7", 
     "geopandas>=1.1.1,<2",
     "boto3",
     "requests>=2.32.5,<3",
+    "osmnx[raster]>=2.0.7,<3",
 ]
 
 [project.optional-dependencies]
@@ -75,5 +73,12 @@ docs = "python docs/examples/_convert_examples.py && jupyter-book build docs"
 check = { depends-on = ["fmt_fix", "lint_fix", "typing", "test"] }
 ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 
+[tool.pixi.dependencies]
+gdal = "3.12.*"
+rust = "1.93.*"
+
 [tool.pixi.pypi-dependencies]
 routee-transit = { path = ".", editable = true }
+
+# TODO: move this to first class dependency once we release the latest version of compass
+nrel-routee-compass = { git = "https://github.com/NatLabRockies/routee-compass", branch = "ndr/compass-app-io-method" }
