@@ -3,6 +3,7 @@ from typing import Any
 
 import geopandas as gpd
 import pandas as pd
+import shapely
 
 from nrel.routee.compass import CompassApp
 from nrel.routee.compass.utils.geometry import geometry_from_route
@@ -131,7 +132,8 @@ def create_deadhead_shapes(
             continue
 
         line = geometry_from_route(result["route"])
-        coords = list(line.coords)
+
+        coords = shapely.get_coordinates(line)
         prev_lat, prev_lon = None, None
         cum_km = 0.0
         for seq, (lon, lat) in enumerate(coords, start=1):

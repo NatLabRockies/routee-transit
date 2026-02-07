@@ -40,7 +40,7 @@ def test_e2e_uta() -> None:
     # Run energy prediction
     trip_results = predictor.run(
         date="2023/08/02",
-        routes=["806", "807"],
+        routes=["806", "205"],
         add_depot_deadhead=True,
         add_mid_block_deadhead=True,
         add_hvac=True,
