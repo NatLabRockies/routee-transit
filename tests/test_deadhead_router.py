@@ -55,12 +55,21 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        out_df = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
 
-        self.assertIsInstance(out_df, pd.DataFrame)
-        self.assertTrue(len(out_df) >= 2)
-        self.assertEqual(out_df.iloc[0]["shape_id"], "B1")
-        self.assertEqual(out_df.iloc[0]["shape_pt_sequence"], 1)
+        self.assertIsInstance(shapes_df, pd.DataFrame)
+        self.assertIsInstance(od_mapping, pd.DataFrame)
+        self.assertTrue(len(shapes_df) >= 2)
+        # shape_id is now od_key, not block_id
+        self.assertIn("shape_id", shapes_df.columns)
+        self.assertEqual(shapes_df.iloc[0]["shape_pt_sequence"], 1)
+
+        # Verify od_mapping structure
+        self.assertIn("block_id", od_mapping.columns)
+        self.assertIn("od_key", od_mapping.columns)
+        self.assertIn("shape_id", od_mapping.columns)
+        self.assertEqual(len(od_mapping), 1)
+        self.assertEqual(od_mapping.iloc[0]["block_id"], "B1")
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
     def test_route_single_trip_with_geometry(
@@ -81,33 +90,29 @@ class TestDeadheadRouter(unittest.TestCase):
                 "geometry_destination": [Point(-104.9, 39.1)],
             }
         )
-        out_df = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
 
-        self.assertEqual(len(out_df), 3)  # Should have 3 points from the LineString
-        self.assertEqual(out_df.iloc[0]["shape_id"], "B1")
-        self.assertEqual(out_df.iloc[0]["shape_pt_sequence"], 1)
-        self.assertEqual(out_df.iloc[0]["shape_dist_traveled"], 0.0)
+        self.assertEqual(len(shapes_df), 3)  # Should have 3 points from the LineString
+        self.assertEqual(shapes_df.iloc[0]["shape_pt_sequence"], 1)
+        self.assertEqual(shapes_df.iloc[0]["shape_dist_traveled"], 0.0)
         # Last point should have accumulated distance
-        self.assertGreater(out_df.iloc[-1]["shape_dist_traveled"], 0)
+        self.assertGreater(shapes_df.iloc[-1]["shape_dist_traveled"], 0)
 
         # Verify that it used the geometry we provided
-        self.assertEqual(out_df.iloc[1]["shape_pt_lon"], -104.95)
+        self.assertEqual(shapes_df.iloc[1]["shape_pt_lon"], -104.95)
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
-    def test_create_deadhead_shapes_multiple_trips(
+    def test_create_deadhead_shapes_multiple_trips_same_od(
         self, mock_geom_from_route: MagicMock
     ) -> None:
         from shapely.geometry import LineString
 
-        # Test with multiple trips
+        # Test with multiple trips that have the SAME O-D pair
+        # Should only route once due to deduplication
         self.app.run.return_value = [
             {"route": {"path": "mock_path_1"}},
-            {"route": {"path": "mock_path_2"}},
         ]
-        mock_geom_from_route.side_effect = [
-            LineString([(-105.0, 39.0), (-104.9, 39.1)]),
-            LineString([(-105.0, 39.0), (-104.9, 39.1)]),
-        ]
+        mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
 
         df = gpd.GeoDataFrame(
             {
@@ -117,12 +122,17 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        out_df = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
 
-        self.assertIsInstance(out_df, pd.DataFrame)
-        self.assertTrue(len(out_df) >= 4)  # At least 2 points per trip
-        unique_shapes = out_df["shape_id"].unique()
-        self.assertEqual(len(unique_shapes), 2)
+        self.assertIsInstance(shapes_df, pd.DataFrame)
+        # Only 1 unique O-D pair, so only 1 unique shape_id
+        unique_shapes = shapes_df["shape_id"].unique()
+        self.assertEqual(len(unique_shapes), 1)
+
+        # But od_mapping should have 2 entries (one per input row)
+        self.assertEqual(len(od_mapping), 2)
+        # Both should map to the same shape
+        self.assertEqual(od_mapping.iloc[0]["shape_id"], od_mapping.iloc[1]["shape_id"])
 
     @patch("routee.transit.deadhead_router.log")
     def test_create_deadhead_shapes_compass_error_fallback(
@@ -139,13 +149,12 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        out_df = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
 
-        self.assertEqual(len(out_df), 2)  # Straight line fallback
+        self.assertEqual(len(shapes_df), 2)  # Straight line fallback
         mock_log.warning.assert_called_once()
-        self.assertIn(
-            "CompassApp failed for block_id B1", mock_log.warning.call_args[0][0]
-        )
+        # Warning now mentions od_key instead of block_id
+        self.assertIn("CompassApp failed for od_key", mock_log.warning.call_args[0][0])
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
     def test_create_deadhead_shapes_geometry_parsing_failure(

@@ -367,19 +367,19 @@ class GTFSEnergyPredictor:
 
         import osmnx as ox
 
-        logger.info("Building CompassApp from GTFS shapes bounding box...")
-
         min_lon = self.shapes.shape_pt_lon.min()
         max_lon = self.shapes.shape_pt_lon.max()
         min_lat = self.shapes.shape_pt_lat.min()
         max_lat = self.shapes.shape_pt_lat.max()
 
         bbox = (
-            min_lon - buffer_deg,
-            min_lat - buffer_deg,
-            max_lon + buffer_deg,
-            max_lat + buffer_deg,
+            float(min_lon) - buffer_deg,
+            float(min_lat) - buffer_deg,
+            float(max_lon) + buffer_deg,
+            float(max_lat) + buffer_deg,
         )
+
+        logger.info(f"Building CompassApp from GTFS shapes bounding box: {bbox}")
 
         graph = ox.graph_from_bbox(bbox, network_type="drive")
         if self.output_dir is not None:
@@ -487,10 +487,17 @@ class GTFSEnergyPredictor:
             deadhead_ods.geometry_origin != deadhead_ods.geometry_destination
         ]
 
-        # Generate shapes for deadhead trips
+        # Generate shapes for unique O-D pairs
         self.load_compass_app()
         assert self.app is not None
-        deadhead_shapes = create_deadhead_shapes(app=self.app, df=deadhead_ods)
+        deadhead_shapes, od_mapping = create_deadhead_shapes(
+            app=self.app, df=deadhead_ods
+        )
+
+        # Assign shape_id to each trip based on O-D mapping
+        # The od_mapping has block_id which matches trip_id for mid-block deadhead
+        trip_to_shape = od_mapping.set_index("block_id")["shape_id"].to_dict()
+        deadhead_trips["shape_id"] = deadhead_trips["trip_id"].map(trip_to_shape)
 
         # Filter deadhead trips to only those with generated shapes
         deadhead_trips = deadhead_trips[
@@ -609,16 +616,24 @@ class GTFSEnergyPredictor:
         # Generate shapes for trips from depot to first stop
         self.load_compass_app()
         assert self.app is not None
-        from_depot_shapes = create_deadhead_shapes(app=self.app, df=first_stops_gdf)
+        from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
+            app=self.app, df=first_stops_gdf
+        )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
+            lambda x: f"from_depot_{x}"
+        )
+        from_depot_mapping["shape_id"] = from_depot_mapping["shape_id"].apply(
             lambda x: f"from_depot_{x}"
         )
 
         # Generate shapes for trips from last stop to depot
-        self.load_compass_app()
-        assert self.app is not None
-        to_depot_shapes = create_deadhead_shapes(app=self.app, df=last_stops_gdf)
+        to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
+            app=self.app, df=last_stops_gdf
+        )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
+            lambda x: f"to_depot_{x}"
+        )
+        to_depot_mapping["shape_id"] = to_depot_mapping["shape_id"].apply(
             lambda x: f"to_depot_{x}"
         )
 
@@ -626,6 +641,23 @@ class GTFSEnergyPredictor:
         deadhead_shapes = pd.concat(
             [from_depot_shapes, to_depot_shapes], ignore_index=True
         )
+
+        # Assign shape_id to each trip based on O-D mapping
+        # For pull-out trips: block_id -> from_depot shape
+        # For pull-in trips: block_id -> to_depot shape
+        from_depot_shape_map = from_depot_mapping.set_index("block_id")[
+            "shape_id"
+        ].to_dict()
+        to_depot_shape_map = to_depot_mapping.set_index("block_id")[
+            "shape_id"
+        ].to_dict()
+
+        deadhead_trips["shape_id"] = [
+            from_depot_shape_map.get(b)
+            if t == "pull-out"
+            else to_depot_shape_map.get(b)
+            for t, b in zip(deadhead_trips["trip_type"], deadhead_trips["block_id"])
+        ]
 
         # Filter deadhead trips to only those with generated shapes
         deadhead_trips = deadhead_trips[
