@@ -12,9 +12,11 @@ import multiprocessing as mp
 from pathlib import Path
 from typing import Any, cast
 
+import geopandas as gpd
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass import CompassApp
+from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 from routee.transit.deadhead_router import create_deadhead_shapes
@@ -39,17 +41,15 @@ logger = logging.getLogger(__name__)
 MI_PER_KM = 0.6213712
 MILES_PER_GALLON_TO_KWH = 33.7  # 1 gallon gasoline equivalent = 33.7 kWh
 
-# Vehicle model configuration: maps model names to their energy output columns
+# Vehicle model configuration: maps model names to their CompassApp traversal summary fields
 VEHICLE_MODELS: dict[str, dict[str, str]] = {
     "Transit_Bus_Battery_Electric": {
-        "energy_column": "edge_energy_electric",
-        "trip_energy_column": "trip_energy_electric",
+        "energy_field": "trip_energy_electric",
         "unit": "kWh",
     },
     "Transit_Bus_Diesel": {
-        "energy_column": "edge_energy_liquid",
-        "trip_energy_column": "trip_energy_liquid",
-        "unit": "gallons_gasoline_equivalent",
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
     },
 }
 
@@ -107,6 +107,7 @@ class GTFSEnergyPredictor:
         compass_app: CompassApp | None = None,
         output_dir: str | Path | None = None,
         vehicle_models: list[str] | None = None,
+        overwrite: bool = False,
     ):
         """
         Initialize the GTFSEnergyPredictor.
@@ -130,6 +131,7 @@ class GTFSEnergyPredictor:
         self.app = compass_app
         self.output_dir = Path(output_dir) if output_dir else None
         self.vehicle_models = vehicle_models
+        self.overwrite = overwrite
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -138,6 +140,7 @@ class GTFSEnergyPredictor:
         self.matched_shapes: pd.DataFrame = pd.DataFrame()
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
         self.energy_predictions: dict[str, pd.DataFrame] = {}
+        self._bbox: tuple[float, float, float, float] | None = None
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
@@ -200,8 +203,6 @@ class GTFSEnergyPredictor:
         add_depot_deadhead: bool = True,
         # Energy prediction options
         add_hvac: bool = True,
-        # Output options
-        output_dir: str | Path | None = None,
         save_results: bool = True,
     ) -> pd.DataFrame:
         """
@@ -234,9 +235,6 @@ class GTFSEnergyPredictor:
             Requires depot_path to be set during initialization.
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
-        output_dir : str or Path, optional
-            Directory to save results. If None and save_results=True, saves to
-            current working directory.
         save_results : bool, default=True
             Whether to save results to files.
 
@@ -281,9 +279,16 @@ class GTFSEnergyPredictor:
         # Add start time, end time, and duration of each trip
         self.add_trip_times()
 
-        # Step 3: Add deadhead trips
+        # Step 3: Prepare deadhead metadata (gather O-D pairs without routing)
+        # This allows us to compute the full bounding box before loading CompassApp
+        extra_geoms: list[gpd.GeoDataFrame | pd.DataFrame] = []
+        mid_block_metadata = None
+        depot_metadata = None
+
         if add_mid_block_deadhead:
-            self.add_mid_block_deadhead()
+            mid_block_metadata = self._prepare_mid_block_deadhead()
+            if mid_block_metadata is not None:
+                extra_geoms.append(mid_block_metadata["deadhead_ods"])
 
         if add_depot_deadhead:
             if self.depot_path is None:
@@ -291,15 +296,30 @@ class GTFSEnergyPredictor:
                     "Cannot add depot deadhead: depot_path not provided during initialization"
                 )
             else:
-                self.add_depot_deadhead()
+                depot_metadata = self._prepare_depot_deadhead()
+                if depot_metadata is not None:
+                    extra_geoms.extend(
+                        [
+                            depot_metadata["first_stops_gdf"],
+                            depot_metadata["last_stops_gdf"],
+                        ]
+                    )
 
-        # Step 4: Predict energy using CompassApp
+        # Step 4: Load CompassApp once with comprehensive bounding box
+        self.load_compass_app(extra_geoms=extra_geoms if extra_geoms else None)
+
+        # Step 5: Route deadhead trips using the loaded app
+        if mid_block_metadata is not None:
+            self._route_mid_block_deadhead(mid_block_metadata)
+
+        if depot_metadata is not None:
+            self._route_depot_deadhead(depot_metadata)
+
+        # Step 6: Predict energy using CompassApp
         self.predict_energy(add_hvac=add_hvac)
 
         # Step 7: Save results if requested
         if save_results:
-            if output_dir:
-                self.output_dir = Path(output_dir)
             self.save_results()
 
         # Return trip-level predictions
@@ -346,7 +366,10 @@ class GTFSEnergyPredictor:
         return self
 
     def load_compass_app(
-        self, buffer_deg: float = 0.05, n_processes: int | None = None
+        self,
+        buffer_deg: float = 0.05,
+        n_processes: int | None = None,
+        extra_geoms: list[gpd.GeoDataFrame | pd.DataFrame] | None = None,
     ) -> None:
         """
         Initialize the CompassApp using the bounding box of the loaded shapes.
@@ -354,44 +377,126 @@ class GTFSEnergyPredictor:
         Args:
             buffer_deg: Buffer in degrees to add to the bounding box.
             n_processes: Number of processes for parallelism.
+            extra_geoms: Optional list of GeoDataFrames or DataFrames with geometry to include in bbox.
         """
         if n_processes is not None:
             self.n_processes = n_processes
-        if self.app is not None:
-            return
 
         if self.shapes.empty:
             raise ValueError(
                 "Must load GTFS data (and shapes) before initializing CompassApp"
             )
 
-        import osmnx as ox
+        # Calculate requested bounding box
+        lons = [
+            float(self.shapes.shape_pt_lon.min()),
+            float(self.shapes.shape_pt_lon.max()),
+        ]
+        lats = [
+            float(self.shapes.shape_pt_lat.min()),
+            float(self.shapes.shape_pt_lat.max()),
+        ]
 
-        min_lon = self.shapes.shape_pt_lon.min()
-        max_lon = self.shapes.shape_pt_lon.max()
-        min_lat = self.shapes.shape_pt_lat.min()
-        max_lat = self.shapes.shape_pt_lat.max()
+        if extra_geoms:
+            for df in extra_geoms:
+                if isinstance(df, gpd.GeoDataFrame):
+                    bounds = df.total_bounds
+                    lons.extend([float(bounds[0]), float(bounds[2])])
+                    lats.extend([float(bounds[1]), float(bounds[3])])
+                elif (
+                    isinstance(df, pd.DataFrame)
+                    and "geometry_origin" in df.columns
+                    and "geometry_destination" in df.columns
+                ):
+                    # Handle deadhead O-D dataframes
+                    for col in ["geometry_origin", "geometry_destination"]:
+                        lons.extend(
+                            [
+                                df[col].apply(lambda p: p.x).min(),
+                                df[col].apply(lambda p: p.x).max(),
+                            ]
+                        )
+                        lats.extend(
+                            [
+                                df[col].apply(lambda p: p.y).min(),
+                                df[col].apply(lambda p: p.y).max(),
+                            ]
+                        )
 
-        bbox = (
+        min_lon, max_lon = min(lons), max(lons)
+        min_lat, max_lat = min(lats), max(lats)
+
+        new_bbox = (
             float(min_lon) - buffer_deg,
             float(min_lat) - buffer_deg,
             float(max_lon) + buffer_deg,
             float(max_lat) + buffer_deg,
         )
 
-        logger.info(f"Building CompassApp from GTFS shapes bounding box: {bbox}")
+        if self._bbox is not None and (
+            new_bbox[0] < self._bbox[0]
+            or new_bbox[1] < self._bbox[1]
+            or new_bbox[2] > self._bbox[2]
+            or new_bbox[3] > self._bbox[3]
+        ):
+            # If the user has not set overwrite to True, we warn them that their results may be outside the map bounds
+            if not self.overwrite:
+                logger.warning(
+                    "Some geometries are outside the current CompassApp bounding box. "
+                    "Routing may fail. Set overwrite=True in GTFSEnergyPredictor to reload the map."
+                )
 
-        graph = ox.graph_from_bbox(bbox, network_type="drive")
+        # Check for existing CompassApp in output_dir
+        cache_dir = None
+        phases = [
+            GeneratePipelinePhase.GRAPH,
+            GeneratePipelinePhase.CONFIG,
+            GeneratePipelinePhase.POWERTRAIN,
+        ]
+
+        # Determine which vehicle models to load
+        compass_vehicle_models = self.vehicle_models
+        if compass_vehicle_models is None:
+            compass_vehicle_models = list(VEHICLE_MODELS.keys())
+
         if self.output_dir is not None:
             cache_dir = self.output_dir / "compass_app"
-        else:
-            cache_dir = None
+            config_file = "osm_default_energy.toml"
+            config_path = cache_dir / config_file
+
+            if config_path.exists() and not self.overwrite:
+                if self.app is None:
+                    logger.info(f"Loading existing CompassApp from {cache_dir}")
+                    self.app = CompassApp.from_config_file(
+                        config_path, parallelism=self.n_processes
+                    )
+                    self._bbox = new_bbox
+                    return
+
+        if not self.overwrite and self.app is not None:
+            return
+
+        import osmnx as ox
+        import shutil
+
+        if self.overwrite and cache_dir and cache_dir.exists():
+            logger.info(f"Clearing CompassApp cache at {cache_dir}")
+            shutil.rmtree(cache_dir)
+
+        logger.info(f"Building CompassApp from bounding box: {new_bbox}")
+
+        graph = ox.graph_from_bbox(
+            bbox=new_bbox,
+            network_type="drive",
+        )
         self.app = CompassApp.from_graph(
             graph,
             cache_dir=cache_dir,
-            vehicle_models=self.vehicle_models,
+            phases=phases,
+            vehicle_models=compass_vehicle_models,
             parallelism=self.n_processes,
         )
+        self._bbox = new_bbox
         logger.info("CompassApp initialized")
 
     def filter_trips(
@@ -450,32 +555,32 @@ class GTFSEnergyPredictor:
 
         return self
 
-    def add_mid_block_deadhead(self) -> "GTFSEnergyPredictor":
+    def _prepare_mid_block_deadhead(self) -> dict[str, Any] | None:
         """
-        Add deadhead trips between consecutive trips in each block.
+        Prepare mid-block deadhead metadata without routing.
 
-        This method creates synthetic trips representing buses traveling empty
-        between the end of one scheduled trip and the start of the next trip
-        within the same block. It updates the internal trips, shapes, and feed
-        objects to include these deadhead trips.
+        This method gathers O-D pairs for mid-block deadhead trips but does not
+        perform routing. This allows the bounding box to be computed before
+        loading CompassApp.
 
         Returns:
-            Self for method chaining
-
-        Raises:
-            RuntimeError: If GTFS data hasn't been loaded yet
+            Dictionary with deadhead trip metadata, or None if no deadhead needed
         """
         if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError(
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
 
-        logger.info("Adding between-trip deadhead trips...")
+        logger.info("Preparing mid-block deadhead trips...")
 
         # Create between-trip deadhead trips
         deadhead_trips = create_mid_block_deadhead_trips(
             self.trips, self.feed.stop_times
         )
+
+        if deadhead_trips.empty:
+            logger.info("No mid-block deadhead trips needed")
+            return None
 
         # Create stops and stop_times for deadhead trips
         deadhead_stop_times, deadhead_stops, deadhead_ods = (
@@ -487,9 +592,34 @@ class GTFSEnergyPredictor:
             deadhead_ods.geometry_origin != deadhead_ods.geometry_destination
         ]
 
+        if deadhead_ods.empty:
+            logger.info("No mid-block deadhead O-D pairs after filtering")
+            return None
+
+        return {
+            "deadhead_trips": deadhead_trips,
+            "deadhead_stop_times": deadhead_stop_times,
+            "deadhead_stops": deadhead_stops,
+            "deadhead_ods": deadhead_ods,
+        }
+
+    def _route_mid_block_deadhead(self, metadata: dict[str, Any]) -> None:
+        """
+        Route mid-block deadhead trips using the loaded CompassApp.
+
+        Args:
+            metadata: Dictionary from _prepare_mid_block_deadhead()
+        """
+        assert self.app is not None, "CompassApp must be loaded before routing"
+
+        deadhead_trips = metadata["deadhead_trips"]
+        deadhead_stop_times = metadata["deadhead_stop_times"]
+        deadhead_stops = metadata["deadhead_stops"]
+        deadhead_ods = metadata["deadhead_ods"]
+
+        logger.info("Routing mid-block deadhead trips...")
+
         # Generate shapes for unique O-D pairs
-        self.load_compass_app()
-        assert self.app is not None
         deadhead_shapes, od_mapping = create_deadhead_shapes(
             app=self.app, df=deadhead_ods
         )
@@ -553,6 +683,7 @@ class GTFSEnergyPredictor:
         deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
 
         # Update internal state
+        assert self.feed is not None, "GTFS feed must be loaded"
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
         self.shapes = pd.concat([self.shapes, deadhead_shapes], ignore_index=True)
         self.feed.trips = pd.concat(
@@ -569,23 +700,17 @@ class GTFSEnergyPredictor:
         )
 
         logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
-        return self
 
-    def add_depot_deadhead(self) -> "GTFSEnergyPredictor":
+    def _prepare_depot_deadhead(self) -> dict[str, Any] | None:
         """
-        Add deadhead trips from depot to first stop and from last stop to depot.
+        Prepare depot deadhead metadata without routing.
 
-        This method creates synthetic trips representing buses traveling from the
-        depot to start their first scheduled trip of the day, and from their last
-        stop back to the depot. Depot locations are matched from the National Transit
-        Database's "Public Transit Facilities and Stations - 2023" dataset unless
-        a custom depot_path was provided during initialization.
+        This method gathers depot endpoints for deadhead trips but does not
+        perform routing. This allows the bounding box to be computed before
+        loading CompassApp.
 
         Returns:
-            Self for method chaining
-
-        Raises:
-            RuntimeError: If GTFS data hasn't been loaded or depot_path not specified
+            Dictionary with depot deadhead metadata, or None if no deadhead needed
         """
         if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError(
@@ -597,10 +722,14 @@ class GTFSEnergyPredictor:
                 "depot_path must be specified in __init__() to add depot deadhead trips"
             )
 
-        logger.info("Adding depot deadhead trips...")
+        logger.info("Preparing depot deadhead trips...")
 
         # Create depot deadhead trip records
         deadhead_trips = create_depot_deadhead_trips(self.trips, self.feed.stop_times)
+
+        if deadhead_trips.empty:
+            logger.info("No depot deadhead trips needed")
+            return None
 
         # Infer depot locations for each block's first and last stops
         depot_shapefile = self.depot_path / "Transit_Depot.shp"
@@ -613,9 +742,32 @@ class GTFSEnergyPredictor:
             first_stops_gdf, last_stops_gdf, deadhead_trips
         )
 
+        return {
+            "deadhead_trips": deadhead_trips,
+            "deadhead_stop_times": deadhead_stop_times,
+            "deadhead_stops": deadhead_stops,
+            "first_stops_gdf": first_stops_gdf,
+            "last_stops_gdf": last_stops_gdf,
+        }
+
+    def _route_depot_deadhead(self, metadata: dict[str, Any]) -> None:
+        """
+        Route depot deadhead trips using the loaded CompassApp.
+
+        Args:
+            metadata: Dictionary from _prepare_depot_deadhead()
+        """
+        assert self.app is not None, "CompassApp must be loaded before routing"
+
+        deadhead_trips = metadata["deadhead_trips"]
+        deadhead_stop_times = metadata["deadhead_stop_times"]
+        deadhead_stops = metadata["deadhead_stops"]
+        first_stops_gdf = metadata["first_stops_gdf"]
+        last_stops_gdf = metadata["last_stops_gdf"]
+
+        logger.info("Routing depot deadhead trips...")
+
         # Generate shapes for trips from depot to first stop
-        self.load_compass_app()
-        assert self.app is not None
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
             app=self.app, df=first_stops_gdf
         )
@@ -717,6 +869,7 @@ class GTFSEnergyPredictor:
         deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
 
         # Update internal state
+        assert self.feed is not None, "GTFS feed must be loaded"
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
         self.shapes = pd.concat([self.shapes, deadhead_shapes], ignore_index=True)
         self.feed.trips = pd.concat(
@@ -733,7 +886,6 @@ class GTFSEnergyPredictor:
         )
 
         logger.info(f"Added {len(deadhead_trips)} depot deadhead trips")
-        return self
 
     @staticmethod
     def aggregate_inputs_by_link(trips_ext: pd.DataFrame) -> pd.DataFrame:
@@ -787,13 +939,8 @@ class GTFSEnergyPredictor:
 
         logger.debug(f"Upsampled {len(shape_groups)} shapes")
 
-        # Step 2: Match to network
-        model_name = (
-            self.vehicle_models[0]
-            if self.vehicle_models
-            else "Transit_Bus_Battery_Electric"
-        )
-        matched_shapes = self._match_shapes_to_network(upsampled_shapes, model_name)
+        # Step 2: Match to network (no energy model — just geometry + road attributes)
+        matched_shapes = self._match_shapes_to_network(upsampled_shapes)
         self.matched_shapes = matched_shapes
 
         logger.info("Finished map matching")
@@ -813,21 +960,19 @@ class GTFSEnergyPredictor:
         return self
 
     def _match_shapes_to_network(
-        self, upsampled_shapes: list[pd.DataFrame], model_name: str
+        self, upsampled_shapes: list[pd.DataFrame]
     ) -> pd.DataFrame:
         """
-        Match upsampled shapes to road network using CompassApp.
+        Match upsampled shapes to the road network using CompassApp.
 
-        This method uses CompassApp.map_match to both match shapes to the OSM
-        network and compute energy consumption in a single operation.
+        This performs map matching to snap GPS traces to the road
+        network and retrieve network attributes for each matched link.
 
         Args:
             upsampled_shapes: List of upsampled shape DataFrames
-            model_name: Vehicle model name for energy prediction
-                (e.g., "Transit_Bus_Battery_Electric")
 
         Returns:
-            DataFrame with matched shapes including network attributes and energy
+            DataFrame with matched shapes including network attributes
         """
         if self.app is None:
             raise RuntimeError(
@@ -835,9 +980,20 @@ class GTFSEnergyPredictor:
                 "Call load_compass_app() first."
             )
 
+        # Determine model_name for map matching search parameters
+        # (needed when using energy config which requires a model_name
+        # for the internal path recalculation during map matching)
+        if self.vehicle_models is not None:
+            if isinstance(self.vehicle_models, str):
+                mm_model_name = self.vehicle_models
+            else:
+                mm_model_name = list(self.vehicle_models)[0]
+        else:
+            mm_model_name = list(VEHICLE_MODELS.keys())[0]
+
         # Build queries for all shapes
         queries = [
-            self._create_map_match_query(shape_df, model_name)
+            self._create_map_match_query(shape_df, model_name=mm_model_name)
             for shape_df in upsampled_shapes
         ]
         shape_ids = [df["shape_id"].iloc[0] for df in upsampled_shapes]
@@ -852,14 +1008,17 @@ class GTFSEnergyPredictor:
 
     @staticmethod
     def _create_map_match_query(
-        shape_df: pd.DataFrame, model_name: str
+        shape_df: pd.DataFrame,
+        model_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a CompassApp map matching query from a GTFS shape DataFrame.
 
         Args:
             shape_df: DataFrame with columns 'shape_pt_lon', 'shape_pt_lat'
-            model_name: Vehicle model name for energy prediction
+            model_name: Optional vehicle model name to use for map matching
+                search parameters. Required when using energy config to override
+                the default model_name.
 
         Returns:
             Dictionary suitable for CompassApp.map_match
@@ -871,8 +1030,9 @@ class GTFSEnergyPredictor:
 
         query: dict[str, Any] = {
             "trace": trace,
-            "search_parameters": {"model_name": model_name},
         }
+        if model_name is not None:
+            query["search_parameters"] = {"model_name": model_name}
         return query
 
     def _process_map_match_results(
@@ -903,16 +1063,8 @@ class GTFSEnergyPredictor:
         shape_id_map = {i: sid for i, sid in enumerate(shape_ids)}
         gdf["shape_id"] = gdf["match_id"].map(shape_id_map)
 
-        # Rename columns to match expected format
-        column_mapping = {
-            "edge_distance": "kilometers",  # Will convert from miles
-        }
-        gdf = gdf.rename(columns=column_mapping)
-
-        # Convert distance from miles to kilometers if needed
-        if "kilometers" in gdf.columns:
-            gdf["kilometers"] = gdf["kilometers"] / MI_PER_KM
-
+        # edge_distance is in miles (from compass config with distance_unit = "miles")
+        # Keep as-is for powertrain which expects miles
         return cast(pd.DataFrame, gdf)
 
     def predict_energy(
@@ -920,16 +1072,22 @@ class GTFSEnergyPredictor:
         add_hvac: bool = False,
     ) -> dict[str, pd.DataFrame]:
         """
-        Predict energy consumption using CompassApp map matching with energy models.
+        Predict energy consumption by map matching once, then running
+        CompassApp.run_calculate_path for each vehicle model.
 
-        This method runs map matching and energy prediction for one or more vehicle
-        models and returns both link-level and trip-level results. Results are stored
-        internally and also returned.
+        This method:
+        1. Runs map matching ONCE to get road-level attributes (distance, speed, grade)
+        2. Extracts edge_ids from the map-matched paths
+        3. Runs CompassApp.run_calculate_path for each vehicle model with model_name
+
+        This is much more efficient than the previous approach of running
+        map matching per vehicle model, since map matching is computationally
+        expensive and the road attributes are the same regardless of vehicle type.
+
+        Energy modeling is handled entirely by RouteE-Compass's powertrain
+        traversal models, eliminating the need for the nrel.routee.powertrain package.
 
         Args:
-            vehicle_models: Vehicle model name(s) supported by CompassApp. Can be:
-                - Single model name: "Transit_Bus_Battery_Electric"
-                - List of models: ["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"]
             add_hvac: Whether to add HVAC energy consumption to trip-level results
 
         Returns:
@@ -943,6 +1101,7 @@ class GTFSEnergyPredictor:
             RuntimeError: If GTFS data hasn't been loaded yet
             ValueError: If vehicle model is not supported
         """
+
         if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError("Must call load_gtfs_data() before predicting energy")
 
@@ -965,35 +1124,112 @@ class GTFSEnergyPredictor:
             f"Predicting energy for {len(vehicle_models_list)} vehicle model(s)..."
         )
 
-        # Ensure CompassApp is initialized
-        self.load_compass_app()
+        if self.app is None:
+            self.load_compass_app()
 
-        # Upsample shapes once
+        # Run map matching ONCE to get edge-level results
         shape_groups = [group for _, group in self.shapes.groupby("shape_id")]
         with mp.Pool(self.n_processes) as pool:
             upsampled_shapes = pool.map(upsample_shape, shape_groups)
 
         logger.debug(f"Upsampled {len(shape_groups)} shapes")
 
+        link_results = self._match_shapes_to_network(upsampled_shapes)
+        if link_results.empty:
+            logger.warning("No map matching results — cannot predict energy")
+            return self.energy_predictions
+
+        self.matched_shapes = link_results
+
+        # Extract edge_ids per shape from map-matched results
+        shapes_edge_ids: dict[str, list[dict[str, int]]] = {}
+        for shape_id, group in link_results.groupby("shape_id"):
+            edges: list[dict[str, int]] = []
+            for _, row in group.iterrows():
+                edge_entry: dict[str, int] = {"edge_id": int(row["edge_id"])}
+                if "edge_list_id" in row and pd.notna(row["edge_list_id"]):
+                    edge_entry["edge_list_id"] = int(row["edge_list_id"])
+                edges.append(edge_entry)
+            shapes_edge_ids[str(shape_id)] = edges
+
+        # Run run_calculate_path for each vehicle model
         all_link_results: list[pd.DataFrame] = []
         all_trip_results: list[pd.DataFrame] = []
 
-        for model in vehicle_models_list:
-            logger.info(f"Processing model: {model}")
+        for model_name in vehicle_models_list:
+            logger.info(f"Running energy prediction via CompassApp for: {model_name}")
 
-            # Run map matching with energy prediction
-            link_results = self._match_shapes_to_network(upsampled_shapes, model)
-            if link_results.empty:
-                logger.warning(f"No results for model {model}")
+            model_config = VEHICLE_MODELS[model_name]
+            energy_field = model_config["energy_field"]
+
+            # Build queries with model_name parameter
+            shape_id_list = list(shapes_edge_ids.keys())
+            queries: list[dict[str, Any]] = [
+                {
+                    "path": shapes_edge_ids[sid],
+                    "model_name": model_name,
+                    "weights": {"trip_time": 1.0},
+                }
+                for sid in shape_id_list
+            ]
+
+            # Run calculate path via CompassApp
+            assert self.app is not None, "CompassApp must be loaded"
+            results = self.app.run_calculate_path(queries)
+            if isinstance(results, dict):
+                results = [results]
+
+            # Process results: extract energy from traversal_summary
+            energy_records: list[dict[str, Any]] = []
+            for sid, result in zip(shape_id_list, results):
+                if "error" in result:
+                    logger.warning(
+                        f"run_calculate_path error for shape {sid}, "
+                        f"model {model_name}: {result['error']}"
+                    )
+                    continue
+
+                route = result.get("route", {})
+                summary = route.get("traversal_summary", {})
+
+                # Extract energy value from traversal summary
+                energy_entry = summary.get(energy_field, {})
+                energy_value = energy_entry.get("value", 0.0)
+
+                # Extract distance
+                distance_entry = summary.get("edge_distance", {})
+                distance_value = distance_entry.get("value", 0.0)
+
+                energy_records.append(
+                    {
+                        "shape_id": sid,
+                        "energy_used": float(energy_value),
+                        "miles": float(distance_value),
+                        "vehicle": model_name,
+                        "energy_unit": model_config["unit"],
+                    }
+                )
+
+            if not energy_records:
+                logger.warning(f"No energy results for model {model_name}")
                 continue
 
-            link_results["vehicle"] = model
+            energy_by_shape = pd.DataFrame(energy_records)
 
-            # Store matched shapes for other uses
-            self.matched_shapes = link_results
+            # Build link-level results (map-match data + vehicle label)
+            model_link_results = link_results.copy()
+            model_link_results["vehicle"] = model_name
+            # Merge shape-level energy onto link results for per-link context
+            model_link_results = model_link_results.merge(
+                energy_by_shape[["shape_id", "energy_used", "energy_unit"]],
+                on="shape_id",
+                how="left",
+            )
 
             # Aggregate to trip level
-            trip_results = self._aggregate_predictions_by_trip(link_results, model)
+            trip_results = self._aggregate_predictions_by_trip(
+                energy_by_shape, model_name
+            )
 
             # Optionally add HVAC to trip-level results
             if add_hvac:
@@ -1009,9 +1245,9 @@ class GTFSEnergyPredictor:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
 
             # Store results
-            self.energy_predictions[f"{model}_link"] = link_results
-            self.energy_predictions[f"{model}_trip"] = trip_results
-            all_link_results.append(link_results)
+            self.energy_predictions[f"{model_name}_link"] = model_link_results
+            self.energy_predictions[f"{model_name}_trip"] = trip_results
+            all_link_results.append(model_link_results)
             all_trip_results.append(trip_results)
 
         # Combine all models
@@ -1028,58 +1264,26 @@ class GTFSEnergyPredictor:
         return self.energy_predictions
 
     def _aggregate_predictions_by_trip(
-        self, link_results: pd.DataFrame, vehicle_name: str
+        self, energy_by_shape: pd.DataFrame, vehicle_name: str
     ) -> pd.DataFrame:
         """
-        Aggregate link-level predictions to trip level.
+        Aggregate shape-level energy predictions to trip level.
 
         Args:
-            link_results: DataFrame with link-level predictions from CompassApp
+            energy_by_shape: DataFrame with shape-level energy predictions
+                from run_calculate_path (columns: shape_id, energy_used,
+                miles, vehicle, energy_unit)
             vehicle_name: Name of vehicle model
 
         Returns:
             DataFrame with trip-level aggregated results
         """
-        model_config = VEHICLE_MODELS[vehicle_name]
-        energy_col = model_config["energy_column"]
-        unit = model_config["unit"]
-
-        # Check for required columns
-        if energy_col not in link_results.columns:
-            raise ValueError(
-                f"Energy column '{energy_col}' not found in link results. "
-                f"Available columns: {list(link_results.columns)}"
-            )
-
-        # Aggregate by shape_id first (since map matching is per-shape)
-        # Then map to trips
-        agg_cols = {"kilometers": "sum", energy_col: "sum"}
-        if "edge_distance" in link_results.columns:
-            agg_cols["edge_distance"] = "sum"
-
-        energy_by_shape = link_results.groupby("shape_id").agg(agg_cols).reset_index()
-
         # Map shapes to trips
         shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
         energy_by_trip = energy_by_shape.merge(shape_to_trips, on="shape_id")
 
-        # Calculate miles and format output
-        if "kilometers" in energy_by_trip.columns:
-            energy_by_trip["miles"] = MI_PER_KM * energy_by_trip["kilometers"]
-        elif "edge_distance" in energy_by_trip.columns:
-            # edge_distance is in miles from CompassApp
-            energy_by_trip["miles"] = energy_by_trip["edge_distance"]
-
-        energy_by_trip["vehicle"] = vehicle_name
-        energy_by_trip["energy_used"] = energy_by_trip[energy_col]
-        energy_by_trip["energy_unit"] = unit
-
         # Clean up columns
-        cols_to_drop = [
-            c
-            for c in ["kilometers", energy_col, "shape_id"]
-            if c in energy_by_trip.columns
-        ]
+        cols_to_drop = [c for c in ["shape_id"] if c in energy_by_trip.columns]
         return energy_by_trip.drop(columns=cols_to_drop)
 
     def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:

@@ -3,11 +3,12 @@
 
 This test verifies the energy consumption prediction workflow for the Utah
 Transit Authority (UTA) in Salt Lake City. It covers GTFS data processing,
-map matching, and energy estimation using RouteE-Powertrain.
+map matching, and energy estimation using RouteE-Compass.
 """
 
 import logging
 import os
+import tempfile
 import pandas as pd
 import geopandas as gpd
 from routee.transit import GTFSEnergyPredictor, repo_root
@@ -28,13 +29,16 @@ def test_e2e_uta() -> None:
     """
     # Specify input data location
     input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
-    output_directory = repo_root() / "reports/saltlake"
+
+    # use a temp directory for output
+    output_directory = tempfile.mkdtemp()
 
     # Initialize predictor
     predictor = GTFSEnergyPredictor(
         gtfs_path=input_directory,
         output_dir=output_directory,
         vehicle_models=["Transit_Bus_Battery_Electric"],
+        overwrite=True,
     )
 
     # Run energy prediction
@@ -99,8 +103,8 @@ def test_e2e_uta() -> None:
         "link_results should be a GeoDataFrame"
     )
     assert not link_results.empty, "link_results should not be empty"
-    assert "edge_energy_electric" in link_results.columns, (
-        "link_results should contain edge_energy_electric"
+    assert "energy_used" in link_results.columns, (
+        "link_results should contain energy_used column from CompassApp"
     )
 
     # Matched shapes (map matching result)

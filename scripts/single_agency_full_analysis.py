@@ -53,6 +53,7 @@ if __name__ == "__main__":
         gtfs_path=input_directory,
         n_processes=n_proc,
         vehicle_models=routee_vehicle_models,
+        output_dir=output_directory,
     )
 
     # Run entire pipeline with one method call
@@ -62,8 +63,9 @@ if __name__ == "__main__":
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
         add_hvac=True,
-        output_dir=output_directory,
         save_results=True,
     )
+
+    print(results.describe())
 
     logger.info(f"Predicted energy for {len(results)} trips")
