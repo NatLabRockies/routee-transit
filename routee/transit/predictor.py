@@ -107,7 +107,7 @@ class GTFSEnergyPredictor:
         compass_app: CompassApp | None = None,
         output_dir: str | Path | None = None,
         vehicle_models: list[str] | None = None,
-        overwrite: bool = False,
+        overwrite: bool = True,
     ):
         """
         Initialize the GTFSEnergyPredictor.
