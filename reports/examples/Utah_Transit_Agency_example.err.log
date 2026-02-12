@@ -19,175 +19,56 @@ Traceback (most recent call last):
 nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
 ------------------
 
-predictor = GTFSEnergyPredictor(
-    gtfs_path=input_directory,
+import logging
+import os
+
+from routee.transit import GTFSEnergyPredictor, repo_root
+
+# Set up logging: Clear any existing handlers
+logging.getLogger().handlers.clear()
+
+# Configure basic logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 )
 
-trip_results = predictor.run(
-    vehicle_models="Transit_Bus_Battery_Electric",
-    date="2023/08/02",
-    routes=["806", "807"],
-    add_depot_deadhead=True,
-    add_mid_block_deadhead=True,
-    add_hvac=True,
-    output_dir=output_directory,
-    save_results=False,
-)
+# Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
+os.environ["PROJ_DEBUG"] = "0"
+
+# Specify input data location
+input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
+output_directory = repo_root() / "reports/saltlake"
 
 
 ------------------
 
------ stderr -----
-2026-02-05 21:30:05,522 [INFO] routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs
------ stderr -----
-2026-02-05 21:30:05,523 [INFO] routee.transit.predictor - Loading GTFS data...
-------------------
 
 [31m---------------------------------------------------------------------------[39m
-[31mFileNotFoundError[39m                         Traceback (most recent call last)
-[36mCell[39m[36m [39m[32mIn[2][39m[32m, line 5[39m
-[32m      1[39m predictor = GTFSEnergyPredictor(
-[32m      2[39m     gtfs_path=input_directory,
-[32m      3[39m )
-[32m----> [39m[32m5[39m trip_results = [43mpredictor[49m[43m.[49m[43mrun[49m[43m([49m
-[32m      6[39m [43m    [49m[43mvehicle_models[49m[43m=[49m[33;43m"[39;49m[33;43mTransit_Bus_Battery_Electric[39;49m[33;43m"[39;49m[43m,[49m
-[32m      7[39m [43m    [49m[43mdate[49m[43m=[49m[33;43m"[39;49m[33;43m2023/08/02[39;49m[33;43m"[39;49m[43m,[49m
-[32m      8[39m [43m    [49m[43mroutes[49m[43m=[49m[43m[[49m[33;43m"[39;49m[33;43m806[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[33;43m"[39;49m[33;43m807[39;49m[33;43m"[39;49m[43m][49m[43m,[49m
-[32m      9[39m [43m    [49m[43madd_depot_deadhead[49m[43m=[49m[38;5;28;43;01mTrue[39;49;00m[43m,[49m
-[32m     10[39m [43m    [49m[43madd_mid_block_deadhead[49m[43m=[49m[38;5;28;43;01mTrue[39;49;00m[43m,[49m
-[32m     11[39m [43m    [49m[43madd_hvac[49m[43m=[49m[38;5;28;43;01mTrue[39;49;00m[43m,[49m
-[32m     12[39m [43m    [49m[43moutput_dir[49m[43m=[49m[43moutput_directory[49m[43m,[49m
-[32m     13[39m [43m    [49m[43msave_results[49m[43m=[49m[38;5;28;43;01mFalse[39;49;00m[43m,[49m
-[32m     14[39m [43m)[49m
+[31mModuleNotFoundError[39m                       Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[1][39m[32m, line 4[39m
+[32m      1[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mlogging[39;00m
+[32m      2[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mos[39;00m
+[32m----> [39m[32m4[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01mroutee[39;00m[34;01m.[39;00m[34;01mtransit[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m GTFSEnergyPredictor, repo_root
+[32m      6[39m [38;5;66;03m# Set up logging: Clear any existing handlers[39;00m
+[32m      7[39m logging.getLogger().handlers.clear()
 
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:261[39m, in [36mGTFSEnergyPredictor.run[39m[34m(self, vehicle_models, date, routes, add_mid_block_deadhead, add_depot_deadhead, add_hvac, output_dir, save_results)[39m
-[32m    258[39m     vehicle_models = [vehicle_models]
-[32m    260[39m [38;5;66;03m# Step 1: Load GTFS data[39;00m
-[32m--> [39m[32m261[39m [38;5;28;43mself[39;49m[43m.[49m[43mload_gtfs_data[49m[43m([49m[43m)[49m
-[32m    263[39m [38;5;66;03m# Step 2: Filter trips if requested[39;00m
-[32m    264[39m [38;5;28;01mif[39;00m date [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m [38;5;129;01mor[39;00m routes [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m:
+[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/__init__.py:9[39m
+[32m      1[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01mpathlib[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m Path
+[32m      3[39m __all__ = [
+[32m      4[39m     [33m"[39m[33mGTFSEnergyPredictor[39m[33m"[39m,
+[32m      5[39m     [33m"[39m[33mcreate_deadhead_shapes[39m[33m"[39m,
+[32m      6[39m     [33m"[39m[33madd_HVAC_energy[39m[33m"[39m,
+[32m      7[39m ]
+[32m----> [39m[32m9[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01m.[39;00m[34;01mdeadhead_router[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m create_deadhead_shapes
+[32m     10[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01m.[39;00m[34;01mpredictor[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m GTFSEnergyPredictor
+[32m     11[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01m.[39;00m[34;01mthermal_energy[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m add_HVAC_energy
 
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:319[39m, in [36mGTFSEnergyPredictor.load_gtfs_data[39m[34m(self)[39m
-[32m    311[39m [38;5;66;03m# Load feed with required columns[39;00m
-[32m    312[39m req_cols = {
-[32m    313[39m     [33m"[39m[33mstop_times[39m[33m"[39m: [
-[32m    314[39m         [33m"[39m[33marrival_time[39m[33m"[39m,
-[32m   (...)[39m[32m    317[39m     ],
-[32m    318[39m }
-[32m--> [39m[32m319[39m [38;5;28mself[39m.feed = [43mFeed[49m[43m.[49m[43mfrom_dir[49m[43m([49m[38;5;28;43mself[39;49m[43m.[49m[43mgtfs_path[49m[43m,[49m[43m [49m[43mcolumns[49m[43m=[49m[43mreq_cols[49m[43m)[49m
-[32m    321[39m agencies = [38;5;28mself[39m.feed.agency.agency_name.unique().tolist()
-[32m    322[39m logger.info(
-[32m    323[39m     [33mf[39m[33m"[39m[33mFeed includes [39m[38;5;132;01m{[39;00m[38;5;28mlen[39m(agencies)[38;5;132;01m}[39;00m[33m agencies: [39m[38;5;132;01m{[39;00magencies[38;5;132;01m}[39;00m[33m. [39m[33m"[39m
-[32m    324[39m     [33mf[39m[33m"[39m[33mTotal trips: [39m[38;5;132;01m{[39;00m[38;5;28mlen[39m([38;5;28mself[39m.feed.trips)[38;5;132;01m}[39;00m[33m, [39m[33m"[39m
-[32m    325[39m     [33mf[39m[33m"[39m[33mshapes: [39m[38;5;132;01m{[39;00m[38;5;28mself[39m.feed.shapes.shape_id.nunique()[38;5;132;01m}[39;00m[33m"[39m
-[32m    326[39m )
+[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/deadhead_router.py:8[39m
+[32m      5[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mpandas[39;00m[38;5;250m [39m[38;5;28;01mas[39;00m[38;5;250m [39m[34;01mpd[39;00m
+[32m      6[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mshapely[39;00m
+[32m----> [39m[32m8[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01mnrel[39;00m[34;01m.[39;00m[34;01mroutee[39;00m[34;01m.[39;00m[34;01mcompass[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m CompassApp
+[32m      9[39m [38;5;28;01mfrom[39;00m[38;5;250m [39m[34;01mnrel[39;00m[34;01m.[39;00m[34;01mroutee[39;00m[34;01m.[39;00m[34;01mcompass[39;00m[34;01m.[39;00m[34;01mutils[39;00m[34;01m.[39;00m[34;01mgeometry[39;00m[38;5;250m [39m[38;5;28;01mimport[39;00m geometry_from_route
+[32m     11[39m log = logging.getLogger([34m__name__[39m)
 
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:560[39m, in [36mFeed.from_dir[39m[34m(cls, dir_name, columns)[39m
-[32m    557[39m stops_file = [33m"[39m[38;5;132;01m{}[39;00m[33m/stops.txt[39m[33m"[39m.format(dir_name)
-[32m    558[39m stop_times_file = [33m"[39m[38;5;132;01m{}[39;00m[33m/stop_times.txt[39m[33m"[39m.format(dir_name)
-[32m--> [39m[32m560[39m [38;5;28;01mreturn[39;00m [38;5;28;43mcls[39;49m[43m([49m
-[32m    561[39m [43m    [49m[43magency_file[49m[43m=[49m[43magency_file[49m[43m,[49m
-[32m    562[39m [43m    [49m[43mcalendar_file[49m[43m=[49m[43mcalendar_file[49m[43m,[49m
-[32m    563[39m [43m    [49m[43mcalendar_dates_file[49m[43m=[49m[43mcalendar_dates_file[49m[43m,[49m
-[32m    564[39m [43m    [49m[43mtrips_file[49m[43m=[49m[43mtrips_file[49m[43m,[49m
-[32m    565[39m [43m    [49m[43mshapes_file[49m[43m=[49m[43mshapes_file[49m[43m,[49m
-[32m    566[39m [43m    [49m[43mroutes_file[49m[43m=[49m[43mroutes_file[49m[43m,[49m
-[32m    567[39m [43m    [49m[43mstops_file[49m[43m=[49m[43mstops_file[49m[43m,[49m
-[32m    568[39m [43m    [49m[43mstop_times_file[49m[43m=[49m[43mstop_times_file[49m[43m,[49m
-[32m    569[39m [43m    [49m[43mcolumns[49m[43m=[49m[43mcolumns[49m[43m,[49m
-[32m    570[39m [43m[49m[43m)[49m
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:459[39m, in [36mFeed.__init__[39m[34m(self, agency_file, calendar_file, calendar_dates_file, trips_file, shapes_file, routes_file, stops_file, stop_times_file, columns)[39m
-[32m    454[39m         combined_cols[file_type] = [38;5;28mlist[39m(
-[32m    455[39m             [38;5;28mset[39m(REQUIRED_COLS[file_type] + columns[file_type])
-[32m    456[39m         )
-[32m    458[39m [38;5;66;03m# Load each table[39;00m
-[32m--> [39m[32m459[39m [38;5;28mself[39m.agency = [43m_load_table[49m[43m([49m
-[32m    460[39m [43m    [49m[43mfilename[49m[43m=[49m[43magency_file[49m[43m,[49m
-[32m    461[39m [43m    [49m[43mrequired_cols[49m[43m=[49m[43mcombined_cols[49m[43m[[49m[33;43m"[39;49m[33;43magency[39;49m[33;43m"[39;49m[43m][49m[43m,[49m
-[32m    462[39m [43m    [49m[43moptional_cols[49m[43m=[49m[43m[[49m[33;43m"[39;49m[33;43magency_id[39;49m[33;43m"[39;49m[43m][49m[43m,[49m
-[32m    463[39m [43m    [49m[43mdtype[49m[43m=[49m[43mCOL_DTYPES[49m[43m[[49m[33;43m"[39;49m[33;43magency[39;49m[33;43m"[39;49m[43m][49m[43m,[49m
-[32m    464[39m [43m[49m[43m)[49m
-[32m    465[39m [38;5;28mself[39m.trips = _load_table(
-[32m    466[39m     filename=trips_file,
-[32m    467[39m     required_cols=combined_cols[[33m"[39m[33mtrips[39m[33m"[39m],
-[32m    468[39m     dtype=COL_DTYPES[[33m"[39m[33mtrips[39m[33m"[39m],
-[32m    469[39m )
-[32m    470[39m [38;5;28mself[39m.routes = _load_table(
-[32m    471[39m     filename=routes_file,
-[32m    472[39m     required_cols=combined_cols[[33m"[39m[33mroutes[39m[33m"[39m],
-[32m    473[39m     optional_cols=[[33m"[39m[33mroute_desc[39m[33m"[39m, [33m"[39m[33magency_id[39m[33m"[39m],
-[32m    474[39m     dtype=COL_DTYPES[[33m"[39m[33mroutes[39m[33m"[39m],
-[32m    475[39m )
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:34[39m, in [36m_load_table[39m[34m(filename, required_cols, optional_cols, index_col, dtype)[39m
-[32m     14[39m [38;5;28;01mdef[39;00m[38;5;250m [39m[34m_load_table[39m(
-[32m     15[39m     filename: [38;5;28mstr[39m | os.PathLike,
-[32m     16[39m     required_cols: Iterable,
-[32m   (...)[39m[32m     19[39m     dtype: Optional[Mapping] = [38;5;28;01mNone[39;00m,
-[32m     20[39m ) -> pd.DataFrame:
-[32m     21[39m [38;5;250m    [39m[33;03m"""[39;00m
-[32m     22[39m [33;03m    Confirm that the given GTFS table contains all required columns[39;00m
-[32m     23[39m [33;03m    and load into a DataFrame if it does. Otherwise, raise a ValueError.[39;00m
-[32m   (...)[39m[32m     32[39m [33;03m    :return: DataFrame of loaded data, or raise an appropriate error[39;00m
-[32m     33[39m [33;03m    """[39;00m
-[32m---> [39m[32m34[39m     df = [43mpd[49m[43m.[49m[43mread_csv[49m[43m([49m[43mfilename[49m[43m,[49m[43m [49m[43mindex_col[49m[43m=[49m[43mindex_col[49m[43m,[49m[43m [49m[43mdtype[49m[43m=[49m[43mdtype[49m[43m)[49m
-[32m     35[39m     [38;5;28;01mif[39;00m [38;5;28mall[39m(c [38;5;129;01min[39;00m df.columns [38;5;28;01mfor[39;00m c [38;5;129;01min[39;00m required_cols):
-[32m     36[39m         [38;5;28;01mif[39;00m optional_cols [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m:
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1026[39m, in [36mread_csv[39m[34m(filepath_or_buffer, sep, delimiter, header, names, index_col, usecols, dtype, engine, converters, true_values, false_values, skipinitialspace, skiprows, skipfooter, nrows, na_values, keep_default_na, na_filter, verbose, skip_blank_lines, parse_dates, infer_datetime_format, keep_date_col, date_parser, date_format, dayfirst, cache_dates, iterator, chunksize, compression, thousands, decimal, lineterminator, quotechar, quoting, doublequote, escapechar, comment, encoding, encoding_errors, dialect, on_bad_lines, delim_whitespace, low_memory, memory_map, float_precision, storage_options, dtype_backend)[39m
-[32m   1013[39m kwds_defaults = _refine_defaults_read(
-[32m   1014[39m     dialect,
-[32m   1015[39m     delimiter,
-[32m   (...)[39m[32m   1022[39m     dtype_backend=dtype_backend,
-[32m   1023[39m )
-[32m   1024[39m kwds.update(kwds_defaults)
-[32m-> [39m[32m1026[39m [38;5;28;01mreturn[39;00m [43m_read[49m[43m([49m[43mfilepath_or_buffer[49m[43m,[49m[43m [49m[43mkwds[49m[43m)[49m
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:620[39m, in [36m_read[39m[34m(filepath_or_buffer, kwds)[39m
-[32m    617[39m _validate_names(kwds.get([33m"[39m[33mnames[39m[33m"[39m, [38;5;28;01mNone[39;00m))
-[32m    619[39m [38;5;66;03m# Create the parser.[39;00m
-[32m--> [39m[32m620[39m parser = [43mTextFileReader[49m[43m([49m[43mfilepath_or_buffer[49m[43m,[49m[43m [49m[43m*[49m[43m*[49m[43mkwds[49m[43m)[49m
-[32m    622[39m [38;5;28;01mif[39;00m chunksize [38;5;129;01mor[39;00m iterator:
-[32m    623[39m     [38;5;28;01mreturn[39;00m parser
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1620[39m, in [36mTextFileReader.__init__[39m[34m(self, f, engine, **kwds)[39m
-[32m   1617[39m     [38;5;28mself[39m.options[[33m"[39m[33mhas_index_names[39m[33m"[39m] = kwds[[33m"[39m[33mhas_index_names[39m[33m"[39m]
-[32m   1619[39m [38;5;28mself[39m.handles: IOHandles | [38;5;28;01mNone[39;00m = [38;5;28;01mNone[39;00m
-[32m-> [39m[32m1620[39m [38;5;28mself[39m._engine = [38;5;28;43mself[39;49m[43m.[49m[43m_make_engine[49m[43m([49m[43mf[49m[43m,[49m[43m [49m[38;5;28;43mself[39;49m[43m.[49m[43mengine[49m[43m)[49m
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1880[39m, in [36mTextFileReader._make_engine[39m[34m(self, f, engine)[39m
-[32m   1878[39m     [38;5;28;01mif[39;00m [33m"[39m[33mb[39m[33m"[39m [38;5;129;01mnot[39;00m [38;5;129;01min[39;00m mode:
-[32m   1879[39m         mode += [33m"[39m[33mb[39m[33m"[39m
-[32m-> [39m[32m1880[39m [38;5;28mself[39m.handles = [43mget_handle[49m[43m([49m
-[32m   1881[39m [43m    [49m[43mf[49m[43m,[49m
-[32m   1882[39m [43m    [49m[43mmode[49m[43m,[49m
-[32m   1883[39m [43m    [49m[43mencoding[49m[43m=[49m[38;5;28;43mself[39;49m[43m.[49m[43moptions[49m[43m.[49m[43mget[49m[43m([49m[33;43m"[39;49m[33;43mencoding[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[38;5;28;43;01mNone[39;49;00m[43m)[49m[43m,[49m
-[32m   1884[39m [43m    [49m[43mcompression[49m[43m=[49m[38;5;28;43mself[39;49m[43m.[49m[43moptions[49m[43m.[49m[43mget[49m[43m([49m[33;43m"[39;49m[33;43mcompression[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[38;5;28;43;01mNone[39;49;00m[43m)[49m[43m,[49m
-[32m   1885[39m [43m    [49m[43mmemory_map[49m[43m=[49m[38;5;28;43mself[39;49m[43m.[49m[43moptions[49m[43m.[49m[43mget[49m[43m([49m[33;43m"[39;49m[33;43mmemory_map[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[38;5;28;43;01mFalse[39;49;00m[43m)[49m[43m,[49m
-[32m   1886[39m [43m    [49m[43mis_text[49m[43m=[49m[43mis_text[49m[43m,[49m
-[32m   1887[39m [43m    [49m[43merrors[49m[43m=[49m[38;5;28;43mself[39;49m[43m.[49m[43moptions[49m[43m.[49m[43mget[49m[43m([49m[33;43m"[39;49m[33;43mencoding_errors[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[33;43m"[39;49m[33;43mstrict[39;49m[33;43m"[39;49m[43m)[49m[43m,[49m
-[32m   1888[39m [43m    [49m[43mstorage_options[49m[43m=[49m[38;5;28;43mself[39;49m[43m.[49m[43moptions[49m[43m.[49m[43mget[49m[43m([49m[33;43m"[39;49m[33;43mstorage_options[39;49m[33;43m"[39;49m[43m,[49m[43m [49m[38;5;28;43;01mNone[39;49;00m[43m)[49m[43m,[49m
-[32m   1889[39m [43m[49m[43m)[49m
-[32m   1890[39m [38;5;28;01massert[39;00m [38;5;28mself[39m.handles [38;5;129;01mis[39;00m [38;5;129;01mnot[39;00m [38;5;28;01mNone[39;00m
-[32m   1891[39m f = [38;5;28mself[39m.handles.handle
-
-[36mFile [39m[32m/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/common.py:873[39m, in [36mget_handle[39m[34m(path_or_buf, mode, encoding, compression, memory_map, is_text, errors, storage_options)[39m
-[32m    868[39m [38;5;28;01melif[39;00m [38;5;28misinstance[39m(handle, [38;5;28mstr[39m):
-[32m    869[39m     [38;5;66;03m# Check whether the filename is to be opened in binary mode.[39;00m
-[32m    870[39m     [38;5;66;03m# Binary mode does not support 'encoding' and 'newline'.[39;00m
-[32m    871[39m     [38;5;28;01mif[39;00m ioargs.encoding [38;5;129;01mand[39;00m [33m"[39m[33mb[39m[33m"[39m [38;5;129;01mnot[39;00m [38;5;129;01min[39;00m ioargs.mode:
-[32m    872[39m         [38;5;66;03m# Encoding[39;00m
-[32m--> [39m[32m873[39m         handle = [38;5;28;43mopen[39;49m[43m([49m
-[32m    874[39m [43m            [49m[43mhandle[49m[43m,[49m
-[32m    875[39m [43m            [49m[43mioargs[49m[43m.[49m[43mmode[49m[43m,[49m
-[32m    876[39m [43m            [49m[43mencoding[49m[43m=[49m[43mioargs[49m[43m.[49m[43mencoding[49m[43m,[49m
-[32m    877[39m [43m            [49m[43merrors[49m[43m=[49m[43merrors[49m[43m,[49m
-[32m    878[39m [43m            [49m[43mnewline[49m[43m=[49m[33;43m"[39;49m[33;43m"[39;49m[43m,[49m
-[32m    879[39m [43m        [49m[43m)[49m
-[32m    880[39m     [38;5;28;01melse[39;00m:
-[32m    881[39m         [38;5;66;03m# Binary mode[39;00m
-[32m    882[39m         handle = [38;5;28mopen[39m(handle, ioargs.mode)
-
-[31mFileNotFoundError[39m: [Errno 2] No such file or directory: '/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs/agency.txt'
+[31mModuleNotFoundError[39m: No module named 'nrel'
 

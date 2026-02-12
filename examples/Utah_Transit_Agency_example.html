@@ -440,7 +440,34 @@ extensible API for transit energy prediction.</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:04.979456832 [W:onnxruntime:Default, device_discovery.cc:131 GetPciBusId] Skipping pci_bus_id for PCI path at &quot;/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/VMBUS:00/5620e0c7-8062-4dce-aeb7-520c7ef76171&quot; because filename &quot;&quot;5620e0c7-8062-4dce-aeb7-520c7ef76171&quot;&quot; dit not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">ModuleNotFoundError</span><span class="g g-Whitespace">                       </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span> <span class="mi">4</span>
+<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="g g-Whitespace">      </span><span class="mi">2</span> <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="ne">----&gt; </span><span class="mi">4</span> <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">repo_root</span>
+<span class="g g-Whitespace">      </span><span class="mi">6</span> <span class="c1"># Set up logging: Clear any existing handlers</span>
+<span class="g g-Whitespace">      </span><span class="mi">7</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+<span class="n">File</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">hostedtoolcache</span><span class="o">/</span><span class="n">Python</span><span class="o">/</span><span class="mf">3.11.14</span><span class="o">/</span><span class="n">x64</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python3</span><span class="mf">.11</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">routee</span><span class="o">/</span><span class="n">transit</span><span class="o">/</span><span class="fm">__init__</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">9</span>
+<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="g g-Whitespace">      </span><span class="mi">3</span> <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+<span class="g g-Whitespace">      </span><span class="mi">4</span>     <span class="s2">&quot;GTFSEnergyPredictor&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">      </span><span class="mi">5</span>     <span class="s2">&quot;create_deadhead_shapes&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">      </span><span class="mi">6</span>     <span class="s2">&quot;add_HVAC_energy&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">      </span><span class="mi">7</span> <span class="p">]</span>
+<span class="ne">----&gt; </span><span class="mi">9</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.deadhead_router</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_deadhead_shapes</span>
+<span class="g g-Whitespace">     </span><span class="mi">10</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.predictor</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span>
+<span class="g g-Whitespace">     </span><span class="mi">11</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.thermal_energy</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_HVAC_energy</span>
+
+<span class="n">File</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">hostedtoolcache</span><span class="o">/</span><span class="n">Python</span><span class="o">/</span><span class="mf">3.11.14</span><span class="o">/</span><span class="n">x64</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python3</span><span class="mf">.11</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">routee</span><span class="o">/</span><span class="n">transit</span><span class="o">/</span><span class="n">deadhead_router</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">8</span>
+<span class="g g-Whitespace">      </span><span class="mi">5</span> <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="g g-Whitespace">      </span><span class="mi">6</span> <span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
+<span class="ne">----&gt; </span><span class="mi">8</span> <span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompassApp</span>
+<span class="g g-Whitespace">      </span><span class="mi">9</span> <span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass.utils.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">geometry_from_route</span>
+<span class="g g-Whitespace">     </span><span class="mi">11</span> <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="ne">ModuleNotFoundError</span>: No module named &#39;nrel&#39;
 </pre></div>
 </div>
 </div>
@@ -459,175 +486,18 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
     <span class="n">gtfs_path</span><span class="o">=</span><span class="n">input_directory</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_directory</span><span class="p">,</span>
+    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span>
 <span class="p">)</span>
 
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="n">vehicle_models</span><span class="o">=</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span>
     <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
     <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;806&quot;</span><span class="p">,</span> <span class="s2">&quot;807&quot;</span><span class="p">],</span>
     <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_directory</span><span class="p">,</span>
     <span class="n">save_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:05,522 [INFO] routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-02-05 21:30:05,523 [INFO] routee.transit.predictor - Loading GTFS data...
-</pre></div>
-</div>
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">FileNotFoundError</span><span class="g g-Whitespace">                         </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">line</span> <span class="mi">5</span>
-<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
-<span class="g g-Whitespace">      </span><span class="mi">2</span>     <span class="n">gtfs_path</span><span class="o">=</span><span class="n">input_directory</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">3</span> <span class="p">)</span>
-<span class="ne">----&gt; </span><span class="mi">5</span> <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-<span class="g g-Whitespace">      </span><span class="mi">6</span>     <span class="n">vehicle_models</span><span class="o">=</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">7</span>     <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">8</span>     <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;806&quot;</span><span class="p">,</span> <span class="s2">&quot;807&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">      </span><span class="mi">9</span>     <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">10</span>     <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">11</span>     <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">12</span>     <span class="n">output_dir</span><span class="o">=</span><span class="n">output_directory</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">13</span>     <span class="n">save_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">14</span> <span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:261,</span> in <span class="ni">GTFSEnergyPredictor.run</span><span class="nt">(self, vehicle_models, date, routes, add_mid_block_deadhead, add_depot_deadhead, add_hvac, output_dir, save_results)</span>
-<span class="g g-Whitespace">    </span><span class="mi">258</span>     <span class="n">vehicle_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">vehicle_models</span><span class="p">]</span>
-<span class="g g-Whitespace">    </span><span class="mi">260</span> <span class="c1"># Step 1: Load GTFS data</span>
-<span class="ne">--&gt; </span><span class="mi">261</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">263</span> <span class="c1"># Step 2: Filter trips if requested</span>
-<span class="g g-Whitespace">    </span><span class="mi">264</span> <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/predictor.py:319,</span> in <span class="ni">GTFSEnergyPredictor.load_gtfs_data</span><span class="nt">(self)</span>
-<span class="g g-Whitespace">    </span><span class="mi">311</span> <span class="c1"># Load feed with required columns</span>
-<span class="g g-Whitespace">    </span><span class="mi">312</span> <span class="n">req_cols</span> <span class="o">=</span> <span class="p">{</span>
-<span class="g g-Whitespace">    </span><span class="mi">313</span>     <span class="s2">&quot;stop_times&quot;</span><span class="p">:</span> <span class="p">[</span>
-<span class="g g-Whitespace">    </span><span class="mi">314</span>         <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span>
-   <span class="p">(</span><span class="o">...</span><span class="p">)</span>    <span class="mi">317</span>     <span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">318</span> <span class="p">}</span>
-<span class="ne">--&gt; </span><span class="mi">319</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="o">=</span> <span class="n">Feed</span><span class="o">.</span><span class="n">from_dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gtfs_path</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">req_cols</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">321</span> <span class="n">agencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">agency</span><span class="o">.</span><span class="n">agency_name</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">322</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">323</span>     <span class="sa">f</span><span class="s2">&quot;Feed includes </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">agencies</span><span class="p">)</span><span class="si">}</span><span class="s2"> agencies: </span><span class="si">{</span><span class="n">agencies</span><span class="si">}</span><span class="s2">. &quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">324</span>     <span class="sa">f</span><span class="s2">&quot;Total trips: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">325</span>     <span class="sa">f</span><span class="s2">&quot;shapes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">shapes</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-<span class="g g-Whitespace">    </span><span class="mi">326</span> <span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:560,</span> in <span class="ni">Feed.from_dir</span><span class="nt">(cls, dir_name, columns)</span>
-<span class="g g-Whitespace">    </span><span class="mi">557</span> <span class="n">stops_file</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/stops.txt&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dir_name</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">558</span> <span class="n">stop_times_file</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/stop_times.txt&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dir_name</span><span class="p">)</span>
-<span class="ne">--&gt; </span><span class="mi">560</span> <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">561</span>     <span class="n">agency_file</span><span class="o">=</span><span class="n">agency_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">562</span>     <span class="n">calendar_file</span><span class="o">=</span><span class="n">calendar_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">563</span>     <span class="n">calendar_dates_file</span><span class="o">=</span><span class="n">calendar_dates_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">564</span>     <span class="n">trips_file</span><span class="o">=</span><span class="n">trips_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">565</span>     <span class="n">shapes_file</span><span class="o">=</span><span class="n">shapes_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">566</span>     <span class="n">routes_file</span><span class="o">=</span><span class="n">routes_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">567</span>     <span class="n">stops_file</span><span class="o">=</span><span class="n">stops_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">568</span>     <span class="n">stop_times_file</span><span class="o">=</span><span class="n">stop_times_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">569</span>     <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">570</span> <span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:459,</span> in <span class="ni">Feed.__init__</span><span class="nt">(self, agency_file, calendar_file, calendar_dates_file, trips_file, shapes_file, routes_file, stops_file, stop_times_file, columns)</span>
-<span class="g g-Whitespace">    </span><span class="mi">454</span>         <span class="n">combined_cols</span><span class="p">[</span><span class="n">file_type</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">455</span>             <span class="nb">set</span><span class="p">(</span><span class="n">REQUIRED_COLS</span><span class="p">[</span><span class="n">file_type</span><span class="p">]</span> <span class="o">+</span> <span class="n">columns</span><span class="p">[</span><span class="n">file_type</span><span class="p">])</span>
-<span class="g g-Whitespace">    </span><span class="mi">456</span>         <span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">458</span> <span class="c1"># Load each table</span>
-<span class="ne">--&gt; </span><span class="mi">459</span> <span class="bp">self</span><span class="o">.</span><span class="n">agency</span> <span class="o">=</span> <span class="n">_load_table</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">460</span>     <span class="n">filename</span><span class="o">=</span><span class="n">agency_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">461</span>     <span class="n">required_cols</span><span class="o">=</span><span class="n">combined_cols</span><span class="p">[</span><span class="s2">&quot;agency&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">462</span>     <span class="n">optional_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;agency_id&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">463</span>     <span class="n">dtype</span><span class="o">=</span><span class="n">COL_DTYPES</span><span class="p">[</span><span class="s2">&quot;agency&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">464</span> <span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">465</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span> <span class="o">=</span> <span class="n">_load_table</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">466</span>     <span class="n">filename</span><span class="o">=</span><span class="n">trips_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">467</span>     <span class="n">required_cols</span><span class="o">=</span><span class="n">combined_cols</span><span class="p">[</span><span class="s2">&quot;trips&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">468</span>     <span class="n">dtype</span><span class="o">=</span><span class="n">COL_DTYPES</span><span class="p">[</span><span class="s2">&quot;trips&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">469</span> <span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">470</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="o">=</span> <span class="n">_load_table</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">471</span>     <span class="n">filename</span><span class="o">=</span><span class="n">routes_file</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">472</span>     <span class="n">required_cols</span><span class="o">=</span><span class="n">combined_cols</span><span class="p">[</span><span class="s2">&quot;routes&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">473</span>     <span class="n">optional_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;route_desc&quot;</span><span class="p">,</span> <span class="s2">&quot;agency_id&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">474</span>     <span class="n">dtype</span><span class="o">=</span><span class="n">COL_DTYPES</span><span class="p">[</span><span class="s2">&quot;routes&quot;</span><span class="p">],</span>
-<span class="g g-Whitespace">    </span><span class="mi">475</span> <span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/gtfsblocks/gtfs.py:34,</span> in <span class="ni">_load_table</span><span class="nt">(filename, required_cols, optional_cols, index_col, dtype)</span>
-<span class="g g-Whitespace">     </span><span class="mi">14</span> <span class="k">def</span><span class="w"> </span><span class="nf">_load_table</span><span class="p">(</span>
-<span class="g g-Whitespace">     </span><span class="mi">15</span>     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">16</span>     <span class="n">required_cols</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">,</span>
-   <span class="p">(</span><span class="o">...</span><span class="p">)</span>     <span class="mi">19</span>     <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="g g-Whitespace">     </span><span class="mi">20</span> <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="g g-Whitespace">     </span><span class="mi">21</span><span class="w">     </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="g g-Whitespace">     </span><span class="mi">22</span><span class="sd">     Confirm that the given GTFS table contains all required columns</span>
-<span class="g g-Whitespace">     </span><span class="mi">23</span><span class="sd">     and load into a DataFrame if it does. Otherwise, raise a ValueError.</span>
-<span class="sd">   (...)     32     :return: DataFrame of loaded data, or raise an appropriate error</span>
-<span class="g g-Whitespace">     </span><span class="mi">33</span><span class="sd">     &quot;&quot;&quot;</span>
-<span class="ne">---&gt; </span><span class="mi">34</span>     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="n">index_col</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-<span class="g g-Whitespace">     </span><span class="mi">35</span>     <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">required_cols</span><span class="p">):</span>
-<span class="g g-Whitespace">     </span><span class="mi">36</span>         <span class="k">if</span> <span class="n">optional_cols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1026,</span> in <span class="ni">read_csv</span><span class="nt">(filepath_or_buffer, sep, delimiter, header, names, index_col, usecols, dtype, engine, converters, true_values, false_values, skipinitialspace, skiprows, skipfooter, nrows, na_values, keep_default_na, na_filter, verbose, skip_blank_lines, parse_dates, infer_datetime_format, keep_date_col, date_parser, date_format, dayfirst, cache_dates, iterator, chunksize, compression, thousands, decimal, lineterminator, quotechar, quoting, doublequote, escapechar, comment, encoding, encoding_errors, dialect, on_bad_lines, delim_whitespace, low_memory, memory_map, float_precision, storage_options, dtype_backend)</span>
-<span class="g g-Whitespace">   </span><span class="mi">1013</span> <span class="n">kwds_defaults</span> <span class="o">=</span> <span class="n">_refine_defaults_read</span><span class="p">(</span>
-<span class="g g-Whitespace">   </span><span class="mi">1014</span>     <span class="n">dialect</span><span class="p">,</span>
-<span class="g g-Whitespace">   </span><span class="mi">1015</span>     <span class="n">delimiter</span><span class="p">,</span>
-   <span class="p">(</span><span class="o">...</span><span class="p">)</span>   <span class="mi">1022</span>     <span class="n">dtype_backend</span><span class="o">=</span><span class="n">dtype_backend</span><span class="p">,</span>
-<span class="g g-Whitespace">   </span><span class="mi">1023</span> <span class="p">)</span>
-<span class="g g-Whitespace">   </span><span class="mi">1024</span> <span class="n">kwds</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwds_defaults</span><span class="p">)</span>
-<span class="ne">-&gt; </span><span class="mi">1026</span> <span class="k">return</span> <span class="n">_read</span><span class="p">(</span><span class="n">filepath_or_buffer</span><span class="p">,</span> <span class="n">kwds</span><span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:620,</span> in <span class="ni">_read</span><span class="nt">(filepath_or_buffer, kwds)</span>
-<span class="g g-Whitespace">    </span><span class="mi">617</span> <span class="n">_validate_names</span><span class="p">(</span><span class="n">kwds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;names&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-<span class="g g-Whitespace">    </span><span class="mi">619</span> <span class="c1"># Create the parser.</span>
-<span class="ne">--&gt; </span><span class="mi">620</span> <span class="n">parser</span> <span class="o">=</span> <span class="n">TextFileReader</span><span class="p">(</span><span class="n">filepath_or_buffer</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">622</span> <span class="k">if</span> <span class="n">chunksize</span> <span class="ow">or</span> <span class="n">iterator</span><span class="p">:</span>
-<span class="g g-Whitespace">    </span><span class="mi">623</span>     <span class="k">return</span> <span class="n">parser</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1620,</span> in <span class="ni">TextFileReader.__init__</span><span class="nt">(self, f, engine, **kwds)</span>
-<span class="g g-Whitespace">   </span><span class="mi">1617</span>     <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;has_index_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwds</span><span class="p">[</span><span class="s2">&quot;has_index_names&quot;</span><span class="p">]</span>
-<span class="g g-Whitespace">   </span><span class="mi">1619</span> <span class="bp">self</span><span class="o">.</span><span class="n">handles</span><span class="p">:</span> <span class="n">IOHandles</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="ne">-&gt; </span><span class="mi">1620</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_engine</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/parsers/readers.py:1880,</span> in <span class="ni">TextFileReader._make_engine</span><span class="nt">(self, f, engine)</span>
-<span class="g g-Whitespace">   </span><span class="mi">1878</span>     <span class="k">if</span> <span class="s2">&quot;b&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mode</span><span class="p">:</span>
-<span class="g g-Whitespace">   </span><span class="mi">1879</span>         <span class="n">mode</span> <span class="o">+=</span> <span class="s2">&quot;b&quot;</span>
-<span class="ne">-&gt; </span><span class="mi">1880</span> <span class="bp">self</span><span class="o">.</span><span class="n">handles</span> <span class="o">=</span> <span class="n">get_handle</span><span class="p">(</span>
-<span class="g g-Whitespace">   </span><span class="mi">1881</span>     <span class="n">f</span><span class="p">,</span>
-<span class="g g-Whitespace">   </span><span class="mi">1882</span>     <span class="n">mode</span><span class="p">,</span>
-<span class="g g-Whitespace">   </span><span class="mi">1883</span>     <span class="n">encoding</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;encoding&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-<span class="g g-Whitespace">   </span><span class="mi">1884</span>     <span class="n">compression</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compression&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-<span class="g g-Whitespace">   </span><span class="mi">1885</span>     <span class="n">memory_map</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;memory_map&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
-<span class="g g-Whitespace">   </span><span class="mi">1886</span>     <span class="n">is_text</span><span class="o">=</span><span class="n">is_text</span><span class="p">,</span>
-<span class="g g-Whitespace">   </span><span class="mi">1887</span>     <span class="n">errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;encoding_errors&quot;</span><span class="p">,</span> <span class="s2">&quot;strict&quot;</span><span class="p">),</span>
-<span class="g g-Whitespace">   </span><span class="mi">1888</span>     <span class="n">storage_options</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;storage_options&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-<span class="g g-Whitespace">   </span><span class="mi">1889</span> <span class="p">)</span>
-<span class="g g-Whitespace">   </span><span class="mi">1890</span> <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">handles</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<span class="g g-Whitespace">   </span><span class="mi">1891</span> <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handles</span><span class="o">.</span><span class="n">handle</span>
-
-<span class="nn">File /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/pandas/io/common.py:873,</span> in <span class="ni">get_handle</span><span class="nt">(path_or_buf, mode, encoding, compression, memory_map, is_text, errors, storage_options)</span>
-<span class="g g-Whitespace">    </span><span class="mi">868</span> <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-<span class="g g-Whitespace">    </span><span class="mi">869</span>     <span class="c1"># Check whether the filename is to be opened in binary mode.</span>
-<span class="g g-Whitespace">    </span><span class="mi">870</span>     <span class="c1"># Binary mode does not support &#39;encoding&#39; and &#39;newline&#39;.</span>
-<span class="g g-Whitespace">    </span><span class="mi">871</span>     <span class="k">if</span> <span class="n">ioargs</span><span class="o">.</span><span class="n">encoding</span> <span class="ow">and</span> <span class="s2">&quot;b&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ioargs</span><span class="o">.</span><span class="n">mode</span><span class="p">:</span>
-<span class="g g-Whitespace">    </span><span class="mi">872</span>         <span class="c1"># Encoding</span>
-<span class="ne">--&gt; </span><span class="mi">873</span>         <span class="n">handle</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span>
-<span class="g g-Whitespace">    </span><span class="mi">874</span>             <span class="n">handle</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">875</span>             <span class="n">ioargs</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">876</span>             <span class="n">encoding</span><span class="o">=</span><span class="n">ioargs</span><span class="o">.</span><span class="n">encoding</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">877</span>             <span class="n">errors</span><span class="o">=</span><span class="n">errors</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">878</span>             <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">    </span><span class="mi">879</span>         <span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">880</span>     <span class="k">else</span><span class="p">:</span>
-<span class="g g-Whitespace">    </span><span class="mi">881</span>         <span class="c1"># Binary mode</span>
-<span class="g g-Whitespace">    </span><span class="mi">882</span>         <span class="n">handle</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">ioargs</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
-
-<span class="ne">FileNotFoundError</span>: [Errno 2] No such file or directory: &#39;/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/sample-inputs/saltlake/gtfs/agency.txt&#39;
 </pre></div>
 </div>
 </div>
@@ -647,7 +517,7 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 <p>Let's examine the results:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">trip_results</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">trip_results</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -655,18 +525,14 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 </section>
 <section id="calculate-energy-efficiency-metrics">
 <h2>Calculate Energy Efficiency Metrics<a class="headerlink" href="#calculate-energy-efficiency-metrics" title="Link to this heading">#</a></h2>
-<p>We can calculate energy efficiency in kWh per mile, including HVAC loads.</p>
+<p>We can calculate energy efficiency in kWh per mile, including HVAC loads.
+The results now include a 'scenario' column (summer/winter) for HVAC impacts.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="s2">&quot;Winter_HVAC_Energy&quot;</span> <span class="ow">in</span> <span class="n">trip_results</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-    <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kwh_per_mi_winter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kWhs&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;Winter_HVAC_Energy&quot;</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">/</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;miles&quot;</span><span class="p">]</span>
-    <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kwh_per_mi_summer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kWhs&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;Summer_HVAC_Energy&quot;</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">/</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;miles&quot;</span><span class="p">]</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="s2">&quot;scenario&quot;</span> <span class="ow">in</span> <span class="n">trip_results</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+    <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;energy_used&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;miles&quot;</span><span class="p">]</span>
 
-<span class="n">trip_results</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">trip_results</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;scenario&quot;</span><span class="p">)[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -679,10 +545,7 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Link-level predictions show energy for each road segment</span>
 <span class="n">link_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_link_predictions</span><span class="p">()</span>
-<span class="n">link_results</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
-
-<span class="c1"># RouteE inputs show the features used for prediction</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">routee_inputs</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">link_results</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
