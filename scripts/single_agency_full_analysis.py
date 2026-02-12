@@ -52,18 +52,20 @@ if __name__ == "__main__":
     predictor = GTFSEnergyPredictor(
         gtfs_path=input_directory,
         n_processes=n_proc,
+        vehicle_models=routee_vehicle_models,
+        output_dir=output_directory,
     )
 
     # Run entire pipeline with one method call
     results = predictor.run(
-        vehicle_models=routee_vehicle_models,
-        date="2023/08/02",
-        routes=["205"],
+        date=None,
+        routes=None,
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
         add_hvac=True,
-        output_dir=output_directory,
         save_results=True,
     )
+
+    print(results.describe())
 
     logger.info(f"Predicted energy for {len(results)} trips")
