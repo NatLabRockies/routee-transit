@@ -15,7 +15,7 @@ from typing import Any, cast
 import geopandas as gpd
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
-from nrel.routee.compass import CompassApp
+from .compass_app import TransitCompassApp
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
@@ -104,7 +104,7 @@ class GTFSEnergyPredictor:
         gtfs_path: str | Path,
         depot_path: str | Path | None = None,
         n_processes: int | None = None,
-        compass_app: CompassApp | None = None,
+        compass_app: TransitCompassApp | None = None,
         output_dir: str | Path | None = None,
         vehicle_models: list[str] | None = None,
         overwrite: bool = True,
@@ -467,7 +467,7 @@ class GTFSEnergyPredictor:
             if config_path.exists() and not self.overwrite:
                 if self.app is None:
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
-                    self.app = CompassApp.from_config_file(
+                    self.app = TransitCompassApp.from_config_file(
                         config_path, parallelism=self.n_processes
                     )
                     self._bbox = new_bbox
@@ -489,7 +489,7 @@ class GTFSEnergyPredictor:
             bbox=new_bbox,
             network_type="drive",
         )
-        self.app = CompassApp.from_graph(
+        self.app = TransitCompassApp.from_graph(
             graph,
             cache_dir=cache_dir,
             phases=phases,

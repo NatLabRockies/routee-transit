@@ -84,4 +84,4 @@ rust = "1.93.*"
 routee-transit = { path = ".", editable = true }
 
 # TODO: move this to first class dependency once we release the latest version of compass
-nrel-routee-compass = { git = "https://github.com/NatLabRockies/routee-compass", branch = "main" }
+nrel-routee-compass = { path = "../routee-compass", editable = true }

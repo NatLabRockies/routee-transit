@@ -4,3 +4,7 @@ version = "0.3.0"
 edition = "2021"
 
 [dependencies]
+routee-compass = { path = "../../../routee-compass/rust/routee-compass" }
+routee-compass-core = { path = "../../../routee-compass/rust/routee-compass-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

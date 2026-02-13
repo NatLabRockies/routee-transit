@@ -5,7 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import shapely
 
-from nrel.routee.compass import CompassApp
+from .compass_app import TransitCompassApp
 from nrel.routee.compass.utils.geometry import geometry_from_route
 
 log = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def route_single_trip_fallback(
 
 
 def create_deadhead_shapes(
-    app: CompassApp,
+    app: TransitCompassApp,
     df: gpd.GeoDataFrame,
     o_col: str = "geometry_origin",
     d_col: str = "geometry_destination",
@@ -104,8 +104,8 @@ def create_deadhead_shapes(
 
     Parameters
     ----------
-    app : CompassApp
-        The CompassApp instance to use for routing.
+    app : TransitCompassApp
+        The TransitCompassApp instance to use for routing.
     df : gpd.GeoDataFrame
         DataFrame with origin and destination geometry columns. Must include
         a 'block_id' column to identify each input row.
