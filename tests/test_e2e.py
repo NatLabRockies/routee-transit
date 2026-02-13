@@ -52,9 +52,9 @@ def test_e2e_uta() -> None:
     )
 
     # Assertions for trip results
-    assert isinstance(
-        trip_results, pd.DataFrame
-    ), "trip_results should be a pandas DataFrame"
+    assert isinstance(trip_results, pd.DataFrame), (
+        "trip_results should be a pandas DataFrame"
+    )
     assert not trip_results.empty, "trip_results should not be empty"
 
     expected_columns = [
@@ -68,9 +68,9 @@ def test_e2e_uta() -> None:
     for col in expected_columns:
         assert col in trip_results.columns, f"Missing expected column: {col}"
 
-    assert (
-        trip_results["energy_unit"] == "kWh"
-    ).all(), "Energy unit should be kWh for electric bus"
+    assert (trip_results["energy_unit"] == "kWh").all(), (
+        "Energy unit should be kWh for electric bus"
+    )
 
     print(trip_results.describe())
 
@@ -82,12 +82,12 @@ def test_e2e_uta() -> None:
         assert not winter_results.empty, "Winter scenario results should not be empty"
         assert not summer_results.empty, "Summer scenario results should not be empty"
 
-        assert (
-            winter_results["energy_used"] > 0
-        ).all(), "Winter energy should be positive"
-        assert (
-            summer_results["energy_used"] > 0
-        ).all(), "Summer energy should be positive"
+        assert (winter_results["energy_used"] > 0).all(), (
+            "Winter energy should be positive"
+        )
+        assert (summer_results["energy_used"] > 0).all(), (
+            "Summer energy should be positive"
+        )
 
     # Link-level predictions
     link_results = predictor.get_link_predictions()
@@ -99,19 +99,19 @@ def test_e2e_uta() -> None:
             link_results, geometry="geometry", crs="EPSG:4326"
         )
 
-    assert isinstance(
-        link_results, gpd.GeoDataFrame
-    ), "link_results should be a GeoDataFrame"
+    assert isinstance(link_results, gpd.GeoDataFrame), (
+        "link_results should be a GeoDataFrame"
+    )
     assert not link_results.empty, "link_results should not be empty"
-    assert (
-        "energy_used" in link_results.columns
-    ), "link_results should contain energy_used column from CompassApp"
+    assert "energy_used" in link_results.columns, (
+        "link_results should contain energy_used column from CompassApp"
+    )
 
     # Matched shapes (map matching result)
     matched_shapes = predictor.matched_shapes
-    assert isinstance(
-        matched_shapes, (pd.DataFrame, gpd.GeoDataFrame)
-    ), "matched_shapes should be a pandas DataFrame or GeoDataFrame"
+    assert isinstance(matched_shapes, (pd.DataFrame, gpd.GeoDataFrame)), (
+        "matched_shapes should be a pandas DataFrame or GeoDataFrame"
+    )
     assert not matched_shapes.empty, "matched_shapes should not be empty"
 
 
