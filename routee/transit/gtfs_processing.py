@@ -1,18 +1,108 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nrel.routee.compass.io.generate_dataset import HookParameters
+
 import datetime
 import logging
 import multiprocessing as mp
 from functools import partial
 
+from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
 from gtfsblocks import Feed
+import importlib.resources
+import tomlkit
 
 logger = logging.getLogger("gtfs_processing")
 
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:
+    """
+    Hook to write GTFS stop-to-edge mapping after dataset generation.
+
+    Args:
+        params: Parameters from generate_compass_dataset
+        feed: GTFS feed object
+    """
+    # 1. Join stops to edges spatially
+    edges_gdf = params.e
+    stops_gdf = gpd.GeoDataFrame(
+        feed.stops,
+        geometry=gpd.points_from_xy(feed.stops.stop_lon, feed.stops.stop_lat),
+        crs="EPSG:4326",
+    )
+
+    # Find nearest edge for each stop
+    stops_projected = stops_gdf.to_crs("EPSG:3857")
+    edges_projected = edges_gdf.to_crs("EPSG:3857")
+
+    matched_stops = stops_projected.sjoin_nearest(
+        edges_projected[["edge_id", "geometry"]], distance_col="dist"
+    )
+
+    # 2. Map stops to trip_id using stop_times
+    # stop_times maps trip_id -> stop_id
+    # matched_stops maps stop_id -> edge_id
+    stop_to_edge = matched_stops.set_index("stop_id")["edge_id"].to_dict()
+
+    stop_edge_records = []
+    for _, row in feed.stop_times.iterrows():
+        stop_id = row["stop_id"]
+        trip_id = row["trip_id"]
+        if stop_id in stop_to_edge:
+            stop_edge_records.append(
+                {"trip_id": trip_id, "edge_id": stop_to_edge[stop_id]}
+            )
+
+    stop_edge_df = pd.DataFrame(stop_edge_records).drop_duplicates()
+
+    # 3. Write to CSV
+    output_path = params.output_directory / "gtfs_stops.csv"
+    stop_edge_df.to_csv(output_path, index=False)
+    logger.info(f"Wrote {len(stop_edge_df)} stop-edge mappings to {output_path}")
+
+
+def copy_transit_config(
+    params: "HookParameters", vehicle_models: list[str] | None = None
+) -> None:
+    """
+    Hook to copy the transit_energy.toml from package resources to the output directory.
+
+    Args:
+        params: Parameters from generate_compass_dataset
+        vehicle_models: Optional list of vehicle models to include. If None, all are included.
+    """
+    with importlib.resources.path(
+        "routee.transit.resources", "transit_energy.toml"
+    ) as config_path:
+        with open(config_path, "r") as f:
+            config = tomlkit.load(f)
+
+    # Filter vehicle_models if requested
+    if vehicle_models is not None:
+        vehicle_set = set(vehicle_models)
+        search = config.get("search", {})
+        traversal = search.get("traversal", {})
+        models = traversal.get("models", [])
+        for model in models:
+            if model.get("type") == "transit_energy" and "vehicle_input_files" in model:
+                model["vehicle_input_files"] = [
+                    p
+                    for p in model["vehicle_input_files"]
+                    if Path(p).stem in vehicle_set
+                ]
+
+    output_path = params.output_directory / "transit_energy.toml"
+    with open(output_path, "w") as f:
+        tomlkit.dump(config, f)
+    logger.info(f"Copied transit_energy.toml to {output_path}")
 
 
 def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:

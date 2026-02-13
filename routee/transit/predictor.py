@@ -10,15 +10,20 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nrel.routee.compass.io.generate_dataset import HookParameters
+import osmnx as ox
+import shutil
 
 import geopandas as gpd
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
-from .compass_app import TransitCompassApp
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
+from routee.transit.compass_app import TransitCompassApp
 from routee.transit.deadhead_router import create_deadhead_shapes
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
@@ -27,8 +32,10 @@ from routee.transit.depot_deadhead import (
     infer_depot_trip_endpoints,
 )
 from routee.transit.gtfs_processing import (
+    copy_transit_config,
     extend_trip_traces,
     upsample_shape,
+    write_gtfs_stops,
 )
 from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_stops,
@@ -459,25 +466,38 @@ class GTFSEnergyPredictor:
         if compass_vehicle_models is None:
             compass_vehicle_models = list(VEHICLE_MODELS.keys())
 
+        # Define GTFS stop mapping hook
+        if self.feed is not None:
+
+            def gtfs_hook(params: HookParameters) -> None:
+                write_gtfs_stops(params, feed=cast(Feed, self.feed))
+
+            def config_hook(params: HookParameters) -> None:
+                copy_transit_config(params, vehicle_models=compass_vehicle_models)
+
+            hooks: list[Callable[[HookParameters], None]] = [gtfs_hook, config_hook]
+        else:
+            raise RuntimeError("GTFS Feed must be set before calling load_compass_app")
+
         if self.output_dir is not None:
             cache_dir = self.output_dir / "compass_app"
-            config_file = "osm_default_energy.toml"
+            config_file = "transit_energy.toml"
             config_path = cache_dir / config_file
 
             if config_path.exists() and not self.overwrite:
                 if self.app is None:
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
-                    self.app = TransitCompassApp.from_config_file(
-                        config_path, parallelism=self.n_processes
+                    self.app = cast(
+                        TransitCompassApp,
+                        TransitCompassApp.from_config_file(
+                            config_path, parallelism=self.n_processes
+                        ),
                     )
                     self._bbox = new_bbox
                     return
 
         if not self.overwrite and self.app is not None:
             return
-
-        import osmnx as ox
-        import shutil
 
         if self.overwrite and cache_dir and cache_dir.exists():
             logger.info(f"Clearing CompassApp cache at {cache_dir}")
@@ -489,12 +509,15 @@ class GTFSEnergyPredictor:
             bbox=new_bbox,
             network_type="drive",
         )
-        self.app = TransitCompassApp.from_graph(
-            graph,
-            cache_dir=cache_dir,
-            phases=phases,
-            vehicle_models=compass_vehicle_models,
-            parallelism=self.n_processes,
+        self.app = cast(
+            TransitCompassApp,
+            TransitCompassApp.from_graph(
+                graph,
+                cache_dir=cache_dir,
+                phases=phases,
+                parallelism=self.n_processes,
+                hooks=hooks,
+            ),
         )
         self._bbox = new_bbox
         logger.info("CompassApp initialized")

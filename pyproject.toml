@@ -10,6 +10,8 @@ dependencies = [
     "boto3",
     "requests>=2.32.5,<3",
     "osmnx[raster]>=2.0.7,<3",
+    # TODO: Update this to be from PyPI after release
+    "nrel.routee.compass @ git+https://github.com/NatLabRockies/routee-compass@ndr/generate-compass-dataset-hooks",
 ]
 
 [project.optional-dependencies]
@@ -82,6 +84,3 @@ rust = "1.93.*"
 
 [tool.pixi.pypi-dependencies]
 routee-transit = { path = ".", editable = true }
-
-# TODO: move this to first class dependency once we release the latest version of compass
-nrel-routee-compass = { path = "../routee-compass", editable = true }

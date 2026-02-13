@@ -8,9 +8,9 @@ name = "routee_transit_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module"] }
-routee-transit = { path = "../routee-transit", version = "0.3.0" }
-routee-compass = { path = "../../../routee-compass/rust/routee-compass" }
-routee-compass-macros = { path = "../../../routee-compass/rust/routee-compass-macros" }
 config = "0.15"
 inventory = "0.3.21"
+pyo3 = { version = "0.23", features = ["extension-module"] }
+routee-compass = { git = "https://github.com/NREL/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-compass-macros = { git = "https://github.com/NREL/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-transit = { path = "../routee-transit", version = "0.3.0" }

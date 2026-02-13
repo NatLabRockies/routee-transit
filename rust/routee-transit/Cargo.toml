@@ -4,7 +4,12 @@ version = "0.3.0"
 edition = "2021"
 
 [dependencies]
-routee-compass = { path = "../../../routee-compass/rust/routee-compass" }
-routee-compass-core = { path = "../../../routee-compass/rust/routee-compass-core" }
+config = "0.14"
+csv = "1.3"
+log = "0.4"
+routee-compass = { git = "https://github.com/NatLabRockies/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-compass-core = { git = "https://github.com/NatLabRockies/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-compass-powertrain = { git = "https://github.com/NatLabRockies/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+uom = "0.36"

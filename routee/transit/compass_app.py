@@ -9,8 +9,8 @@ class TransitCompassApp(CompassApp):
     """
 
     @classmethod
-    def get_constructor(cls):
+    def get_constructor(cls) -> type[TransitCompassAppPy]:
         """
         Return the underlying constructor for the application.
         """
-        return TransitCompassAppPy
+        return TransitCompassAppPy  # type: ignore[no-any-return]
