@@ -1,0 +1,12 @@
+[package]
+name = "routee-transit-py"
+version = "0.3.0"
+edition = "2021"
+
+[lib]
+name = "routee_transit_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+routee-transit = { path = "../routee-transit", version = "0.3.0" }
