@@ -10,6 +10,8 @@ dependencies = [
     "boto3",
     "requests>=2.32.5,<3",
     "osmnx[raster]>=2.0.7,<3",
+    # TODO: Update this to be from PyPI after release
+    "nrel.routee.compass @ git+https://github.com/NatLabRockies/routee-compass@ndr/generate-compass-dataset-hooks",
 ]
 
 [project.optional-dependencies]
@@ -25,14 +27,21 @@ dev = [
     "types-requests",
     "folium>=0.19",
     "python-dotenv>=1.2.1,<2",
+    "maturin>=1.0,<2.0",
 ]
 
 [build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling"]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
-[tool.hatch.build.targets.wheel]
-packages = ["routee"]
+[tool.maturin]
+python-source = "."
+module-name = "routee.transit.routee_transit_py"
+manifest-path = "rust/routee-transit-py/Cargo.toml"
+include = [
+    "routee/transit/resources/**",
+    "README.md",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -79,6 +88,3 @@ rust = "1.93.*"
 
 [tool.pixi.pypi-dependencies]
 routee-transit = { path = ".", editable = true }
-
-# TODO: move this to first class dependency once we release the latest version of compass
-nrel-routee-compass = { git = "https://github.com/NatLabRockies/routee-compass", branch = "ndr/compass-app-io-method" }

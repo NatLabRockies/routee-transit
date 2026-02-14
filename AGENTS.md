@@ -44,34 +44,32 @@ routee-transit/
 
 ### Environment Setup
 
-**Using Pixi (Recommended)**:
+**Using pip and conda**:
 ```bash
-pixi install              # Install default environment
-pixi install -e dev       # Install development environment
-pixi shell                # Activate environment
-pixi shell -e dev         # Activate dev environment
+conda activate routee-transit
+maturin develop
 ```
 
-**Using pip**:
+### Running Checks 
+
+#### python 
+
+Make sure to do `maturin develop` first if any rust code changed
 ```bash
-pip install .             # Install package
-pip install ".[dev]"      # Install with dev dependencies
+ruff format
+ruff check --fix
+mypy .
+pytest tests/
 ```
 
-### Running Tasks
-
-Pixi tasks are defined in `pyproject.toml` under `[tool.pixi.feature.dev.tasks]`:
-
+#### rust
 ```bash
-pixi run -e dev-py312 check            # Run all checks and fixes
+cd rust
+cargo test --workspace
+cargo fmt --all --workspace
+cargo clippy
+cargo sort --check --workspace
 ```
-
-### Code Quality Standards
-
-- **Formatting**: Use `ruff format` for code formatting
-- **Linting**: Use `ruff check` for linting
-- **Type Checking**: Use `mypy` with strict mode enabled
-- **Testing**: Use `pytest` for all tests
 
 ## Key Concepts
 
@@ -99,7 +97,7 @@ The package uses map matching to align GTFS shapes with the OpenStreetMap road n
 
 ### Energy Prediction
 
-Uses RouteE-Powertrain models to predict energy consumption based on:
+Uses RouteE-Compass to predict energy consumption based on:
 - Route characteristics (distance, speed, grade)
 - Vehicle type (e.g., battery-electric buses)
 - Environmental factors (HVAC loads, ambient temperature)
@@ -149,19 +147,8 @@ Uses RouteE-Powertrain models to predict energy consumption based on:
 - **Building docs**: Run `pixi run docs` to build with jupyter-book
 - **API reference**: Auto-generated from docstrings
 
-## Related Projects
-
-### RouteE-Compass
-- **Purpose**: Routing engine and map matching
-
-### RouteE-Powertrain
-- **Purpose**: Vehicle energy consumption models
-- **Integration**: PyPI dependency (`nrel-routee-powertrain`)
-
 ## Common Pitfalls
 
-1. **GDAL Installation**: Mac users may need `brew install gdal` before `pixi install`
-2. **Depot File Paths**: Default depot path is relative to repo root, not current working directory
 3. **Time Format**: GTFS times can exceed 24 hours (e.g., "25:30:00" for 1:30 AM next day)
 4. **Block IDs**: Not all GTFS feeds have block IDs; handle `NaN` values appropriately
 5. **CRS Mismatches**: Always verify coordinate reference systems when working with geospatial data

@@ -13,7 +13,7 @@ extensible API for transit energy prediction.
 import logging
 import os
 
-from routee.transit import GTFSEnergyPredictor, repo_root
+from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
 # Set up logging: Clear any existing handlers
 logging.getLogger().handlers.clear()
@@ -27,8 +27,8 @@ logging.basicConfig(
 os.environ["PROJ_DEBUG"] = "0"
 
 # Specify input data location
-input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
-output_directory = repo_root() / "reports/saltlake"
+input_directory = sample_inputs_path() / "saltlake/gtfs"
+output_directory = "./reports/saltlake"
 
 """
 ## Quick Start: Using the `run()` Method
