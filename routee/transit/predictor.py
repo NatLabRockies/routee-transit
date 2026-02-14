@@ -1257,7 +1257,7 @@ class GTFSEnergyPredictor:
             # Optionally add HVAC to trip-level results
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
-                hvac_energy = add_HVAC_energy(self.feed, self.trips)
+                hvac_energy = add_HVAC_energy(self.feed, self.trips, self.output_dir)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
                 # Add HVAC energy to powertrain energy for electric vehicles
                 kwh_mask = trip_results["energy_unit"] == "kWh"

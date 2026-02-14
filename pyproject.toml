@@ -38,6 +38,10 @@ build-backend = "maturin"
 python-source = "."
 module-name = "routee.transit.routee_transit_py"
 manifest-path = "rust/routee-transit-py/Cargo.toml"
+include = [
+    "routee/transit/resources/**",
+    "README.md",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
