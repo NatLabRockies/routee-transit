@@ -1,0 +1,51 @@
+name: Test - Rust
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: RouteE-Transit Rust Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        run: |
+          rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }} 
+          rustup component add rustfmt
+          cargo install cargo-sort
+
+      - name: Build
+        working-directory: ./rust
+        run: |
+          cargo build --verbose
+
+      - name: Run tests
+        working-directory: ./rust
+        run: cargo test --workspace --verbose
+
+      - name: Run formatting
+        working-directory: ./rust
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo sort --check
+        working-directory: ./rust
+        run: cargo sort --check --workspace

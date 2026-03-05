@@ -1,0 +1,16 @@
+[package]
+name = "routee-transit-py"
+version = "0.3.0"
+edition = "2021"
+
+[lib]
+name = "routee_transit_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+config = "0.15"
+inventory = "0.3.21"
+pyo3 = { version = "0.23", features = ["extension-module"] }
+routee-compass = { git = "https://github.com/NREL/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-compass-macros = { git = "https://github.com/NREL/routee-compass", branch = "ndr/generate-compass-dataset-hooks" }
+routee-transit = { path = "../routee-transit", version = "0.3.0" }

@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 import pandas as pd
@@ -78,7 +80,10 @@ class TestThermalEnergy(unittest.TestCase):
         )
         mock_get_hourly.return_value = mock_hourly_temp
 
-        result = add_HVAC_energy(mock_feed, trips_df)
+        # use a temp directory for output
+        output_directory = Path(tempfile.mkdtemp())
+
+        result = add_HVAC_energy(mock_feed, trips_df, output_directory)
 
         self.assertIn("hvac_energy_kWh", result.columns)
         self.assertIn("scenario", result.columns)

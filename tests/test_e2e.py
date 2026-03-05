@@ -11,7 +11,7 @@ import os
 import tempfile
 import pandas as pd
 import geopandas as gpd
-from routee.transit import GTFSEnergyPredictor, repo_root
+from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
 # Set up logging
 logging.getLogger().handlers.clear()
@@ -28,7 +28,7 @@ def test_e2e_uta() -> None:
     Test the full energy prediction workflow for a subset of UTA routes.
     """
     # Specify input data location
-    input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
+    input_directory = sample_inputs_path() / "saltlake/gtfs"
 
     # use a temp directory for output
     output_directory = tempfile.mkdtemp()
