@@ -32,7 +32,7 @@ def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:
         feed: GTFS feed object
     """
     # 1. Join stops to edges spatially
-    edges_gdf = params.e
+    edges_gdf = params.edges
     stops_gdf = gpd.GeoDataFrame(
         feed.stops,
         geometry=gpd.points_from_xy(feed.stops.stop_lon, feed.stops.stop_lat),
