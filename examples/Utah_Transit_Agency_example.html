@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
   
@@ -420,7 +420,7 @@ extensible API for transit energy prediction.</p>
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">repo_root</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">sample_inputs_path</span>
 
 <span class="c1"># Set up logging: Clear any existing handlers</span>
 <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
@@ -434,40 +434,8 @@ extensible API for transit energy prediction.</p>
 <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PROJ_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
 
 <span class="c1"># Specify input data location</span>
-<span class="n">input_directory</span> <span class="o">=</span> <span class="n">repo_root</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;sample-inputs/saltlake/gtfs&quot;</span>
-<span class="n">output_directory</span> <span class="o">=</span> <span class="n">repo_root</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;reports/saltlake&quot;</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">ModuleNotFoundError</span><span class="g g-Whitespace">                       </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span> <span class="mi">4</span>
-<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<span class="g g-Whitespace">      </span><span class="mi">2</span> <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="ne">----&gt; </span><span class="mi">4</span> <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">repo_root</span>
-<span class="g g-Whitespace">      </span><span class="mi">6</span> <span class="c1"># Set up logging: Clear any existing handlers</span>
-<span class="g g-Whitespace">      </span><span class="mi">7</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-
-<span class="n">File</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">hostedtoolcache</span><span class="o">/</span><span class="n">Python</span><span class="o">/</span><span class="mf">3.11.14</span><span class="o">/</span><span class="n">x64</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python3</span><span class="mf">.11</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">routee</span><span class="o">/</span><span class="n">transit</span><span class="o">/</span><span class="fm">__init__</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">9</span>
-<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="g g-Whitespace">      </span><span class="mi">3</span> <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-<span class="g g-Whitespace">      </span><span class="mi">4</span>     <span class="s2">&quot;GTFSEnergyPredictor&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">5</span>     <span class="s2">&quot;create_deadhead_shapes&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">6</span>     <span class="s2">&quot;add_HVAC_energy&quot;</span><span class="p">,</span>
-<span class="g g-Whitespace">      </span><span class="mi">7</span> <span class="p">]</span>
-<span class="ne">----&gt; </span><span class="mi">9</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.deadhead_router</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_deadhead_shapes</span>
-<span class="g g-Whitespace">     </span><span class="mi">10</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.predictor</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span>
-<span class="g g-Whitespace">     </span><span class="mi">11</span> <span class="kn">from</span><span class="w"> </span><span class="nn">.thermal_energy</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_HVAC_energy</span>
-
-<span class="n">File</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">hostedtoolcache</span><span class="o">/</span><span class="n">Python</span><span class="o">/</span><span class="mf">3.11.14</span><span class="o">/</span><span class="n">x64</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python3</span><span class="mf">.11</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">routee</span><span class="o">/</span><span class="n">transit</span><span class="o">/</span><span class="n">deadhead_router</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">8</span>
-<span class="g g-Whitespace">      </span><span class="mi">5</span> <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<span class="g g-Whitespace">      </span><span class="mi">6</span> <span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
-<span class="ne">----&gt; </span><span class="mi">8</span> <span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompassApp</span>
-<span class="g g-Whitespace">      </span><span class="mi">9</span> <span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass.utils.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">geometry_from_route</span>
-<span class="g g-Whitespace">     </span><span class="mi">11</span> <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
-<span class="ne">ModuleNotFoundError</span>: No module named &#39;nrel&#39;
+<span class="n">input_directory</span> <span class="o">=</span> <span class="n">sample_inputs_path</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;saltlake/gtfs&quot;</span>
+<span class="n">output_directory</span> <span class="o">=</span> <span class="s2">&quot;./reports/saltlake&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -501,6 +469,178 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 </pre></div>
 </div>
 </div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:01,550 [INFO] routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/resources/sample_inputs/saltlake/gtfs
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:01,551 [INFO] routee.transit.predictor - Loading GTFS data...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,910 [INFO] routee.transit.predictor - Feed includes 1 agencies: [&#39;Utah Transit Authority&#39;]. Total trips: 12037, shapes: 238
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,919 [INFO] routee.transit.predictor - Loaded 12037 trips and 199 shapes
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,920 [INFO] routee.transit.predictor - Filtering trips (date=2023/08/02, routes=[&#39;806&#39;, &#39;807&#39;])...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,958 [INFO] routee.transit.predictor - Filtered to 16 trips and 4 shapes
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,989 [INFO] routee.transit.predictor - Preparing mid-block deadhead trips...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:03,081 [INFO] routee.transit.predictor - Preparing depot deadhead trips...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:03,226 [INFO] routee.transit.predictor - Building CompassApp from bounding box: (-112.03101, 40.22523, -111.65814, 40.482409999999994)
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:28,952 [INFO] nrel.routee.compass.io.generate_dataset - running pipeline import with phases: [[&#39;GRAPH&#39;, &#39;CONFIG&#39;, &#39;POWERTRAIN&#39;]]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:28,953 [INFO] nrel.routee.compass.io.generate_dataset - processing graph topology and speeds
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:29,509 [INFO] nrel.routee.compass.io.generate_dataset - adding grade information
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:30,102 [INFO] nrel.routee.compass.io.utils - downloading n41w113
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:30,879 [INFO] nrel.routee.compass.io.utils - downloading n41w112
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:33,278 [INFO] nrel.routee.compass.io.generate_dataset - processing vertices
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:33,281 [INFO] nrel.routee.compass.io.generate_dataset - processing edges
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:36,831 [INFO] nrel.routee.compass.io.generate_dataset - writing vertex files
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:37,538 [INFO] nrel.routee.compass.io.generate_dataset - writing edge files
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:40,039 [INFO] nrel.routee.compass.io.generate_dataset - writing edge attribute files
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:44,450 [INFO] nrel.routee.compass.io.generate_dataset - copying default configuration TOML files
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:44,500 [INFO] nrel.routee.compass.io.generate_dataset - downloading the default RouteE Powertrain models
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:48:58,740 [INFO] nrel.routee.compass.io.generate_dataset - copying vehicle configuration files
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:48:58,746 [INFO] nrel.routee.compass.io.generate_dataset - running 2 dataset generation hooks
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:19,885 [INFO] gtfs_processing - Wrote 119313 stop-edge mappings to reports/saltlake/compass_app/gtfs_stops.csv
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:19,978 [INFO] gtfs_processing - Copied transit_energy.toml to reports/saltlake/compass_app/transit_energy.toml
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>graph edge list 0: /home/runner/work/routee-transit/routee-transit/docs/examples/reports/saltlake/compass_app/edges-compass.csv.gz: 46711it [00:00, 1660470.62it/s]2026-03-05 00:49:23,090 [INFO] routee.transit.predictor - CompassApp initialized
+
+
+
+building adjacencies: 100%|██████████| 46711/46711 [00:00&lt;00:00, 4233188.50it/s]
+building adjacencies: 100%|██████████| 46711/46711 [00:00&lt;00:00, 4224197.50it/s]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,091 [INFO] routee.transit.predictor - Routing mid-block deadhead trips...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,093 [INFO] routee.transit.deadhead_router - Deadhead routing: 7 trips reduced to 3 unique O-D pairs
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 10635.92it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 112237.65it/s]
+
+
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 94.01it/s]
+2026-03-05 00:49:23,194 [INFO] routee.transit.predictor - Added 7 mid-block deadhead trips
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,194 [INFO] routee.transit.predictor - Routing depot deadhead trips...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,197 [INFO] routee.transit.deadhead_router - Deadhead routing: 9 trips reduced to 3 unique O-D pairs
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 52949.28it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 170019.84it/s]
+
+
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 37.16it/s]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,299 [INFO] routee.transit.deadhead_router - Deadhead routing: 9 trips reduced to 3 unique O-D pairs
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 53504.55it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 168133.16it/s]
+
+
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 69.88it/s]
+2026-03-05 00:49:23,392 [INFO] routee.transit.predictor - Added 18 depot deadhead trips
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,393 [INFO] routee.transit.predictor - Predicting energy for 1 vehicle model(s)...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:24,738 [INFO] routee.transit.predictor - Running map matching for 13 shapes...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>map matching:  15%|█▅        |  2/13 [00:00&lt;00:00, 18.53it/s]
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>map matching:  31%|███▂      |  4/13 [00:00&lt;00:00, 13.19it/s]
+map matching:  62%|██████▃   |  8/13 [00:00&lt;00:00, 13.71it/s]
+map matching:  77%|███████▆  | 10/13 [00:00&lt;00:00, 13.74it/s]
+map matching:  85%|████████▅ | 11/13 [00:01&lt;00:00, 10.82it/s]
+map matching:  92%|█████████▃| 12/13 [00:01&lt;00:00, 9.36it/s]
+map matching: 100%|██████████| 13/13 [00:01&lt;00:00, 8.49it/s]
+2026-03-05 00:49:26,482 [INFO] routee.transit.predictor - Running energy prediction via CompassApp for: Transit_Bus_Battery_Electric
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>calculating paths: 100%|██████████| 13/13 [00:00&lt;00:00, 875.24it/s]
+2026-03-05 00:49:26,525 [INFO] routee.transit.predictor - Adding HVAC energy impacts...
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900350.csv
+Downloaded: G4900490.csv
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900450.csv
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900110.csv
+Downloaded: G4900570.csv
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900030.csv
+Downloaded: G4900430.csv
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:29,158 [INFO] routee.transit.predictor - Energy prediction complete
+</pre></div>
+</div>
+</div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">run()</span></code> method automatically performs all these steps:</p>
 <ol class="arabic simple">
@@ -521,6 +661,46 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 </pre></div>
 </div>
 </div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>   energy_used      miles                       vehicle energy_unit  \
+0    16.953909  15.492026  Transit_Bus_Battery_Electric         kWh   
+1    16.011903  15.492026  Transit_Bus_Battery_Electric         kWh   
+2    44.525431  15.492026  Transit_Bus_Battery_Electric         kWh   
+3    12.586445  15.492026  Transit_Bus_Battery_Electric         kWh   
+4    12.573726  15.492026  Transit_Bus_Battery_Electric         kWh   
+
+              trip_id route_id service_id block_id  \
+0  5181298_to_5181301     2152          4  1156079   
+1  5181298_to_5181301     2152          4  1156079   
+2  5181298_to_5181301     2152          4  1156079   
+3  5181297_to_5181299     2152          4  1156088   
+4  5181297_to_5181299     2152          4  1156088   
+
+                           shape_id route_short_name  ...  agency_id  \
+0  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
+1  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
+2  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
+3  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
+4  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
+
+            trip_type start_time  end_time trip_duration_minutes trip_count  \
+0  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
+1  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
+2  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
+3  mid_block_deadhead   07:25:00  07:52:00                  27.0         87   
+4  mid_block_deadhead   07:25:00  07:52:00                  27.0         87   
+
+   from_trip  to_trip scenario hvac_energy_kWh  
+0    5181298  5181301   median        4.607329  
+1    5181298  5181301   summer        3.665324  
+2    5181298  5181301   winter       32.178852  
+3    5181297  5181299   median        0.239866  
+4    5181297  5181299   summer        0.227146  
+
+[5 rows x 22 columns]
+</pre></div>
+</div>
+</div>
 </div>
 </section>
 <section id="calculate-energy-efficiency-metrics">
@@ -536,6 +716,15 @@ The results now include a 'scenario' column (summer/winter) for HVAC impacts.</p
 </pre></div>
 </div>
 </div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>scenario
+median    1.668295
+summer    1.957103
+winter    5.350892
+Name: kwh_per_mi, dtype: float64
+</pre></div>
+</div>
+</div>
 </div>
 </section>
 <section id="access-additional-results">
@@ -546,6 +735,53 @@ The results now include a 'scenario' column (summer/winter) for HVAC impacts.</p
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Link-level predictions show energy for each road segment</span>
 <span class="n">link_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_link_predictions</span><span class="p">()</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">link_results</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>   match_id  edge_index  edge_list_id  edge_id  edge_distance  trip_distance  \
+0         0           0             0    30126       0.025420       0.025420   
+1         0           1             0    30127       0.029904       0.055324   
+2         0           2             0      246       0.091411       0.146736   
+3         0           3             0    40098       0.020931       0.167667   
+4         0           4             0      259       0.017637       0.185304   
+
+   trip_soc  trip_time  edge_energy_electric  edge_turn_delay  ...  \
+0  0.999840   0.055813              0.080132              0.0  ...   
+1  0.999494   0.138138              0.172851              1.0  ...   
+2  0.999959   0.497176             -0.232710              9.5  ...   
+3  0.999906   0.551467              0.026962              0.5  ...   
+4  0.999897   0.582071              0.004460              0.0  ...   
+
+   edge_speed  battery_capacity  trip_energy_electric  trip_elevation_loss  \
+0   27.327045             500.0              0.080132             0.000000   
+1   27.327045             500.0              0.252983             0.000000   
+2   27.327045             500.0              0.020274            -0.006952   
+3   27.327045             500.0              0.047235            -0.006952   
+4   34.578084             500.0              0.051695            -0.007189   
+
+   edge_grade                                           geometry  \
+0    0.034760  LINESTRING (-111.71143 40.27542, -111.71156 40...   
+1    0.088317  LINESTRING (-111.71166 40.27568, -111.71109 40...   
+2   -0.076052  LINESTRING (-111.71109 40.27571, -111.71139 40...   
+3    0.001036  LINESTRING (-111.71275 40.27596, -111.71275 40...   
+4   -0.013422  LINESTRING (-111.71305 40.27608, -111.7131 40....   
+
+                           shape_id                       vehicle energy_used  \
+0  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
+1  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
+2  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
+3  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
+4  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
+
+  energy_unit  
+0         kWh  
+1         kWh  
+2         kWh  
+3         kWh  
+4         kWh  
+
+[5 rows x 22 columns]
 </pre></div>
 </div>
 </div>
