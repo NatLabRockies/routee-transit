@@ -13138,7 +13138,7 @@ packages:
 - pypi: ./
   name: routee-transit
   version: 0.3.0
-  sha256: 7815ac01dbb854d48b66aa8498d9d86d46745a4e4c529a31bbe1882d9d0053cc
+  sha256: 4e148f286df1d431c55651df1e7c56e5475048387acaca9c66e079e6604221da
   requires_dist:
   - pandas>=2.3.3,<3
   - gtfsblocks>=0.1.2,<0.2
@@ -13147,7 +13147,7 @@ packages:
   - boto3
   - requests>=2.32.5,<3
   - osmnx[raster]>=2.0.7,<3
-  - nrel-routee-compass>=0.18.0,<1
+  - nrel-routee-compass>=0.18.0,<0.19
   - pytest>=8.3,<9.0 ; extra == 'dev'
   - mypy>=1.14,<2.0 ; extra == 'dev'
   - pytest-order>=1.3,<2.0 ; extra == 'dev'

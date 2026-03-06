@@ -10,7 +10,7 @@ dependencies = [
     "boto3",
     "requests>=2.32.5,<3",
     "osmnx[raster]>=2.0.7,<3",
-    "nrel.routee.compass>=0.18.0,<1",
+    "nrel.routee.compass>=0.18.0,<0.19",
 ]
 
 [project.optional-dependencies]
