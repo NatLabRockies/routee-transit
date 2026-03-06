@@ -1261,7 +1261,7 @@ class GTFSEnergyPredictor:
             gge_consumed = trip_results["energy_used"] * gge_per_unit
             trip_results["mpge"] = trip_results["miles"] / gge_consumed
             # Replace inf/negative with NaN for trips with zero or invalid energy
-            trip_results.loc[trip_results["energy_used"] <= 0, "mpge"] = float("nan")
+            trip_results.loc[gge_consumed <= 0, "mpge"] = float("nan")
 
             # Store results
             self.energy_predictions[f"{model_name}_link"] = model_link_results
