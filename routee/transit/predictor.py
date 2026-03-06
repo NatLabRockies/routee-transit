@@ -1237,9 +1237,10 @@ class GTFSEnergyPredictor:
                 how="left",
             )
 
-            # Aggregate to trip level
-            trip_results = self._aggregate_predictions_by_trip(
-                energy_by_shape, model_name
+            # Map shapes to trips
+            shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
+            trip_results = energy_by_shape.merge(shape_to_trips, on="shape_id").drop(
+                columns=["shape_id"]
             )
 
             # Optionally add HVAC to trip-level results
@@ -1281,29 +1282,6 @@ class GTFSEnergyPredictor:
 
         logger.info("Energy prediction complete")
         return self.energy_predictions
-
-    def _aggregate_predictions_by_trip(
-        self, energy_by_shape: pd.DataFrame, vehicle_name: str
-    ) -> pd.DataFrame:
-        """
-        Aggregate shape-level energy predictions to trip level.
-
-        Args:
-            energy_by_shape: DataFrame with shape-level energy predictions
-                from run_calculate_path (columns: shape_id, energy_used,
-                miles, vehicle, energy_unit)
-            vehicle_name: Name of vehicle model
-
-        Returns:
-            DataFrame with trip-level aggregated results
-        """
-        # Map shapes to trips
-        shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
-        energy_by_trip = energy_by_shape.merge(shape_to_trips, on="shape_id")
-
-        # Clean up columns
-        cols_to_drop = [c for c in ["shape_id"] if c in energy_by_trip.columns]
-        return energy_by_trip.drop(columns=cols_to_drop)
 
     def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
