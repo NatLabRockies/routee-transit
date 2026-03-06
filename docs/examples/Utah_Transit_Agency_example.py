@@ -45,6 +45,7 @@ from the National Transit Database's "Public Transit Facilities and Stations - 2
 dataset (https://data.transportation.gov/stories/s/gd62-jzra).
 """
 
+# cell-tags: scroll-output
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
     output_dir=output_directory,
@@ -75,7 +76,7 @@ The `run()` method automatically performs all these steps:
 Let's examine the results:
 """
 
-print(trip_results.head())
+trip_results.head()
 
 """
 ## Calculate Energy Efficiency Metrics
@@ -87,7 +88,7 @@ The results now include a 'scenario' column (summer/winter) for HVAC impacts.
 if "scenario" in trip_results.columns:
     trip_results["kwh_per_mi"] = trip_results["energy_used"] / trip_results["miles"]
 
-print(trip_results.groupby("scenario")["kwh_per_mi"].mean())
+trip_results.groupby("scenario")["kwh_per_mi"].mean()
 
 """
 ## Access Additional Results
@@ -97,4 +98,4 @@ After running predictions, you can access link-level results and RouteE inputs:
 
 # Link-level predictions show energy for each road segment
 link_results = predictor.get_link_predictions()
-print(link_results.head())
+link_results.head()
