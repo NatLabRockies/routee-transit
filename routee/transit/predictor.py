@@ -10,14 +10,14 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 from pathlib import Path
-from typing import Any, cast, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
-import osmnx as ox
 import shutil
 
 import geopandas as gpd
+import osmnx as ox
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
@@ -509,10 +509,6 @@ class GTFSEnergyPredictor:
 
         if not self.overwrite and self.app is not None:
             return
-
-        import shutil
-
-        import osmnx as ox
 
         if self.overwrite and cache_dir and cache_dir.exists():
             logger.info(f"Clearing CompassApp cache at {cache_dir}")
