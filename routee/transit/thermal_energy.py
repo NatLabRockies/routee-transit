@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import boto3
 import geopandas as gpd
@@ -9,7 +9,6 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from gtfsblocks import Feed
 
-TMY_DIR = "./TMY"  # Folder for saving the downloaded TMY data
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +22,7 @@ def fetch_counties_gdf() -> gpd.GeoDataFrame:
     return gdf_county
 
 
-def download_tmy_files(county_ids: list[str]) -> None:
+def download_tmy_files(county_ids: list[str], tmy_dir: Path) -> None:
     """
     Download and save TMY weather files for estimating thermal energy demand.
 
@@ -52,15 +51,15 @@ def download_tmy_files(county_ids: list[str]) -> None:
     )
     # Create anonymous S3 client
     s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-    if not os.path.exists(TMY_DIR):
-        os.makedirs(TMY_DIR, exist_ok=True)
+    if not tmy_dir.exists():
+        tmy_dir.mkdir(parents=True, exist_ok=True)
 
     # Download files for each county
     for county_id in county_ids:
         file_key = f"{prefix}{county_id}_tmy3.csv"
-        local_file = os.path.join(TMY_DIR, f"{county_id}.csv")
-        if not os.path.isfile(local_file):
-            s3.download_file(bucket_name, file_key, local_file)
+        local_file = tmy_dir / f"{county_id}.csv"
+        if not local_file.is_file():
+            s3.download_file(bucket_name, file_key, str(local_file))
             print(f"Downloaded: {county_id}.csv")
 
 
@@ -153,8 +152,9 @@ def compute_HVAC_energy(
 def get_hourly_temperature(
     county_id: str,
     scenario: str,
+    tmy_dir: Path,
 ) -> pd.DataFrame:
-    local_file = os.path.join(TMY_DIR, f"{county_id}.csv")
+    local_file = tmy_dir / f"{county_id}.csv"
     tmy_df = pd.read_csv(local_file, parse_dates=["date_time"])[
         ["date_time", "Dry Bulb Temperature [°C]"]
     ]
@@ -199,7 +199,9 @@ def get_hourly_temperature(
     return df_out
 
 
-def add_HVAC_energy(feed: Feed, trips_df: pd.DataFrame) -> pd.DataFrame:
+def add_HVAC_energy(
+    feed: Feed, trips_df: pd.DataFrame, output_dir: Path | None = None
+) -> pd.DataFrame:
     """
     Add HVAC energy consumption.
 
@@ -215,6 +217,11 @@ def add_HVAC_energy(feed: Feed, trips_df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Updated trip level energy prediction DataFrame with HVAC energy consumption data
     """
+    if output_dir is not None:
+        tmy_dir = output_dir / "TMY"
+    else:
+        raise Exception("Must specify output_dir if downloading TMY data")
+
     # Based on gtfs stops data, get counties served
     df_stops = feed.stops
 
@@ -265,7 +272,7 @@ def add_HVAC_energy(feed: Feed, trips_df: pd.DataFrame) -> pd.DataFrame:
     county_ids = stops_final["county_id"].unique().tolist()
 
     # Download TMY Weather Data
-    download_tmy_files(county_ids)
+    download_tmy_files(county_ids, tmy_dir)
 
     df_temp_energy = load_thermal_lookup_table()
 
@@ -273,7 +280,7 @@ def add_HVAC_energy(feed: Feed, trips_df: pd.DataFrame) -> pd.DataFrame:
     thermal_dfs = []
     for county_id in county_ids:
         for scenario in ["summer", "winter", "median"]:
-            hourly_temp_df = get_hourly_temperature(county_id, scenario)
+            hourly_temp_df = get_hourly_temperature(county_id, scenario, tmy_dir)
             hourly_temp_df["Dry Bulb Temperature [°C]"] = hourly_temp_df[
                 "Dry Bulb Temperature [°C]"
             ].round(1)
