@@ -1,23 +1,108 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nrel.routee.compass.io.generate_dataset import HookParameters
+
 import datetime
 import logging
 import multiprocessing as mp
-import warnings
 from functools import partial
 
+from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import great_circle
 from gtfsblocks import Feed
-from mappymatch.constructs.geofence import Geofence
-from mappymatch.constructs.trace import Trace
-from mappymatch.maps.nx.nx_map import NetworkType, NxMap
-from mappymatch.matchers.lcss.lcss import LCSSMatcher
+import importlib.resources
+import tomlkit
 
 logger = logging.getLogger("gtfs_processing")
 
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:
+    """
+    Hook to write GTFS stop-to-edge mapping after dataset generation.
+
+    Args:
+        params: Parameters from generate_compass_dataset
+        feed: GTFS feed object
+    """
+    # 1. Join stops to edges spatially
+    edges_gdf = params.edges
+    stops_gdf = gpd.GeoDataFrame(
+        feed.stops,
+        geometry=gpd.points_from_xy(feed.stops.stop_lon, feed.stops.stop_lat),
+        crs="EPSG:4326",
+    )
+
+    # Find nearest edge for each stop
+    stops_projected = stops_gdf.to_crs("EPSG:3857")
+    edges_projected = edges_gdf.to_crs("EPSG:3857")
+
+    matched_stops = stops_projected.sjoin_nearest(
+        edges_projected[["edge_id", "geometry"]], distance_col="dist"
+    )
+
+    # 2. Map stops to trip_id using stop_times
+    # stop_times maps trip_id -> stop_id
+    # matched_stops maps stop_id -> edge_id
+    stop_to_edge = matched_stops.set_index("stop_id")["edge_id"].to_dict()
+
+    stop_edge_records = []
+    for _, row in feed.stop_times.iterrows():
+        stop_id = row["stop_id"]
+        trip_id = row["trip_id"]
+        if stop_id in stop_to_edge:
+            stop_edge_records.append(
+                {"trip_id": trip_id, "edge_id": stop_to_edge[stop_id]}
+            )
+
+    stop_edge_df = pd.DataFrame(stop_edge_records).drop_duplicates()
+
+    # 3. Write to CSV
+    output_path = params.output_directory / "gtfs_stops.csv"
+    stop_edge_df.to_csv(output_path, index=False)
+    logger.info(f"Wrote {len(stop_edge_df)} stop-edge mappings to {output_path}")
+
+
+def copy_transit_config(
+    params: "HookParameters", vehicle_models: list[str] | None = None
+) -> None:
+    """
+    Hook to copy the transit_energy.toml from package resources to the output directory.
+
+    Args:
+        params: Parameters from generate_compass_dataset
+        vehicle_models: Optional list of vehicle models to include. If None, all are included.
+    """
+    with importlib.resources.path(
+        "routee.transit.resources", "transit_energy.toml"
+    ) as config_path:
+        with open(config_path, "r") as f:
+            config = tomlkit.load(f)
+
+    # Filter vehicle_models if requested
+    if vehicle_models is not None:
+        vehicle_set = set(vehicle_models)
+        search = config.get("search", {})
+        traversal = search.get("traversal", {})
+        models = traversal.get("models", [])
+        for model in models:
+            if model.get("type") == "transit_energy" and "vehicle_input_files" in model:
+                model["vehicle_input_files"] = [
+                    p
+                    for p in model["vehicle_input_files"]
+                    if Path(p).stem in vehicle_set
+                ]
+
+    output_path = params.output_directory / "transit_energy.toml"
+    with open(output_path, "w") as f:
+        tomlkit.dump(config, f)
+    logger.info(f"Copied transit_energy.toml to {output_path}")
 
 
 def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
@@ -48,12 +133,14 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
     # Calculate the distance between consecutive points using great_circle
     # TODO: move away from apply() for speed
     shape_df["distance_km"] = shape_df.apply(
-        lambda row: great_circle(
-            (row["prev_latitude"], row["prev_longitude"]),  # Previous point
-            (row["shape_pt_lat"], row["shape_pt_lon"]),  # Current point
-        ).kilometers
-        if pd.notnull(row["prev_latitude"])
-        else 0,
+        lambda row: (
+            great_circle(
+                (row["prev_latitude"], row["prev_longitude"]),  # Previous point
+                (row["shape_pt_lat"], row["shape_pt_lon"]),  # Current point
+            ).kilometers
+            if pd.notnull(row["prev_latitude"])
+            else 0
+        ),
         axis=1,
     )
 
@@ -156,45 +243,6 @@ def add_stop_flags_to_shape(
 
     df_tmp = trip_gdf.drop(["geometry"], axis=1)
     return df_tmp
-
-
-def match_shape_to_osm(upsampled_shape_df: pd.DataFrame) -> pd.DataFrame:
-    """Match a given GTFS shape DataFrame to the OpenStreetMap (OSM) road network.
-
-    This function uses mappymatch to add OSM network information to the shape trace.
-    The trace should be upsampled beforehand to approximately 1 Hz/8 m for the most
-    accurate expected mapping performance. The function creates a Trace from the input
-    DataFrame, constructs a geofence around the trace, extracts the OSM road network
-    within the geofence, and applies the mappymatch LCSS matcher to align the trace to
-    the network. The output DataFrame retains the full shape while adding network
-    information to each row.
-
-    Args:
-        upsampled_shape_df (pd.DataFrame): DataFrame containing the shape points with
-            latitude and longitude columns ("shape_pt_lat" and "shape_pt_lon").
-    Returns:
-        pd.DataFrame: A DataFrame combining the original upsampled shape points with
-            their corresponding OSM network matches.
-    """
-    # Filter out warnings from mappymatch
-    warnings.filterwarnings(
-        "ignore",
-        category=FutureWarning,
-        message=".*Downcasting object dtype arrays.*",
-    )
-    # Create mappymatch trace
-    trace = Trace.from_dataframe(
-        upsampled_shape_df, lat_column="shape_pt_lat", lon_column="shape_pt_lon"
-    )
-    # Create geofence and use it to pull network
-    geofence = Geofence.from_trace(trace, padding=1e3)
-    nxmap = NxMap.from_geofence(geofence, network_type=NetworkType.DRIVE)
-    # Run map matching algorithm
-    matcher = LCSSMatcher(nxmap)
-    matches = matcher.match_trace(trace).matches_to_dataframe()
-    # Combine shape with network details
-    df_result = pd.concat([upsampled_shape_df, matches], axis=1)
-    return df_result
 
 
 def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:

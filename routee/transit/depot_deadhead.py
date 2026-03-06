@@ -25,9 +25,9 @@ def get_default_depot_path() -> Path:
     Path
         Path to the FTA_Depot directory containing Transit_Depot.shp
     """
-    # Navigate from this file up to the repo root:
-    #   - depot_deadhead.py -> transit -> routee -> repo root
-    return Path(__file__).parent.parent.parent / "FTA_Depot"
+    from routee.transit import depot_path
+
+    return depot_path()
 
 
 def create_depot_deadhead_trips(
@@ -251,18 +251,22 @@ def create_depot_deadhead_stops(
 
     # Calculate distance from depot to first stop
     from_depot["distance_m"] = from_depot.apply(
-        lambda row: geodesic(
-            (row.geometry_origin.y, row.geometry_origin.x),
-            (row.geometry_destination.y, row.geometry_destination.x),
-        ).meters,
+        lambda row: (
+            geodesic(
+                (row.geometry_origin.y, row.geometry_origin.x),
+                (row.geometry_destination.y, row.geometry_destination.x),
+            ).meters
+        ),
         axis=1,
     )
     # Calculate distance from last stop to depot
     to_depot["distance_m"] = to_depot.apply(
-        lambda row: geodesic(
-            (row.geometry_origin.y, row.geometry_origin.x),
-            (row.geometry_destination.y, row.geometry_destination.x),
-        ).meters,
+        lambda row: (
+            geodesic(
+                (row.geometry_origin.y, row.geometry_origin.x),
+                (row.geometry_destination.y, row.geometry_destination.x),
+            ).meters
+        ),
         axis=1,
     )
     # Assume average speed of 30 km/h (to be consistant with the number adopted in gtfs_feature_processing.py)

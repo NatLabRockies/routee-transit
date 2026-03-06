@@ -23,10 +23,7 @@ The primary interface for transit energy prediction.
 Network Routing
 ---------------
 
-.. autoclass:: nrel.routee.transit.NetworkRouter
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autofunction:: nrel.routee.transit.create_deadhead_shapes
 
 HVAC Energy
 -----------

@@ -22,7 +22,7 @@ if __name__ == "__main__":
     import warnings
     from pathlib import Path
 
-    from routee.transit import GTFSEnergyPredictor
+    from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
     # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         "Transit_Bus_Battery_Electric",
         "Transit_Bus_Diesel",
     ]
-    input_directory = HERE / "../sample-inputs/saltlake/gtfs"
+    input_directory = sample_inputs_path() / "saltlake/gtfs"
     output_directory = HERE / "../reports/saltlake"
 
     start_time = time.time()
@@ -52,18 +52,22 @@ if __name__ == "__main__":
     predictor = GTFSEnergyPredictor(
         gtfs_path=input_directory,
         n_processes=n_proc,
+        vehicle_models=routee_vehicle_models,
+        output_dir=output_directory,
     )
 
     # Run entire pipeline with one method call
     results = predictor.run(
-        vehicle_models=routee_vehicle_models,
+        # date=None,
+        # routes=None,
         date="2023/08/02",
-        routes=["205"],
+        routes=["806", "807"],
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
         add_hvac=True,
-        output_dir=output_directory,
         save_results=True,
     )
+
+    print(results.describe())
 
     logger.info(f"Predicted energy for {len(results)} trips")
