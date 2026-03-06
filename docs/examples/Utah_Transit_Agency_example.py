@@ -1,5 +1,5 @@
 """
-# Utah Transit Agency Example
+# Predicting Energy for a GTFS Feed
 
 In this example, we'll predict the energy consumption for some trips operated by
 the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the
@@ -10,25 +10,10 @@ This example uses the `GTFSEnergyPredictor` class, which provides a clean,
 extensible API for transit energy prediction.
 """
 
-import logging
-import os
-
 from routee.transit import GTFSEnergyPredictor, sample_inputs_path
-
-# Set up logging: Clear any existing handlers
-logging.getLogger().handlers.clear()
-
-# Configure basic logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
-)
-
-# Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
-os.environ["PROJ_DEBUG"] = "0"
 
 # Specify input data location
 input_directory = sample_inputs_path() / "saltlake/gtfs"
-output_directory = "./reports/saltlake"
 
 """
 ## Quick Start: Using the `run()` Method
@@ -48,7 +33,6 @@ dataset (https://data.transportation.gov/stories/s/gd62-jzra).
 # cell-tags: scroll-output
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
-    output_dir=output_directory,
     vehicle_models=["Transit_Bus_Battery_Electric"],
 )
 

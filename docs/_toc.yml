@@ -9,15 +9,15 @@ parts:
       - file: installation
       - file: data
 
+  - caption: Quick Start
+    chapters:
+      - file: examples/Utah_Transit_Agency_example
+
   - caption: User Reference
     chapters:
       - file: prediction
       - file: api
       - file: results
-
-  - caption: Examples
-    chapters:
-      - file: examples/Utah_Transit_Agency_example
 
   - caption: Developers
     chapters:
