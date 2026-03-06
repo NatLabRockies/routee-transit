@@ -39,17 +39,28 @@ from routee.transit.thermal_energy import add_HVAC_energy
 logger = logging.getLogger(__name__)
 
 MI_PER_KM = 0.6213712
-MILES_PER_GALLON_TO_KWH = 33.7  # 1 gallon gasoline equivalent = 33.7 kWh
 
-# Vehicle model configuration: maps model names to their CompassApp traversal summary fields
-VEHICLE_MODELS: dict[str, dict[str, str]] = {
+# EPA/DOE gasoline gallon equivalent (GGE) conversion factors
+# Source: DOE Alternative Fuels Data Center (AFDC) fuel properties
+KWH_PER_GGE = 33.7  # 1 GGE = 33.7 kWh (EPA standard)
+GGE_PER_GALLON_DIESEL = 1.136  # 1 gallon diesel = 1.136 GGE (DOE AFDC)
+MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
+
+# Vehicle model configuration: maps model names to their CompassApp traversal summary fields.
+# "gge_per_unit" converts one unit of the fuel into gasoline gallon equivalents (GGE),
+# enabling a common MPGe efficiency metric across all powertrain types.
+# To add CNG: gge_per_unit = 1.0 (if energy is already reported in GGE)
+# To add hydrogen fuel cell: gge_per_unit ≈ 1.019 per kg (DOE AFDC)
+VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
     "Transit_Bus_Battery_Electric": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
     },
     "Transit_Bus_Diesel": {
         "energy_field": "trip_energy_liquid",
         "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
     },
 }
 
@@ -1243,6 +1254,14 @@ class GTFSEnergyPredictor:
                 ]
             else:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
+
+            # Compute MPGe (miles per gallon equivalent) — a common efficiency
+            # metric across all fuel types using EPA GGE conversion factors
+            gge_per_unit = float(model_config["gge_per_unit"])
+            gge_consumed = trip_results["energy_used"] * gge_per_unit
+            trip_results["mpge"] = trip_results["miles"] / gge_consumed
+            # Replace inf/negative with NaN for trips with zero or invalid energy
+            trip_results.loc[trip_results["energy_used"] <= 0, "mpge"] = float("nan")
 
             # Store results
             self.energy_predictions[f"{model_name}_link"] = model_link_results
