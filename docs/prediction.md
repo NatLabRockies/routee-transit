@@ -1,41 +1,46 @@
 # RouteE-Transit Prediction Pipeline
-RouteE-Transit builds on [RouteE-Powertrain](https://github.com/NatLabRockies/routee-powertrain) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:
+RouteE-Transit uses [RouteE-Compass](https://github.com/NatLabRockies/routee-compass) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into road link-level features (speed, road grade, and distance), which RouteE-Compass then uses to predict energy consumption. The full prediction pipeline is summarized by the following figure:
 
 ![Prediction Pipeline Overview](images/PredictionOverview.png)
 
 RouteE-Transit moves from static GTFS files to energy predictions in three steps:
 
 ## 1) Specify GTFS Trip Data
-First, users need to specify the scope of predictions by supplying data from a static GTFS feed. See [](data:gtfs-reqs) for details on what GTFS data must be available. RouteE-Transit needs a set of trips along with their shape traces, stop locations, and stop times in order to proce estimated distance, road grade, and speed for RouteE-Powertrain models.
+First, users need to specify the scope of predictions by supplying data from a static GTFS feed. See [](data:gtfs-reqs) for details on what GTFS data must be available. RouteE-Transit needs a set of trips along with their shape traces, stop locations, and stop times in order to produce estimated distance, road grade, and speed for energy modeling.
 
 Users can supply an entire GTFS feed as input or filter down trips (e.g., only trips on a certain day or serving a certain route).
 
-## 2) Prepare RouteE-Powertrain Features
-Next, RouteE-Transit transforms the input GTFS data into link-level features on the road network so a RouteE-Powertrain model can be applied. The first step in this process is to upsample the shape traces from `shapes.txt` to approximately 1 Hz resolution for better map matching accuracy, and then match the shapes to OpenStreetMap road links using NREL's `mappymatch` package.
+## 2) Prepare Road Link Features
+Next, RouteE-Transit transforms the input GTFS data into link-level features on the road network. Shape traces from `shapes.txt` are upsampled to approximately 1 Hz resolution, then map-matched to OpenStreetMap road links using RouteE-Compass's LCSS (Longest Common Subsequence) map matcher.
 
-The map-matched shapes are then used to calculate link distances and NREL's `gradeit` package appends road grade information to each link based on USGS National Map elevation data.
+Road grade and elevation are appended to each matched link automatically by RouteE-Compass using OSMnx elevation data sourced from the USGS National Map. No separate elevation download step is required.
 
-Finally, the estimated distances are used along with the time intervals between stops from`stop_times.txt` to estimate bus average speed along each road link.
+Finally, estimated distances are combined with the time intervals between stops from `stop_times.txt` to estimate average bus speed along each road link.
 
-## 3) Predict Energy Consumption with RouteE-Powertrain
-In the last step, a trained RouteE-Powertrain model is run to predict energy consumption for each trip. RouteE-Powertrain version 1.3.2 introduced two initial transit bus models (`Transit_Bus_Diesel` and `Transit_Bus_Battery_Electric`) and additional models for different bus styles and manufacturers will be rolled out over time.
+## 3) Predict Energy Consumption with RouteE-Compass
+In the last step, RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — predicts energy consumption for each trip. Two transit bus models are included:
+
+- `Transit_Bus_Battery_Electric` (kWh)
+- `Transit_Bus_Diesel` (gallons_diesel)
+
+Both models apply the road link features computed in step 2 and include a kinetic energy stop penalty at GTFS stop locations (modeled as ½mv²). Additional models may be added in future releases.
 
 # Using the GTFSEnergyPredictor Class
 
-RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class that simplifies the complete workflow:
+RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class:
 
 ```python
 from routee.transit import GTFSEnergyPredictor
 
-# Initialize predictor
+# Initialize predictor — vehicle_models is set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
+    vehicle_models=["Transit_Bus_Battery_Electric"],
     # depot_path is optional - defaults to NTD depot locations
 )
 
 # Option 1: Use the convenience method (recommended)
 trip_results = predictor.run(
-    vehicle_models="Transit_Bus_Battery_Electric",
     date="2023/08/02",
     routes=["205"],
     add_hvac=True,
@@ -46,9 +51,8 @@ predictor.load_gtfs_data()
 predictor.filter_trips(date="2023/08/02", routes=["205"])
 predictor.add_mid_block_deadhead()  # Between-trip deadhead
 predictor.add_depot_deadhead()      # To/from depot (uses NTD locations)
-predictor.match_shapes_to_network()
-predictor.add_road_grade()
-predictor.predict_energy(vehicle_models=["Transit_Bus_Battery_Electric"], add_hvac=True)
+predictor.get_link_level_inputs()   # Map matching + grade via RouteE-Compass
+predictor.predict_energy(add_hvac=True)
 ```
 
 # Assumptions and Limitations

@@ -4,6 +4,7 @@
 
 - Python version >=3.10, <3.13
 - Git
+- [Rust](https://www.rust-lang.org/tools/install) (required to build the RouteE-Compass extension from source)
 
 ## Installation with pip
 

@@ -10,5 +10,5 @@ RouteE-Transit relies on input data in the static [GTFS format](https://gtfs.org
 - *stops.txt*: stop coordinates for any stop served on any trip to be analyzed
 
 
-## Elevation Tiles
-RouteE-Transit uses [gradeit](https://github.com/NatLabRockies/gradeit) to add road grade to links. Gradeit requires local raster files of elevation data to be available for usage. RouteE-Transit will automatically download and cache these files from the USGS [National Map](https://www.usgs.gov/core-science-systems/national-geospatial-program/national-map). If your analysis covers a large geographic area, this could take several minutes the first time. Future runs relying on cached files will be much faster.
+## Elevation Data
+Road grade is computed automatically by RouteE-Compass using OSMnx to fetch elevation data from the USGS [National Map](https://www.usgs.gov/core-science-systems/national-geospatial-program/national-map). No manual download or configuration is required. For large geographic areas, the initial OSMnx network download may take additional time, but results are cached for subsequent runs.

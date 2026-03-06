@@ -1,19 +1,21 @@
 """
-# Predicting Energy for a GTFS Feed
+# Utah Transit Authority
 
 In this example, we'll predict the energy consumption for some trips operated by
 the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the
-GTFS data we are analyzing, processing it to produce RouteE-Powertrain inputs,
-and running a RouteE-Powertrain model to produce energy estimates.
+GTFS data we are analyzing, map-matching it to the road network, and running a
+RouteE-Compass model to produce energy estimates.
 
 This example uses the `GTFSEnergyPredictor` class, which provides a clean,
 extensible API for transit energy prediction.
 """
 
+from pathlib import Path
 from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
 # Specify input data location
 input_directory = sample_inputs_path() / "saltlake/gtfs"
+output_directory = Path("reports/saltlake")
 
 """
 ## Quick Start: Using the `run()` Method
@@ -23,17 +25,14 @@ complete energy prediction workflow. This single method call chains together all
 processing steps and returns trip-level energy predictions.
 
 We'll analyze routes 806 and 807 on August 2nd, 2023, using the Battery Electric 
-Bus model with HVAC energy impacts included.
-
-Note: depot_path is not specified, so the predictor will use default depot locations
-from the National Transit Database's "Public Transit Facilities and Stations - 2023"
-dataset (https://data.transportation.gov/stories/s/gd62-jzra).
+Bus model. We'll include deadhead trips and estimated HVAC energy.
 """
 
 # cell-tags: scroll-output
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
     vehicle_models=["Transit_Bus_Battery_Electric"],
+    output_dir=output_directory,
 )
 
 trip_results = predictor.run(
@@ -51,22 +50,21 @@ The `run()` method automatically performs all these steps:
 2. Filters trips by date and routes
 3. Adds mid-block deadhead trips (between consecutive trips)
 4. Adds depot deadhead trips (to/from depot)
-5. Matches shapes to OpenStreetMap road network
-6. Adds road grade information using USGS elevation data
-7. Predicts energy consumption with RouteE-Powertrain
-8. Adds estimated HVAC energy impacts
-9. Saves results to CSV files
+5. Matches shapes to OpenStreetMap road network and adds road grade (via RouteE-Compass)
+6. Predicts energy consumption with RouteE-Compass
+7. Adds estimated HVAC energy impacts
+8. Saves results to CSV files
 
 Let's examine the results:
 """
 
-trip_results.head()
+trip_results[["trip_id", "vehicle", "scenario", "energy_used", "miles"]].head()
 
 """
 ## Calculate Energy Efficiency Metrics
 
 We can calculate energy efficiency in kWh per mile, including HVAC loads.
-The results now include a 'scenario' column (summer/winter) for HVAC impacts.
+The results include a `scenario` column (summer/winter.median) for HVAC impacts.
 """
 
 if "scenario" in trip_results.columns:

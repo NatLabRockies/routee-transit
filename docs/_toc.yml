@@ -9,7 +9,7 @@ parts:
       - file: installation
       - file: data
 
-  - caption: Quick Start
+  - caption: Examples
     chapters:
       - file: examples/Utah_Transit_Agency_example
 

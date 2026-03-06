@@ -1,8 +1,6 @@
 # RouteE-Transit
 
-RouteE-Transit is a Python package that provides comprehensive tools for predicting energy consumption of transit bus systems. Built on top of NREL's [RouteE-Powertrain](https://github.com/NREL/routee-powertrain) package, RouteE-Transit focuses on transit bus applications, predicting energy consumption for buses based on GTFS data.
-
-The package enables users to work with pre-trained transit bus energy models or their own RouteE-Powertrain models based on real-world telematics data or simulation outputs. RouteE-Transit models predict vehicle energy consumption for transit trips based on factors such as road grade, estimated vehicle speed, and distance.
+RouteE-Transit is a Python package for predicting energy consumption of transit bus systems. It uses [RouteE-Compass](https://github.com/NatLabRockies/routee-compass) — NLR's Rust-based routing and energy modeling engine — to process GTFS data and predict energy consumption based on road grade, speed, and distance.
 
 ## Key Features
 
@@ -12,36 +10,41 @@ The package enables users to work with pre-trained transit bus energy models or 
 
 
 ## Quickstart
-To install RouteE-Transit, see [](installation).
+To install RouteE-Transit, see [](installation). It takes only a few lines of code to run energy prediction for all trips defined in a GTFS feed:
 
 ```python
 from routee.transit import GTFSEnergyPredictor
 
-# Create predictor and run complete pipeline
+# Create predictor - vehicle_models and output_dir are set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    # depot_path is optional - defaults to NTD depot locations from:
-    # https://data.transportation.gov/stories/s/gd62-jzra
+    vehicle_models=["Transit_Bus_Diesel", "Transit_Bus_Battery_Electric"],
 )
 
 # Run the complete workflow with a single method call
-trip_results = predictor.run(
-    vehicle_models="Transit_Bus_Battery_Electric",
-    date="2023/08/02",  # Optional, filter to specific date
-    routes=["205"],     # Optional, filter to specific routes
-    add_hvac=True,      # Include HVAC energy impacts
-    output_dir="reports/output",
+trip_results = predictor.run()
+```
+
+Plenty of optional inputs allow for filtering down the analysis to a smaller scale. For example, you could include a subset of routes only based on their GTFS `route_short_name`, and only trips on a certain date:
+
+```python
+predictor.run(
+    date="2023/08/02",
+    routes=["806", "807"],
 )
 ```
 
-For a full example, see [](examples/Utah_Transit_Agency_example). That example can also be run as a script with `python scripts/single_agency_full_analysis.py`.
+For a full example, see [](examples/Utah_Transit_Agency_example).
 
 ### Alternative: Step-by-Step Processing
 
 For more control over the workflow, you can invoke each processing step individually:
 
 ```python
-predictor = GTFSEnergyPredictor(gtfs_path="path/to/gtfs")
+predictor = GTFSEnergyPredictor(
+    gtfs_path="path/to/gtfs",
+    vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
+)
 
 # Load and process GTFS data
 predictor.load_gtfs_data()
@@ -51,15 +54,11 @@ predictor.filter_trips(date="2023/08/02", routes=["205"])
 predictor.add_mid_block_deadhead()
 predictor.add_depot_deadhead()
 
-# Match to road network and add grade
-predictor.match_shapes_to_network()
-predictor.add_road_grade()
+# Match to road network (includes grade via RouteE-Compass)
+predictor.get_link_level_inputs()
 
 # Predict energy consumption
-predictor.predict_energy(
-    vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
-    add_hvac=True,
-)
+predictor.predict_energy(add_hvac=True)
 
 # Access results
 trip_results = predictor.get_trip_predictions()
@@ -68,14 +67,12 @@ link_results = predictor.get_link_predictions()
 
 
 ## Available Models
-Pretrained transit bus models are included in the RouteE Powertrain package. You can list all available models (including transit buses and other vehicles) with:
-```python
-import nrel.routee.powertrain as pt
+Two pre-trained transit bus models are bundled with RouteE-Transit and are accessed via the `vehicle_models` parameter:
 
-# List all available pre-trained models
-print(pt.list_available_models())
-```
+| Model Name | Energy Unit |
+|---|---|
+| `Transit_Bus_Battery_Electric` | kWh |
+| `Transit_Bus_Diesel` | gallons_diesel |
 
-Each model includes multiple estimators that account for different combinations of features such as speed, road grade, and stop frequency.
-
+Both models are implemented as RouteE-Compass traversal models in Rust and predict energy based on speed, road grade, and distance.
 

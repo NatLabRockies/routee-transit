@@ -38,14 +38,6 @@ GTFS Processing (Internal)
     :undoc-members:
     :show-inheritance:
 
-Grade Calculation (Internal)
------------------------------
-
-.. automodule:: routee.transit.grade.add_grade
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Deadhead Trips (Internal)
 --------------------------
 
