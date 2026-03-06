@@ -487,8 +487,9 @@ class GTFSEnergyPredictor:
         if not self.overwrite and self.app is not None:
             return
 
-        import osmnx as ox
         import shutil
+
+        import osmnx as ox
 
         if self.overwrite and cache_dir and cache_dir.exists():
             logger.info(f"Clearing CompassApp cache at {cache_dir}")
@@ -1263,6 +1264,12 @@ class GTFSEnergyPredictor:
             trip_results["mpge"] = trip_results["miles"] / gge_consumed
             # Replace inf/negative with NaN for trips with zero or invalid energy
             trip_results.loc[gge_consumed <= 0, "mpge"] = float("nan")
+
+            # Drop columns that are not useful in trip-level output
+            trip_results = trip_results.drop(
+                columns=["service_id", "route_short_name", "route_desc", "route_type"],
+                errors="ignore",
+            )
 
             # Store results
             self.energy_predictions[f"{model_name}_link"] = model_link_results
