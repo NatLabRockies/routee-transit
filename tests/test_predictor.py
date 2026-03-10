@@ -119,7 +119,8 @@ class TestPredictEnergyMPGe(unittest.TestCase):
             }
         )
         # Pre-built mock app so load_compass_app() is never called
-        self.predictor.app = MagicMock()
+        self.mock_app = MagicMock()
+        self.predictor.app = self.mock_app
 
         # Link results returned by the mocked _match_shapes_to_network
         self._link_results = pd.DataFrame({"shape_id": ["SH1"], "edge_id": [1001]})
@@ -169,7 +170,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         """MPGe for a Battery Electric Bus equals miles / (kWh / KWH_PER_GGE)."""
         energy_kwh = KWH_PER_GGE  # exactly 1 GGE, so mpge == distance in miles
         distance_miles = 10.0
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=energy_kwh,
             distance_value=distance_miles,
             energy_field="trip_energy_electric",
@@ -192,7 +193,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         """MPGe for a Diesel Bus equals miles / (gallons * GGE_PER_GALLON_DIESEL)."""
         energy_gallons = 2.0
         distance_miles = 10.0
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=energy_gallons,
             distance_value=distance_miles,
             energy_field="trip_energy_liquid",
@@ -212,7 +213,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
 
     def test_zero_energy_yields_nan_mpge(self) -> None:
         """Zero energy consumption must produce NaN (not inf) MPGe."""
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=0.0,
             distance_value=10.0,
             energy_field="trip_energy_electric",
@@ -229,7 +230,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
 
     def test_negative_energy_yields_nan_mpge(self) -> None:
         """Negative energy consumption must produce NaN MPGe."""
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=-5.0,
             distance_value=10.0,
             energy_field="trip_energy_electric",
@@ -246,7 +247,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
 
     def test_irrelevant_columns_dropped(self) -> None:
         """service_id, route_short_name, route_desc, route_type must not appear in results."""
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=KWH_PER_GGE,
             distance_value=10.0,
             energy_field="trip_energy_electric",
@@ -260,7 +261,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
 
     def test_core_columns_preserved(self) -> None:
         """trip_id, energy_used, miles, mpge, and energy_unit must be present in results."""
-        self.predictor.app.run_calculate_path.return_value = self._make_compass_result(
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=KWH_PER_GGE,
             distance_value=10.0,
             energy_field="trip_energy_electric",
