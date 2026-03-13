@@ -126,6 +126,8 @@ class GTFSEnergyPredictor:
         output_dir: str | Path | None = None,
         vehicle_models: list[str] | None = None,
         overwrite: bool = True,
+        feed_id: str | None = None,
+        dataset_id: str | None = None,
     ):
         """
         Initialize the GTFSEnergyPredictor.
@@ -150,6 +152,8 @@ class GTFSEnergyPredictor:
         self.output_dir = Path(output_dir) if output_dir else None
         self.vehicle_models = vehicle_models
         self.overwrite = overwrite
+        self.feed_id = feed_id
+        self.dataset_id = dataset_id
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -1399,6 +1403,17 @@ class GTFSEnergyPredictor:
 
         # Save trip-level predictions
         if "trip" in self.energy_predictions:
+            # If feed_id and dataset_id are supplied, add these columns
+            if self.dataset_id is not None:
+                self.energy_predictions["trip"].insert(
+                    loc=0, column="dataset_id", value=self.dataset_id
+                )
+
+            if self.feed_id is not None:
+                self.energy_predictions["trip"].insert(
+                    loc=0, column="feed_id", value=self.feed_id
+                )
+
             trip_path = output_path / "trip_energy_predictions.csv"
             self.energy_predictions["trip"].to_csv(trip_path, index=False)
             logger.info(f"Saved trip predictions to {trip_path}")
