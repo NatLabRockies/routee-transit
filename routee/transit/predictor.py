@@ -1300,7 +1300,7 @@ class GTFSEnergyPredictor:
 
             # Drop columns that are not useful in trip-level output
             trip_results = trip_results.drop(
-                columns=["service_id", "route_short_name", "route_desc", "route_type"],
+                columns=["service_id", "route_desc", "route_type"],
                 errors="ignore",
             )
 
