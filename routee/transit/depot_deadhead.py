@@ -235,15 +235,20 @@ def create_depot_deadhead_stops(
     Parameters
     ----------
     first_stops_gdf: gpd.GeoDataFrame
-        GeoDataFrame of first stops for each block id with depot geometry (result from add_depot_to_blocks.py).
+        GeoDataFrame of first stops for each block, with ``geometry_origin``
+        (depot) and ``geometry_destination`` (first stop) columns.
+        Result from :func:`infer_depot_trip_endpoints`.
     last_stops_gdf: gpd.GeoDataFrame
-        GeoDataFrame of last stops for each block id with depot geometry (result from add_depot_to_blocks.py).
+        GeoDataFrame of last stops for each block, with ``geometry_origin``
+        (last stop) and ``geometry_destination`` (depot) columns.
+        Result from :func:`infer_depot_trip_endpoints`.
     deadhead_trips: pd.DataFrame
-        deadhead trip results from create_depot_deadhead_trips.py.
+        Deadhead trip records from :func:`create_depot_deadhead_trips`.
+
     Returns
     -------
-    pd.DataFrame
-        DataFrame of stop_times and stops for the deadhead trips.
+    tuple[pd.DataFrame, pd.DataFrame]
+        A ``(stop_times_df, stops_df)`` tuple for the depot deadhead trips.
     """
 
     from_depot = first_stops_gdf.copy()

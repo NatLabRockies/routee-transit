@@ -121,6 +121,7 @@ def create_deadhead_shapes(
     -------
     tuple[pd.DataFrame, pd.DataFrame]
         A tuple of (shapes_df, od_mapping_df):
+
         - shapes_df: DataFrame with columns ['shape_id', 'shape_pt_sequence',
           'shape_pt_lon', 'shape_pt_lat', 'shape_dist_traveled']
         - od_mapping_df: DataFrame with columns ['block_id', 'od_key', 'shape_id']
