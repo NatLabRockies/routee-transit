@@ -10,14 +10,14 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 from pathlib import Path
-from typing import Any, cast, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
-import osmnx as ox
 import shutil
 
 import geopandas as gpd
+import osmnx as ox
 import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
@@ -46,17 +46,28 @@ from routee.transit.thermal_energy import add_HVAC_energy
 logger = logging.getLogger(__name__)
 
 MI_PER_KM = 0.6213712
-MILES_PER_GALLON_TO_KWH = 33.7  # 1 gallon gasoline equivalent = 33.7 kWh
 
-# Vehicle model configuration: maps model names to their CompassApp traversal summary fields
-VEHICLE_MODELS: dict[str, dict[str, str]] = {
+# EPA/DOE gasoline gallon equivalent (GGE) conversion factors
+# Source: DOE Alternative Fuels Data Center (AFDC) fuel properties
+KWH_PER_GGE = 33.7  # 1 GGE = 33.7 kWh (EPA standard)
+GGE_PER_GALLON_DIESEL = 1.136  # 1 gallon diesel = 1.136 GGE (DOE AFDC)
+MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
+
+# Vehicle model configuration: maps model names to their CompassApp traversal summary fields.
+# "gge_per_unit" converts one unit of the fuel into gasoline gallon equivalents (GGE),
+# enabling a common MPGe efficiency metric across all powertrain types.
+# To add CNG: gge_per_unit = 1.0 (if energy is already reported in GGE)
+# To add hydrogen fuel cell: gge_per_unit ≈ 1.019 per kg (DOE AFDC)
+VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
     "Transit_Bus_Battery_Electric": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
     },
     "Transit_Bus_Diesel": {
         "energy_field": "trip_energy_liquid",
         "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
     },
 }
 
@@ -1252,9 +1263,10 @@ class GTFSEnergyPredictor:
                 how="left",
             )
 
-            # Aggregate to trip level
-            trip_results = self._aggregate_predictions_by_trip(
-                energy_by_shape, model_name
+            # Map shapes to trips
+            shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
+            trip_results = energy_by_shape.merge(shape_to_trips, on="shape_id").drop(
+                columns=["shape_id"]
             )
 
             # Optionally add HVAC to trip-level results
@@ -1269,6 +1281,20 @@ class GTFSEnergyPredictor:
                 ]
             else:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
+
+            # Compute MPGe (miles per gallon equivalent) — a common efficiency
+            # metric across all fuel types using EPA GGE conversion factors
+            gge_per_unit = float(model_config["gge_per_unit"])
+            gge_consumed = trip_results["energy_used"] * gge_per_unit
+            trip_results["mpge"] = trip_results["miles"] / gge_consumed
+            # Replace inf/negative with NaN for trips with zero or invalid energy
+            trip_results.loc[gge_consumed <= 0, "mpge"] = float("nan")
+
+            # Drop columns that are not useful in trip-level output
+            trip_results = trip_results.drop(
+                columns=["service_id", "route_short_name", "route_desc", "route_type"],
+                errors="ignore",
+            )
 
             # Store results
             self.energy_predictions[f"{model_name}_link"] = model_link_results
@@ -1288,29 +1314,6 @@ class GTFSEnergyPredictor:
 
         logger.info("Energy prediction complete")
         return self.energy_predictions
-
-    def _aggregate_predictions_by_trip(
-        self, energy_by_shape: pd.DataFrame, vehicle_name: str
-    ) -> pd.DataFrame:
-        """
-        Aggregate shape-level energy predictions to trip level.
-
-        Args:
-            energy_by_shape: DataFrame with shape-level energy predictions
-                from run_calculate_path (columns: shape_id, energy_used,
-                miles, vehicle, energy_unit)
-            vehicle_name: Name of vehicle model
-
-        Returns:
-            DataFrame with trip-level aggregated results
-        """
-        # Map shapes to trips
-        shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
-        energy_by_trip = energy_by_shape.merge(shape_to_trips, on="shape_id")
-
-        # Clean up columns
-        cols_to_drop = [c for c in ["shape_id"] if c in energy_by_trip.columns]
-        return energy_by_trip.drop(columns=cols_to_drop)
 
     def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """

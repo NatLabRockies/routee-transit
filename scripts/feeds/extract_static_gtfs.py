@@ -83,6 +83,13 @@ class GtfsExtractor:
             raise TypeError(f"Expected list from feeds endpoint, got {type(result)}")
         return result
 
+    def query_mdb_feed(self, feed_id: str) -> Dict[str, Any]:
+        """Query Mobility Database for a single feed by its ID"""
+        result = self.query_mobility_db(path=f"gtfs_feeds/{feed_id}", query="")
+        if not isinstance(result, dict):
+            raise TypeError(f"Expected dict from feed endpoint, got {type(result)}")
+        return result
+
     def query_mdb_dataset(self, dataset_id: str, query: str = "") -> Dict[str, Any]:
         "Query Mobility Database datasets endpoint for dataset details"
         result = self.query_mobility_db(path=f"datasets/gtfs/{dataset_id}", query=query)
