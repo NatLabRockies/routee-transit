@@ -36,36 +36,6 @@ predictor.run(
 
 For a full example, see [](examples/Utah_Transit_Agency_example).
 
-### Alternative: Step-by-Step Processing
-
-For more control over the workflow, you can invoke each processing step individually:
-
-```python
-predictor = GTFSEnergyPredictor(
-    gtfs_path="path/to/gtfs",
-    vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
-)
-
-# Load and process GTFS data
-predictor.load_gtfs_data()
-predictor.filter_trips(date="2023/08/02", routes=["205"])
-
-# Add deadhead trips (optional)
-predictor.add_mid_block_deadhead()
-predictor.add_depot_deadhead()
-
-# Match to road network (includes grade via RouteE-Compass)
-predictor.get_link_level_inputs()
-
-# Predict energy consumption
-predictor.predict_energy(add_hvac=True)
-
-# Access results
-trip_results = predictor.get_trip_predictions()
-link_results = predictor.get_link_predictions()
-```
-
-
 ## Available Models
 Two pre-trained transit bus models are bundled with RouteE-Transit and are accessed via the `vehicle_models` parameter:
 
