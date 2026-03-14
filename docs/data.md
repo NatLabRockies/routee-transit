@@ -2,7 +2,7 @@
 
 (gtfs-reqs)=
 ## General Transit Feed Specification (GTFS)
-RouteE-Transit relies on input data in the static [GTFS format](https://gtfs.org/) to generate energy predictions for each trip. Some features, such as complete shape traces for each trip, are optional per the GTFS standard but mandatory for RouteE-Transit analysis. RouteE-Transit requires the following GTFS tables and fields:
+RouteE-Transit relies on input data in the static [GTFS format](https://gtfs.org/) to generate energy predictions for each trip. Some features, such as complete shape traces for each trip, are optional per the GTFS standard but mandatory for RouteE-Transit analysis. In addition to all files and columns required by the GTFS standard, RouteE-Transit requires the following GTFS tables and fields:
 
 - *trips.txt*: `trip_id` and `shape_id` for all trips
 - *shapes.txt*: complete shape traces (`shape_pt_lat`, `shape_pt_lon`, `shape_pt_sequence`) for each trip
