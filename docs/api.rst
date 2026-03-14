@@ -1,20 +1,12 @@
 API Reference
 ===============
 
-Main Package
-------------
-
-.. automodule:: nrel.routee.transit
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 GTFSEnergyPredictor (Object-Oriented Interface)
 ------------------------------------------------
 
 The primary interface for transit energy prediction.
 
-.. autoclass:: nrel.routee.transit.GTFSEnergyPredictor
+.. autoclass:: routee.transit.GTFSEnergyPredictor
     :members:
     :undoc-members:
     :show-inheritance:
@@ -23,25 +15,17 @@ The primary interface for transit energy prediction.
 Network Routing
 ---------------
 
-.. autofunction:: nrel.routee.transit.create_deadhead_shapes
+.. autofunction:: routee.transit.create_deadhead_shapes
 
 HVAC Energy
 -----------
 
-.. autofunction:: nrel.routee.transit.add_HVAC_energy
+.. autofunction:: routee.transit.add_HVAC_energy
 
 GTFS Processing (Internal)
 ---------------------------
 
-.. automodule:: nrel.routee.transit.gtfs_processing
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Grade Calculation (Internal)
------------------------------
-
-.. automodule:: nrel.routee.transit.grade.add_grade
+.. automodule:: routee.transit.gtfs_processing
     :members:
     :undoc-members:
     :show-inheritance:
@@ -49,12 +33,12 @@ Grade Calculation (Internal)
 Deadhead Trips (Internal)
 --------------------------
 
-.. automodule:: nrel.routee.transit.mid_block_deadhead
+.. automodule:: routee.transit.mid_block_deadhead
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: nrel.routee.transit.depot_deadhead
+.. automodule:: routee.transit.depot_deadhead
     :members:
     :undoc-members:
     :show-inheritance:
@@ -62,8 +46,9 @@ Deadhead Trips (Internal)
 Thermal Energy (Internal)
 --------------------------
 
-.. automodule:: nrel.routee.transit.thermal_energy
+.. automodule:: routee.transit.thermal_energy
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: add_HVAC_energy
 

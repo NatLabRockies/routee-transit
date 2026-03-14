@@ -305,6 +305,10 @@ def main() -> None:
     )
     print(f"Collected {len(active_feeds)} active feed(s).")
 
+    if not active_feeds:
+        print("Warning: No active feeds found. Exiting.")
+        return
+
     feeds_df = build_feeds_summary(active_feeds)
 
     dataset_info = [
