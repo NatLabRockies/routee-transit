@@ -172,7 +172,8 @@ def process_dataset(
     val_report = dataset_response["validation_report"]
 
     if val_report is None:
-        print(f"Validation report is missing for dataset {dataset_id}.")
+        print(f"\tValidation report is missing for dataset {dataset_id}.")
+        print(dataset_response)
         has_shapes: bool | None = None
         has_errors: bool | None = None
     else:
@@ -188,7 +189,7 @@ def process_dataset(
         "hosted_url": dataset_response["hosted_url"],
     }
 
-    if has_shapes is True and has_errors is False:
+    try:
         download_zip = requests.get(summary["hosted_url"], timeout=60)
         download_zip.raise_for_status()
 
@@ -255,6 +256,9 @@ def process_dataset(
                     .tolist()
                 )
                 summary["agency_names"] = agency_names_bus
+
+    except (ValueError, FileNotFoundError):
+        pass  # return summary as-is
 
     return summary
 
