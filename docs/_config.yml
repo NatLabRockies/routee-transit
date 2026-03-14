@@ -39,6 +39,8 @@ sphinx:
   config:
     html_theme: sphinx_book_theme
     language: "python"
+    # Merge stdout/stderr streams when rendering (makes logging look better)
+    nb_merge_streams: true
   html_context:
     default_mode: light
 

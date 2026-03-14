@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 import requests
+from gtfsblocks import Feed
 
 from scripts.feeds.extract_static_gtfs import GtfsExtractor
 
@@ -110,6 +111,8 @@ def build_feeds_summary(
             continue
 
         try:
+            # Compile the list of states covered by this feed
+            states = list(set(loc["subdivision_name"] for loc in f["locations"]))
             feed_info.append(
                 {
                     "id": f["id"],
@@ -128,6 +131,7 @@ def build_feeds_summary(
                         f["bounding_box"]["minimum_longitude"]
                         + f["bounding_box"]["maximum_longitude"]
                     ),
+                    "states": states,
                 }
             )
         except KeyError as err:
@@ -168,7 +172,8 @@ def process_dataset(
     val_report = dataset_response["validation_report"]
 
     if val_report is None:
-        print(f"Validation report is missing for dataset {dataset_id}.")
+        print(f"\tValidation report is missing for dataset {dataset_id}.")
+        print(dataset_response)
         has_shapes: bool | None = None
         has_errors: bool | None = None
     else:
@@ -184,7 +189,7 @@ def process_dataset(
         "hosted_url": dataset_response["hosted_url"],
     }
 
-    if has_shapes is True and has_errors is False:
+    try:
         download_zip = requests.get(summary["hosted_url"], timeout=60)
         download_zip.raise_for_status()
 
@@ -195,12 +200,14 @@ def process_dataset(
             zip_ref.extractall(extract_path)
             print(f"Dataset extracted to {extract_path}")
 
-        routes = pd.read_csv(extract_path / "routes.txt")
-        trips = pd.read_csv(extract_path / "trips.txt")
+        # Read in the full dataset
+        dataset = Feed.from_dir(extract_path)
+        routes = dataset.routes
+        trips = dataset.trips
 
-        bus_route_ids = routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS][
-            "route_id"
-        ].tolist()
+        bus_route_ids = routes[
+            routes["route_type"] == GTFS_ROUTE_TYPE_BUS
+        ].index.tolist()
         bus_trips = trips[trips["route_id"].isin(bus_route_ids)]
 
         if len(bus_trips) >= 1:
@@ -220,6 +227,38 @@ def process_dataset(
         else:
             print("\tNo shapes in dataset")
             summary["includes_all_bus_shapes"] = False
+
+        # Add the dataset summary
+        feed_overview_dict = dataset.get_feed_overview_dict()
+        # Start and end dates are already covered
+        del feed_overview_dict["start_date"]
+        del feed_overview_dict["end_date"]
+        summary.update(feed_overview_dict)
+
+        # Add list of agencies
+        summary["agency_names"] = list(dataset.agency["agency_name"].unique())
+
+        # If there's more than one agency, only include agencies that have bus
+        # service included. We treat this as a separate check because agency_id
+        # is allowed to be NA if there is only one agency in the feed.
+        if len(summary["agency_names"]) > 1:
+            agency_ids = list(dataset.agency["agency_id"].dropna().unique())
+            if agency_ids:
+                # Double check these IDs are represented in bus routes
+                agency_ids_bus = list(
+                    dataset.routes[dataset.routes["route_type"] == GTFS_ROUTE_TYPE_BUS][
+                        "agency_id"
+                    ].unique()
+                )
+                agency_names_bus = (
+                    dataset.agency.set_index("agency_id")
+                    .loc[agency_ids_bus]["agency_name"]
+                    .tolist()
+                )
+                summary["agency_names"] = agency_names_bus
+
+    except (ValueError, FileNotFoundError):
+        pass  # return summary as-is
 
     return summary
 

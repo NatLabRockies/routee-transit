@@ -76,17 +76,21 @@ def create_mid_block_deadhead_trips(
 def create_mid_block_deadhead_stops(
     feed: Any, deadhead_trips: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Create stop_times and stops for deadhead trips between consecutive trips to generate the feed object for between trip deadhead trips.
+    """Create stop_times and stops for mid-block deadhead trips.
+
     Parameters
     ----------
     feed: Any
         GTFS feed object (e.g. result from read_in_gtfs).
     deadhead_trips: pd.DataFrame
-        deadhead trip results from create_mid_block_deadhead_trips.py.
+        Deadhead trip records from :func:`create_mid_block_deadhead_trips`.
+
     Returns
     -------
-    pd.DataFrame
-        DataFrame of stop_times and stops for the deadhead trips.
+    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A ``(stop_times_df, stops_df, deadhead_ods_df)`` tuple where
+        ``stop_times_df`` and ``stops_df`` can be merged into the GTFS feed,
+        and ``deadhead_ods_df`` holds origin/destination geometry for routing.
     """
     # Calculate distance from end stop of first trip to start stop of second trip
     deadhead_trips["from_trip"] = deadhead_trips["trip_id"].apply(

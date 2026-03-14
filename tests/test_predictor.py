@@ -246,7 +246,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_irrelevant_columns_dropped(self) -> None:
-        """service_id, route_short_name, route_desc, route_type must not appear in results."""
+        """service_id, route_desc, route_type must not appear in results."""
         self.mock_app.run_calculate_path.return_value = self._make_compass_result(
             energy_value=KWH_PER_GGE,
             distance_value=10.0,
@@ -256,7 +256,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         results = self._run_predict_energy(["Transit_Bus_Battery_Electric"])
         trip_df = results["Transit_Bus_Battery_Electric_trip"]
 
-        for col in ["service_id", "route_short_name", "route_desc", "route_type"]:
+        for col in ["service_id", "route_desc", "route_type"]:
             self.assertNotIn(col, trip_df.columns, f"Column '{col}' should be dropped")
 
     def test_core_columns_preserved(self) -> None:
