@@ -98,7 +98,7 @@ class GtfsExtractor:
         return result
 
     def make_api_request(
-        self, url: str, headers: Dict[str, str], timeout: int = 15
+        self, url: str, headers: Dict[str, str], timeout: int = 60
     ) -> requests.Response:
         """Make an API request
 
