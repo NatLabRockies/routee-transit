@@ -13139,7 +13139,7 @@ packages:
 - pypi: ./
   name: routee-transit
   version: 0.3.0
-  sha256: 4e148f286df1d431c55651df1e7c56e5475048387acaca9c66e079e6604221da
+  sha256: 5bab382ada704337e0876fbfd8eb3f8d07ce596d85869c93796a528451c8114e
   requires_dist:
   - pandas>=2.3.3,<3
   - gtfsblocks>=0.1.5,<0.2
