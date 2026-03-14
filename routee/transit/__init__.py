@@ -14,7 +14,7 @@ from .thermal_energy import add_HVAC_energy
 
 
 def package_root() -> Path:
-    """Return the path to the nrel.routee.transit package"""
+    """Return the path to the routee.transit package"""
     return Path(__file__).parent
 
 

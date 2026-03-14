@@ -110,10 +110,10 @@ class GTFSEnergyPredictor:
         depot_path (Path | None): Path to depot shapefile directory
         n_processes (int): Number of parallel processes to use
         feed (Feed | None): Loaded GTFS feed object
-        trips (pd.DataFrame | None): Trips DataFrame (initially all, can be filtered)
-        shapes (pd.DataFrame | None): Shapes DataFrame for loaded trips
-        matched_shapes (pd.DataFrame | None): Shapes matched to road network
-        routee_inputs (pd.DataFrame | None): Link-level features for RouteE
+        trips (pd.DataFrame): Trips DataFrame (initially all, can be filtered)
+        shapes (pd.DataFrame): Shapes DataFrame for loaded trips
+        matched_shapes (pd.DataFrame): Shapes matched to road network
+        routee_inputs (pd.DataFrame): Link-level features for RouteE
         energy_predictions (dict[str, pd.DataFrame]): Energy predictions by vehicle model
     """
 
@@ -139,6 +139,13 @@ class GTFSEnergyPredictor:
                 Data source: https://data.transportation.gov/stories/s/gd62-jzra
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
             compass_app: An optional pre-initialized CompassApp instance.
+            output_dir: Directory for saving results and caching the CompassApp graph.
+                If None, results are not persisted to disk.
+            vehicle_models: List of vehicle model names to use for energy prediction
+                (e.g., ``["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"]``).
+                If None, all supported models are used.
+            overwrite: If True (default), regenerate the CompassApp graph and results
+                even if cached outputs already exist in ``output_dir``.
         """
         self.gtfs_path = Path(gtfs_path)
         if depot_path is None:
@@ -238,9 +245,6 @@ class GTFSEnergyPredictor:
 
         Parameters
         ----------
-        vehicle_models : list[str] or str
-            RouteE vehicle model name(s) to use for predictions.
-            If a single string, will be converted to a list.
         date : str, optional
             Filter trips to a specific service date (format: "YYYY-MM-DD" or "YYYY/MM/DD").
             If None, all trips across all service dates are included.
@@ -265,25 +269,32 @@ class GTFSEnergyPredictor:
         --------
         Simple usage - predict energy for all trips:
 
-        >>> predictor = GTFSEnergyPredictor("data/gtfs")
-        >>> results = predictor.run(vehicle_models=["BEB", "Diesel"])
+        >>> predictor = GTFSEnergyPredictor(
+        ...     gtfs_path="data/gtfs",
+        ...     vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
+        ... )
+        >>> results = predictor.run()
 
         Filter to specific date and routes:
 
-        >>> results = predictor.run(
-        ...     vehicle_models="BEB",
-        ...     date="2023-08-02",
-        ...     routes=["205", "209"],
-        ...     output_dir="reports/saltlake"
+        >>> predictor = GTFSEnergyPredictor(
+        ...     gtfs_path="data/gtfs",
+        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ...     output_dir="reports/saltlake",
         ... )
+        >>> results = predictor.run(date="2023-08-02", routes=["205", "209"])
 
         Minimal processing (no deadhead, no HVAC):
 
+        >>> predictor = GTFSEnergyPredictor(
+        ...     gtfs_path="data/gtfs",
+        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ... )
         >>> results = predictor.run(
-        ...     vehicle_models="BEB",
         ...     add_mid_block_deadhead=False,
         ...     add_depot_deadhead=False,
-        ...     save_results=False
+        ...     add_hvac=False,
+        ...     save_results=False,
         ... )
         """
 
@@ -1289,7 +1300,7 @@ class GTFSEnergyPredictor:
 
             # Drop columns that are not useful in trip-level output
             trip_results = trip_results.drop(
-                columns=["service_id", "route_short_name", "route_desc", "route_type"],
+                columns=["service_id", "route_desc", "route_type"],
                 errors="ignore",
             )
 
@@ -1355,7 +1366,7 @@ class GTFSEnergyPredictor:
         self,
         output_dir: str | Path | None = None,
         save_geometry: bool = True,
-        save_inputs: bool = True,
+        save_inputs: bool = False,
     ) -> None:
         """
         Save prediction results to CSV files.
