@@ -366,6 +366,7 @@ class GTFSEnergyPredictor:
                 "departure_time",
                 "stop_id",
             ],
+            "routes": ["route_color"],
         }
         self.feed = Feed.from_dir(self.gtfs_path, columns=req_cols)
 
