@@ -1,14 +1,6 @@
 API Reference
 ===============
 
-Main Package
-------------
-
-.. automodule:: routee.transit
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 GTFSEnergyPredictor (Object-Oriented Interface)
 ------------------------------------------------
 
@@ -58,4 +50,5 @@ Thermal Energy (Internal)
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: add_HVAC_energy
 
