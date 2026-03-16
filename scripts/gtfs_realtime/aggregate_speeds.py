@@ -1,24 +1,15 @@
 import json
 import logging
-import multiprocessing as mp
 import os
 import time
-from functools import partial
-from itertools import groupby
 from pathlib import Path
 
-import folium
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 import numpy as np
+import osmnx as ox
 import pandas as pd
 import shapely
-from mappymatch.constructs.geofence import Geofence
-from mappymatch.constructs.trace import Trace
-from mappymatch.maps.nx.nx_map import NetworkType, NxMap
-from mappymatch.matchers.lcss.lcss import LCSSMatcher
-from pyproj import Transformer
-from scipy.spatial import cKDTree
+from nrel.routee.compass import CompassApp
+from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 
 def read_realtime_records(path_to_json):
@@ -80,41 +71,92 @@ def clean_trip_df(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
     return trip_rt_filt
 
 
-def match_realtime_trip(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
-    """Match realtime observations to the OSM network using mappymatch.
+def build_compass_app(rt_df: pd.DataFrame, buffer_deg: float = 0.05) -> CompassApp:
+    """Build a CompassApp from the bounding box of realtime observations.
+
+    Args:
+        rt_df (pd.DataFrame): DataFrame of all GTFS Realtime observations.
+        buffer_deg (float): Buffer in degrees to add around the bounding box.
+
+    Returns:
+        CompassApp: Initialized CompassApp for map matching.
+    """
+    min_lon = rt_df["longitude"].min() - buffer_deg
+    max_lon = rt_df["longitude"].max() + buffer_deg
+    min_lat = rt_df["latitude"].min() - buffer_deg
+    max_lat = rt_df["latitude"].max() + buffer_deg
+    bbox = (min_lon, min_lat, max_lon, max_lat)
+
+    graph = ox.graph_from_bbox(bbox=bbox, network_type="drive")
+    app = CompassApp.from_graph(graph)
+    return app
+
+
+def match_realtime_trip(
+    trip_rt_df: pd.DataFrame, app: CompassApp
+) -> pd.DataFrame:
+    """Match realtime observations to the OSM network using routee-compass.
 
     Args:
         trip_rt_df (pd.DataFrame): DataFrame of GTFS Realtime observations for
             a single bus trip.
+        app (CompassApp): Initialized CompassApp for map matching.
+
     Returns:
         pd.DataFrame: trip_rt_df with road link features appended
     """
-    # Create mappymatch trace
-    trace = Trace.from_dataframe(
-        trip_rt_df, lat_column="latitude", lon_column="longitude"
-    )
+    # Build a map matching query from the realtime trace
+    trace = [
+        {"x": float(row["longitude"]), "y": float(row["latitude"])}
+        for _, row in trip_rt_df.iterrows()
+    ]
+    query = {"trace": trace}
 
-    # Create geofence and use it to pull network
-    geofence = Geofence.from_trace(trace, padding=800)
-    nxmap = NxMap.from_geofence(geofence, network_type=NetworkType.DRIVE)
-    # Run map matching algorithm
-    matcher = LCSSMatcher(nxmap)
-    matches = matcher.match_trace(trace).matches_to_dataframe()
-    try:
-        matched_df = pd.concat(
-            [
-                trip_rt_df,
-                matches[
-                    ["road_id", "geom", "distance_to_road", "kilometers", "travel_time"]
-                ],
-            ],
-            axis=1,
-        )
-    except KeyError as e:
-        raise ValueError(
-            f"Map matching error. Returned df is {matches.head()}"
-        ) from e
-    return matched_df
+    results = app.map_match([query])
+    gdf = match_result_to_geopandas(results)
+
+    if gdf.empty:
+        raise ValueError("Map matching returned no results")
+
+    # Compute link length in kilometers from the geometry (EPSG:4326 -> EPSG:3857)
+    gdf_projected = gdf.to_crs("EPSG:3857")
+    gdf["kilometers"] = gdf_projected.geometry.length / 1000.0
+
+    # Assign each observation to the nearest matched edge
+    # Build a mapping from edge_index to road attributes
+    edge_attrs = gdf[["edge_index", "edge_id", "geometry", "kilometers"]].copy()
+    edge_attrs = edge_attrs.rename(columns={"edge_id": "road_id", "geometry": "geom"})
+
+    # For each observation, find the closest matched edge
+    obs_points = [
+        shapely.geometry.Point(row["longitude"], row["latitude"])
+        for _, row in trip_rt_df.iterrows()
+    ]
+
+    road_ids = []
+    geoms = []
+    km_values = []
+
+    for pt in obs_points:
+        min_dist = float("inf")
+        best_idx = 0
+        for idx, row in edge_attrs.iterrows():
+            if row["geom"] is not None:
+                dist = pt.distance(row["geom"])
+                if dist < min_dist:
+                    min_dist = dist
+                    best_idx = idx
+        best = edge_attrs.loc[best_idx]
+        road_ids.append(best["road_id"])
+        geoms.append(best["geom"])
+        km_values.append(best["kilometers"])
+
+    trip_rt_df = trip_rt_df.copy()
+    trip_rt_df["road_id"] = road_ids
+    trip_rt_df["geom"] = geoms
+    trip_rt_df["kilometers"] = km_values
+
+    return trip_rt_df
 
 
 def calculate_shape_distance(shape_df, lat1, lon1, lat2, lon2, max_distance_meters=100):
@@ -144,19 +186,21 @@ def calculate_shape_distance(shape_df, lat1, lon1, lat2, lon2, max_distance_mete
         If either point is too far from the shape
     """
     # Extract shape coordinates
-    shape_coords = shape_df[["shape_pt_lat", "shape_pt_lon"]].values
+    shape_lats = shape_df["shape_pt_lat"].values
+    shape_lons = shape_df["shape_pt_lon"].values
     shape_distances = shape_df["shape_dist_traveled"].values
 
-    # Build KD-tree for efficient nearest neighbor search
-    # Note: For more accurate distance calculations over larger areas,
-    # consider projecting to a local coordinate system
-    tree = cKDTree(shape_coords)
+    # Find nearest shape point to each input coordinate via brute-force
+    # (GTFS shapes are small enough that this is effectively instant)
+    dists1 = np.sqrt((shape_lats - lat1) ** 2 + (shape_lons - lon1) ** 2)
+    idx1 = np.argmin(dists1)
+    dist1 = dists1[idx1]
 
-    # Find nearest points on shape for both input coordinates
-    dist1, idx1 = tree.query([lat1, lon1])
-    dist2, idx2 = tree.query([lat2, lon2])
+    dists2 = np.sqrt((shape_lats - lat2) ** 2 + (shape_lons - lon2) ** 2)
+    idx2 = np.argmin(dists2)
+    dist2 = dists2[idx2]
 
-    # Convert degrees to approximate meters (rough approximation)
+    # Convert degrees to approximate meters
     # At mid-latitudes, 1 degree lat ≈ 111km, 1 degree lon ≈ 111km * cos(lat)
     avg_lat = (lat1 + lat2) / 2
     dist1_meters = (
@@ -225,7 +269,7 @@ def add_speed_between_points(
 
 
 def add_link_endpoints_to_realtime_df(
-    matched_rt_df: pd.DataFrame, geo_crs: str = "EPSG:3857"
+    matched_rt_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """Add endpoints of map-matched road links to the realtime data.
 
@@ -235,24 +279,19 @@ def add_link_endpoints_to_realtime_df(
     Args:
         matched_rt_df (pd.DataFrame): Map-matched DataFrame of GTFS-RT observations
             for a single bus trip.
-        geo_crs (str, optional): Coordinate system of road link geometry. Defaults to
-            "EPSG:3857" (Web Mercator, used by OSM).
 
     Returns:
         pd.DataFrame: matched_rt_df with rows added for all road link endpoints.
     """
-    # Transformer to convert road link shapes to lat/lon degrees
-    transformer = Transformer.from_crs(geo_crs, "EPSG:4326", always_xy=True)
-
-    # Identify the start and end coordinates of each map-matched link
+    # Identify the start and end coordinates of each map-matched link.
+    # Geometry from routee-compass is already in EPSG:4326 (lon, lat).
     segment_starts = {}
     segment_ends = {}
     for geo in matched_rt_df["geom"].unique():
         coords = shapely.get_coordinates(geo)
-        # Transform all coordinates at once
-        lon, lat = transformer.transform(coords[:, 0], coords[:, 1])
-        segment_starts[geo] = (lat[0], lon[0])
-        segment_ends[geo] = (lat[-1], lon[-1])
+        # coords are (lon, lat) in EPSG:4326
+        segment_starts[geo] = (coords[0][1], coords[0][0])   # (lat, lon)
+        segment_ends[geo] = (coords[-1][1], coords[-1][0])    # (lat, lon)
 
     # Create a list to hold all rows (existing + new endpoint rows)
     new_rows = []
@@ -435,7 +474,7 @@ def estimate_link_speeds(interpolated_df):
     return link_summary
 
 
-def get_link_speeds_for_trip(trip_id, rt_df, trips_df, shapes_df):
+def get_link_speeds_for_trip(trip_id, rt_df, trips_df, shapes_df, app):
     # Extract the trip with the most observed points
     trip_df = rt_df[rt_df["trip_id"] == trip_id].copy()
 
@@ -452,7 +491,7 @@ def get_link_speeds_for_trip(trip_id, rt_df, trips_df, shapes_df):
     
     trip_with_speeds = add_speed_between_points(trip_df_filt, shape)
     try:
-        matched_df = match_realtime_trip(trip_with_speeds)
+        matched_df = match_realtime_trip(trip_with_speeds, app)
     except ValueError:
         return pd.DataFrame()
     except shapely.errors.GEOSException:
@@ -516,19 +555,25 @@ def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
     if "route_id" not in rt_df.columns:
         rt_df = rt_df.merge(trips_df[["route_id"]], left_on="trip_id", right_index=True)
 
+    # Build the CompassApp once from the bounding box of all observations
+    print("Building CompassApp from realtime observation bounding box...")
+    app = build_compass_app(rt_df)
+
     first_trip_start = time.time()
-    speeds_partial = partial(
-        get_link_speeds_for_trip, rt_df=rt_df, shapes_df=shapes_df, trips_df=trips_df
-    )
 
     for ix, (route_id, route_rt) in enumerate(rt_df.groupby("route_id")):
-        print(f"Analyzing {route_rt.trip_id.nunique()} trips on route {route_id}")
-        mp_inputs = list(route_rt["trip_id"].unique())
+        trip_ids = list(route_rt["trip_id"].unique())
+        print(f"Analyzing {len(trip_ids)} trips on route {route_id}")
         route_start = time.time()
-        with mp.Pool(mp.cpu_count() - 2) as pool:
-            results = pool.map(speeds_partial, mp_inputs)
-
-        pd.concat(results).to_csv(gtfs_root / f"realtime_speeds_{route_id}.csv")
+        results = [
+            get_link_speeds_for_trip(
+                tid, rt_df=rt_df, shapes_df=shapes_df, trips_df=trips_df, app=app
+            )
+            for tid in trip_ids
+        ]
+        results = [r for r in results if not r.empty]
+        if results:
+            pd.concat(results).to_csv(gtfs_root / f"realtime_speeds_{route_id}.csv")
         print(
             f"Analyzing {route_rt.trip_id.nunique()} trips on route {route_id} "
             f"took {time.time() - route_start:.2f} s"
@@ -555,5 +600,5 @@ def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
 
 
 if __name__ == "__main__":
-    json_path = "scripts/gtfs_realtime/greater_portland_me/gtfs_realtime_records_20251023.jsonl"
+    json_path = "reports/realtime/greater_portland_me/gtfs_realtime_records_20251023.jsonl"
     get_speeds_for_one_day(json_path)
