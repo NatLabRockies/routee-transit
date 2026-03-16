@@ -16,37 +16,40 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
@@ -60,10 +63,11 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Utah Transit Agency Example" href="examples/Utah_Transit_Agency_example.html" />
+    <link rel="next" title="Results" href="results.html" />
     <link rel="prev" title="RouteE-Transit Prediction Pipeline" href="prediction.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -79,19 +83,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="search.html"
       method="get">
@@ -99,7 +92,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search this book..."
          aria-label="Search this book..."
          autocomplete="off"
@@ -107,8 +99,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -124,7 +116,8 @@
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -154,21 +147,17 @@
     
     
     <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <script>document.write(`<img src="_static/routeelogo.png" class="logo__image only-dark" alt="RouteE-Transit - Home"/>`);</script>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
   
   
 </a></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
@@ -184,16 +173,17 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">Data Requirements</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="prediction.html">RouteE-Transit Prediction Pipeline</a></li>
 
 
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">API Reference</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Agency Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="results.html">Results</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul class="nav bd-sidenav">
@@ -206,9 +196,14 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -338,7 +333,7 @@
 
 
 <button onclick="toggleFullScreen()"
-  class="btn btn-sm btn-fullscreen-button"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
   title="Fullscreen mode"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
@@ -352,25 +347,17 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
-<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <span class="fa-solid fa-list"></span>
 </button>
 </div></div>
@@ -393,14 +380,67 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#main-package">Main Package</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#network-routing">Network Routing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hvac-energy">HVAC Energy</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfs-processing-internal">GTFS Processing (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grade-calculation-internal">Grade Calculation (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trips-internal">Deadhead Trips (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-energy-internal">Thermal Energy (Internal)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.gtfs_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.gtfs_path</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.depot_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.depot_path</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.n_processes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.n_processes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.feed"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.feed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.trips</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.shapes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.shapes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.matched_shapes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.matched_shapes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.routee_inputs"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.routee_inputs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.energy_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.energy_predictions</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.__init__"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.add_trip_times"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.add_trip_times()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.aggregate_inputs_by_link"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.aggregate_inputs_by_link()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.filter_trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.filter_trips()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_link_level_inputs"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_link_level_inputs()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_link_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_link_predictions()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_trip_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_trip_predictions()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.load_compass_app"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.load_compass_app()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.load_gtfs_data"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.load_gtfs_data()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.predict_energy"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.predict_energy()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.run"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.run()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.save_results"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.save_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#network-routing">Network Routing</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.create_deadhead_shapes"><code class="docutils literal notranslate"><span class="pre">create_deadhead_shapes()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hvac-energy">HVAC Energy</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.add_HVAC_energy"><code class="docutils literal notranslate"><span class="pre">add_HVAC_energy()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.gtfs_processing">GTFS Processing (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.add_stop_flags_to_shape"><code class="docutils literal notranslate"><span class="pre">add_stop_flags_to_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.copy_transit_config"><code class="docutils literal notranslate"><span class="pre">copy_transit_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.estimate_trip_timestamps"><code class="docutils literal notranslate"><span class="pre">estimate_trip_timestamps()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.extend_trip_traces"><code class="docutils literal notranslate"><span class="pre">extend_trip_traces()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.upsample_shape"><code class="docutils literal notranslate"><span class="pre">upsample_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.write_gtfs_stops"><code class="docutils literal notranslate"><span class="pre">write_gtfs_stops()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.mid_block_deadhead">Deadhead Trips (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_stops()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_stops()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.get_default_depot_path"><code class="docutils literal notranslate"><span class="pre">get_default_depot_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.thermal_energy">Thermal Energy (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.compute_HVAC_energy"><code class="docutils literal notranslate"><span class="pre">compute_HVAC_energy()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.download_tmy_files"><code class="docutils literal notranslate"><span class="pre">download_tmy_files()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.fetch_counties_gdf"><code class="docutils literal notranslate"><span class="pre">fetch_counties_gdf()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.get_hourly_temperature"><code class="docutils literal notranslate"><span class="pre">get_hourly_temperature()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.load_thermal_lookup_table"><code class="docutils literal notranslate"><span class="pre">load_thermal_lookup_table()</span></code></a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -414,30 +454,826 @@ document.write(`
                   
   <section id="api-reference">
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">#</a></h1>
-<section id="main-package">
-<h2>Main Package<a class="headerlink" href="#main-package" title="Link to this heading">#</a></h2>
-</section>
 <section id="gtfsenergypredictor-object-oriented-interface">
 <h2>GTFSEnergyPredictor (Object-Oriented Interface)<a class="headerlink" href="#gtfsenergypredictor-object-oriented-interface" title="Link to this heading">#</a></h2>
 <p>The primary interface for transit energy prediction.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">routee.transit.</span></span><span class="sig-name descname"><span class="pre">GTFSEnergyPredictor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depot_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Predict transit bus energy consumption from GTFS data.</p>
+<p>This class provides a complete workflow for RouteE-Transit, including:
+- Loading and filtering GTFS data
+- Adding deadhead trips (between trips and to/from depot)
+- Matching shapes to road networks (OpenStreetMap by default)
+- Adding road grade information
+- Predicting energy consumption with RouteE-Powertrain models
+- Adding HVAC energy impacts</p>
+<p>The class is designed to be easily extended via inheritance. For example, a
+subclass can override network matching methods to use TomTom instead of OSM.</p>
+<dl>
+<dt>Typical usage:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;data/gtfs&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="c1"># depot_path is optional - uses NTD depot locations by default</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023-08-02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">add_mid_block_deadhead</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">add_depot_deadhead</span><span class="p">()</span>  <span class="c1"># Uses NTD depot locations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">get_link_level_inputs</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">predict_energy</span><span class="p">([</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd>
+<dt>For extending with custom network data:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">TomTomEnergyPredictor</span><span class="p">(</span><span class="n">GTFSEnergyPredictor</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">_match_shapes_to_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">upsampled_shapes</span><span class="p">):</span>
+<span class="gp">... </span>        <span class="c1"># Custom TomTom matching logic</span>
+<span class="gp">... </span>        <span class="k">return</span> <span class="n">matched_shapes</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.gtfs_path">
+<span class="sig-name descname"><span class="pre">gtfs_path</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.gtfs_path" title="Link to this definition">#</a></dt>
+<dd><p>Path to GTFS feed directory</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.depot_path">
+<span class="sig-name descname"><span class="pre">depot_path</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.depot_path" title="Link to this definition">#</a></dt>
+<dd><p>Path to depot shapefile directory</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.n_processes">
+<span class="sig-name descname"><span class="pre">n_processes</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.n_processes" title="Link to this definition">#</a></dt>
+<dd><p>Number of parallel processes to use</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.feed">
+<span class="sig-name descname"><span class="pre">feed</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.feed" title="Link to this definition">#</a></dt>
+<dd><p>Loaded GTFS feed object</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Feed | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.trips">
+<span class="sig-name descname"><span class="pre">trips</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.trips" title="Link to this definition">#</a></dt>
+<dd><p>Trips DataFrame (initially all, can be filtered)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.shapes">
+<span class="sig-name descname"><span class="pre">shapes</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.shapes" title="Link to this definition">#</a></dt>
+<dd><p>Shapes DataFrame for loaded trips</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.matched_shapes">
+<span class="sig-name descname"><span class="pre">matched_shapes</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.matched_shapes" title="Link to this definition">#</a></dt>
+<dd><p>Shapes matched to road network</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.routee_inputs">
+<span class="sig-name descname"><span class="pre">routee_inputs</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.routee_inputs" title="Link to this definition">#</a></dt>
+<dd><p>Link-level features for RouteE</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.energy_predictions">
+<span class="sig-name descname"><span class="pre">energy_predictions</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.energy_predictions" title="Link to this definition">#</a></dt>
+<dd><p>Energy predictions by vehicle model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[str, pd.DataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depot_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Initialize the GTFSEnergyPredictor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gtfs_path</strong> -- Path to directory containing GTFS feed files</p></li>
+<li><p><strong>depot_path</strong> -- Path to directory containing depot shapefile (Transit_Depot.shp).
+If None (default), uses depot locations from the National Transit Database's
+&quot;Public Transit Facilities and Stations - 2023&quot; dataset. This dataset covers
+depot/facility locations for transit agencies across the United States.
+Data source: <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a></p></li>
+<li><p><strong>n_processes</strong> -- Number of parallel processes for processing. Defaults to CPU count.</p></li>
+<li><p><strong>compass_app</strong> -- An optional pre-initialized CompassApp instance.</p></li>
+<li><p><strong>output_dir</strong> -- Directory for saving results and caching the CompassApp graph.
+If None, results are not persisted to disk.</p></li>
+<li><p><strong>vehicle_models</strong> -- List of vehicle model names to use for energy prediction
+(e.g., <code class="docutils literal notranslate"><span class="pre">[&quot;Transit_Bus_Battery_Electric&quot;,</span> <span class="pre">&quot;Transit_Bus_Diesel&quot;]</span></code>).
+If None, all supported models are used.</p></li>
+<li><p><strong>overwrite</strong> -- If True (default), regenerate the CompassApp graph and results
+even if cached outputs already exist in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.add_trip_times">
+<span class="sig-name descname"><span class="pre">add_trip_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.add_trip_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.add_trip_times" title="Link to this definition">#</a></dt>
+<dd><p>Add trip time columns to self.trips</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.aggregate_inputs_by_link">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aggregate_inputs_by_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_ext</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.aggregate_inputs_by_link"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.aggregate_inputs_by_link" title="Link to this definition">#</a></dt>
+<dd><p>After map matching all trips, aggregate the data by road link.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.filter_trips">
+<span class="sig-name descname"><span class="pre">filter_trips</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.predictor.GTFSEnergyPredictor"><span class="pre">GTFSEnergyPredictor</span></a></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.filter_trips"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.filter_trips" title="Link to this definition">#</a></dt>
+<dd><p>Filter trips by date and/or routes.</p>
+<p>This method can be called after load_gtfs_data() to restrict the analysis
+to specific dates or routes. Can be called multiple times to refine filters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>date</strong> -- Date to filter trips (format: &quot;YYYY-MM-DD&quot; or datetime object).
+If None, keeps all currently loaded trips.</p></li>
+<li><p><strong>routes</strong> -- List of route_short_name values to filter by.
+If None, keeps all currently loaded routes.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Self for method chaining</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>RuntimeError</strong> -- If GTFS data hasn't been loaded yet</p></li>
+<li><p><strong>ValueError</strong> -- If no trips match the specified filters</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.get_link_level_inputs">
+<span class="sig-name descname"><span class="pre">get_link_level_inputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.predictor.GTFSEnergyPredictor"><span class="pre">GTFSEnergyPredictor</span></a></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.get_link_level_inputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.get_link_level_inputs" title="Link to this definition">#</a></dt>
+<dd><p>Match GTFS shapes to road network and prepare RouteE inputs.</p>
+<p>This method performs the following steps:
+1. Upsamples shapes to ~1 Hz GPS traces
+2. Matches shapes to OpenStreetMap road network
+3. Extends trips with stop and schedule information
+4. Aggregates data at road link level
+5. Optionally adds road grade information</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Self for method chaining</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> -- If GTFS data hasn't been loaded yet</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.get_link_predictions">
+<span class="sig-name descname"><span class="pre">get_link_predictions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vehicle_model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.get_link_predictions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.get_link_predictions" title="Link to this definition">#</a></dt>
+<dd><p>Get link-level energy predictions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vehicle_model</strong> -- Specific model name, or None for all models</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame with predictions, or None if not yet computed</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.get_trip_predictions">
+<span class="sig-name descname"><span class="pre">get_trip_predictions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vehicle_model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.get_trip_predictions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.get_trip_predictions" title="Link to this definition">#</a></dt>
+<dd><p>Get trip-level energy predictions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vehicle_model</strong> -- Specific model name, or None for all models</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame with predictions</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>KeyError</strong> -- If predictions have not been generated yet</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.load_compass_app">
+<span class="sig-name descname"><span class="pre">load_compass_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer_deg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_geoms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">GeoDataFrame</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.load_compass_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.load_compass_app" title="Link to this definition">#</a></dt>
+<dd><p>Initialize the CompassApp using the bounding box of the loaded shapes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer_deg</strong> -- Buffer in degrees to add to the bounding box.</p></li>
+<li><p><strong>n_processes</strong> -- Number of processes for parallelism.</p></li>
+<li><p><strong>extra_geoms</strong> -- Optional list of GeoDataFrames or DataFrames with geometry to include in bbox.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.load_gtfs_data">
+<span class="sig-name descname"><span class="pre">load_gtfs_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.predictor.GTFSEnergyPredictor"><span class="pre">GTFSEnergyPredictor</span></a></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.load_gtfs_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.load_gtfs_data" title="Link to this definition">#</a></dt>
+<dd><p>Load GTFS data from the feed directory.</p>
+<p>This method reads the complete GTFS feed. Use filter_trips() afterwards
+if you want to restrict to specific dates or routes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Self for method chaining</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.predict_energy">
+<span class="sig-name descname"><span class="pre">predict_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">add_hvac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.predict_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.predict_energy" title="Link to this definition">#</a></dt>
+<dd><p>Predict energy consumption by map matching once, then running
+CompassApp.run_calculate_path for each vehicle model.</p>
+<p>This method:
+1. Runs map matching ONCE to get road-level attributes (distance, speed, grade)
+2. Extracts edge_ids from the map-matched paths
+3. Runs CompassApp.run_calculate_path for each vehicle model with model_name</p>
+<p>This is much more efficient than the previous approach of running
+map matching per vehicle model, since map matching is computationally
+expensive and the road attributes are the same regardless of vehicle type.</p>
+<p>Energy modeling is handled entirely by RouteE-Compass's powertrain
+traversal models, eliminating the need for the nrel.routee.powertrain package.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>add_hvac</strong> -- Whether to add HVAC energy consumption to trip-level results</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>'link': DataFrame with link-level predictions for all models</p></li>
+<li><p>'trip': DataFrame with trip-level predictions for all models</p></li>
+<li><p>'&lt;model_name&gt;_link': Link-level predictions for specific model</p></li>
+<li><p>'&lt;model_name&gt;_trip': Trip-level predictions for specific model</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary with keys</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>RuntimeError</strong> -- If GTFS data hasn't been loaded yet</p></li>
+<li><p><strong>ValueError</strong> -- If vehicle model is not supported</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_mid_block_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_depot_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_hvac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete energy prediction pipeline with a single method call.</p>
+<p>This is a convenience method that chains together all processing steps:
+1. Load GTFS data
+2. Optionally filter trips (<cite>date</cite>, <cite>routes</cite>)
+3. Optionally add deadhead trips (<cite>add_mid_block_deadhead</cite>, <cite>add_depot_deadhead</cite>)
+4. Run map matching and predict energy consumption using CompassApp
+5. Optionally save results (<cite>save_results</cite>)</p>
+<p>For more control over individual steps, use the individual methods
+(load_gtfs_data, filter_trips, add_mid_block_deadhead, etc.).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>date</strong> (<em>str</em><em>, </em><em>optional</em>) -- Filter trips to a specific service date (format: &quot;YYYY-MM-DD&quot; or &quot;YYYY/MM/DD&quot;).
+If None, all trips across all service dates are included.</p></li>
+<li><p><strong>routes</strong> (<em>list</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) -- Filter trips to specific route IDs. If None, all routes are included.</p></li>
+<li><p><strong>add_mid_block_deadhead</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add deadhead trips between consecutive revenue trips.</p></li>
+<li><p><strong>add_depot_deadhead</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add deadhead trips from/to depots at start/end of blocks.
+Requires depot_path to be set during initialization.</p></li>
+<li><p><strong>add_hvac</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add HVAC energy consumption based on ambient temperature.</p></li>
+<li><p><strong>save_results</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to save results to files.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Trip-level energy predictions with columns for each vehicle model.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Simple usage - predict energy for all trips:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;data/gtfs&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span> <span class="s2">&quot;Transit_Bus_Diesel&quot;</span><span class="p">],</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Filter to specific date and routes:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;data/gtfs&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">vehicle_models</span><span class="o">=</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;reports/saltlake&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023-08-02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">,</span> <span class="s2">&quot;209&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Minimal processing (no deadhead, no HVAC):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;data/gtfs&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">vehicle_models</span><span class="o">=</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">add_hvac</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">save_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.save_results">
+<span class="sig-name descname"><span class="pre">save_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_geometry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.save_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.save_results" title="Link to this definition">#</a></dt>
+<dd><p>Save prediction results to CSV files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_dir</strong> -- Directory to save results. If None, uses self.output_dir,
+defaulting to the current working directory if that is also None.</p></li>
+<li><p><strong>save_geometry</strong> -- Whether to save link geometry separately</p></li>
+<li><p><strong>save_inputs</strong> -- Whether to save RouteE input features</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> -- If no predictions have been generated yet</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="network-routing">
 <h2>Network Routing<a class="headerlink" href="#network-routing" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.create_deadhead_shapes">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.</span></span><span class="sig-name descname"><span class="pre">create_deadhead_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">o_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'geometry_origin'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'geometry_destination'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_distance_m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">200.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/deadhead_router.html#create_deadhead_shapes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.create_deadhead_shapes" title="Link to this definition">#</a></dt>
+<dd><p>Compute deadhead route shapes for unique origin-destination pairs.</p>
+<p>This function identifies unique O-D pairs from the input DataFrame and routes
+only those pairs, significantly reducing the routing burden when many trips
+share the same O-D pair.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>app</strong> (<em>TransitCompassApp</em>) -- The TransitCompassApp instance to use for routing.</p></li>
+<li><p><strong>df</strong> (<em>gpd.GeoDataFrame</em>) -- DataFrame with origin and destination geometry columns. Must include
+a 'block_id' column to identify each input row.</p></li>
+<li><p><strong>o_col</strong> (<em>str</em><em>, </em><em>optional</em>) -- Column name for origin geometries (default: &quot;geometry_origin&quot;)</p></li>
+<li><p><strong>d_col</strong> (<em>str</em><em>, </em><em>optional</em>) -- Column name for destination geometries (default: &quot;geometry_destination&quot;)</p></li>
+<li><p><strong>min_distance_m</strong> (<em>float</em><em>, </em><em>optional</em>) -- Minimum distance in meters between O and D to perform routing.
+O-D pairs closer than this use straight-line fallback. (default: 200.0)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A tuple of (shapes_df, od_mapping_df):</p>
+<ul class="simple">
+<li><p>shapes_df: DataFrame with columns ['shape_id', 'shape_pt_sequence',
+'shape_pt_lon', 'shape_pt_lat', 'shape_dist_traveled']</p></li>
+<li><p>od_mapping_df: DataFrame with columns ['block_id', 'od_key', 'shape_id']
+mapping each input block_id to its assigned shape</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[pd.DataFrame, pd.DataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="hvac-energy">
 <h2>HVAC Energy<a class="headerlink" href="#hvac-energy" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.add_HVAC_energy">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.</span></span><span class="sig-name descname"><span class="pre">add_HVAC_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Feed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#add_HVAC_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.add_HVAC_energy" title="Link to this definition">#</a></dt>
+<dd><p>Add HVAC energy consumption.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>feed</strong> (<em>gtfsblocks.Feed</em>) -- GTFS feed object containing blocks DataFrame.</p></li>
+<li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- Trips on selected date and route, including deadhead trips.</p></li>
+<li><p><strong>output_dir</strong> (<em>Path</em><em> or </em><em>None</em>) -- Directory used to store downloaded TMY weather files (in a <code class="docutils literal notranslate"><span class="pre">TMY/</span></code>
+subdirectory). Must not be None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated trip-level energy prediction DataFrame with HVAC energy
+consumption per trip for each weather scenario
+(<code class="docutils literal notranslate"><span class="pre">summer</span></code>, <code class="docutils literal notranslate"><span class="pre">winter</span></code>, <code class="docutils literal notranslate"><span class="pre">median</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="gtfs-processing-internal">
-<h2>GTFS Processing (Internal)<a class="headerlink" href="#gtfs-processing-internal" title="Link to this heading">#</a></h2>
+<section id="module-routee.transit.gtfs_processing">
+<span id="gtfs-processing-internal"></span><h2>GTFS Processing (Internal)<a class="headerlink" href="#module-routee.transit.gtfs_processing" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.add_stop_flags_to_shape">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">add_stop_flags_to_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trip_shape_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_times_ext</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GeoDataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#add_stop_flags_to_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.add_stop_flags_to_shape" title="Link to this definition">#</a></dt>
+<dd><p>Attach stop information to a DataFrame of shape points for a specific trip.</p>
+<p>Given a DataFrame of shape points (<cite>trip_shape_df</cite>) and a DataFrame of stop times
+(<cite>stop_times_ext</cite>) joined with stop locations, this function identifies which shape
+points correspond to stops for the trip and annotates them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trip_shape_df</strong> (<em>pd.DataFrame</em>) -- DataFrame containing shape points for a single trip. Must include columns
+'trip_id', 'shape_pt_lon', 'shape_pt_lat', and 'coordinate_id'.</p></li>
+<li><p><strong>stop_times_ext</strong> (<em>pd.DataFrame</em>) -- DataFrame containing stop times with extended information. Must include columns
+'trip_id', 'stop_lon', and 'stop_lat'.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The input DataFrame with an additional column 'with_stop', where 1 indicates
+the shape point is nearest to a stop, and 0 otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Uses spatial join to find the nearest shape point for each stop.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.copy_transit_config">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">copy_transit_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">HookParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#copy_transit_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.copy_transit_config" title="Link to this definition">#</a></dt>
+<dd><p>Hook to copy the transit_energy.toml from package resources to the output directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>params</strong> -- Parameters from generate_compass_dataset</p></li>
+<li><p><strong>vehicle_models</strong> -- Optional list of vehicle models to include. If None, all are included.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.estimate_trip_timestamps">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">estimate_trip_timestamps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trip_shape_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#estimate_trip_timestamps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.estimate_trip_timestamps" title="Link to this definition">#</a></dt>
+<dd><p>Estimate timestamps for each shape point of a trip based on distance traveled.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trip_shape_df</strong> (<em>pd.DataFrame</em>) -- DataFrame containing trip shape data with columns:
+- 'shape_dist_traveled': Cumulative distance traveled along the shape.
+- 'start_time': Origin time (datetime) of the trip.
+- 'end_time': Destination time (datetime) of the trip.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Modified DataFrame with additional columns:</dt><dd><ul class="simple">
+<li><p>'segment_duration_delta': Estimated duration for each segment as timedelta.</p></li>
+<li><p>'timestamp': Estimated timestamp for each segment.</p></li>
+<li><p>'Datetime_nearest5': Timestamp rounded to the nearest 5 minutes.</p></li>
+<li><p>'hour': Hour component of the rounded timestamp.</p></li>
+<li><p>'minute': Minute component of the rounded timestamp.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.extend_trip_traces">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">extend_trip_traces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matched_shapes_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Feed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_stop_flag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#extend_trip_traces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.extend_trip_traces" title="Link to this definition">#</a></dt>
+<dd><p>Extend trip shapes with stop details and estimated timestamps from GTFS.</p>
+<p>This function processes GTFS trip and shape data to:</p>
+<ul class="simple">
+<li><p>Summarize stop times for each trip (first/last stop and times)</p></li>
+<li><p>Merge stop time summaries into the trips DataFrame</p></li>
+<li><p>Attach stop coordinates to stop times</p></li>
+<li><p>Merge trip and shape data to create ordered trip traces</p></li>
+<li><p>Optionally, attach stop indicators to shape trace points</p></li>
+<li><p>Estimate timestamps for each trace point based on scheduled trip duration and distance</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trips_df</strong> -- DataFrame containing trip information, including
+'trip_id' and 'shape_id'.</p></li>
+<li><p><strong>matched_shapes_df</strong> -- DataFrame with shape points matched to trips,
+including 'shape_id' and 'shape_dist_traveled'.</p></li>
+<li><p><strong>feed</strong> -- GTFS feed object containing 'stop_times' and 'stops'
+DataFrames.</p></li>
+<li><p><strong>add_stop_flag</strong> -- If True, attaches stop indicators to shape trace
+points. Defaults to False.</p></li>
+<li><p><strong>n_processes</strong> -- Number of processes to run in parallel using
+multiprocessing. Defaults to mp.cpu_count().</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A single concatenated DataFrame with extended trace information
+for all trips, including estimated timestamps.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.upsample_shape">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">upsample_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#upsample_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.upsample_shape" title="Link to this definition">#</a></dt>
+<dd><p>Upsample a GTFS shape DataFrame to generate a roughly 1 Hz GPS trace.</p>
+<p>Interpolates latitude, longitude, and distance traveled, assuming a constant speed.
+The function performs the following steps:</p>
+<ul class="simple">
+<li><p>Calculates the distance between consecutive shape points using great-circle distance</p></li>
+<li><p>Computes the cumulative distance traveled along the shape</p></li>
+<li><p>Assigns timestamps based on constant speed (30 km/h)</p></li>
+<li><p>Resamples and interpolates the shape to 1-second intervals</p></li>
+<li><p>Returns DataFrame with interpolated coordinates, timestamps, and distances</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>shape_df</strong> -- DataFrame containing GTFS shape points with columns
+'shape_pt_lat', 'shape_pt_lon', and 'shape_id'.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Upsampled DataFrame with columns 'shape_pt_lat', 'shape_pt_lon',
+'shape_dist_traveled', 'timestamp', and 'shape_id', sampled at 1 Hz.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.write_gtfs_stops">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">write_gtfs_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">HookParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Feed</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#write_gtfs_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.write_gtfs_stops" title="Link to this definition">#</a></dt>
+<dd><p>Hook to write GTFS stop-to-edge mapping after dataset generation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>params</strong> -- Parameters from generate_compass_dataset</p></li>
+<li><p><strong>feed</strong> -- GTFS feed object</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="grade-calculation-internal">
-<h2>Grade Calculation (Internal)<a class="headerlink" href="#grade-calculation-internal" title="Link to this heading">#</a></h2>
+<section id="module-routee.transit.mid_block_deadhead">
+<span id="deadhead-trips-internal"></span><h2>Deadhead Trips (Internal)<a class="headerlink" href="#module-routee.transit.mid_block_deadhead" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.mid_block_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_mid_block_deadhead_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadhead_trips</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/mid_block_deadhead.html#create_mid_block_deadhead_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops" title="Link to this definition">#</a></dt>
+<dd><p>Create stop_times and stops for mid-block deadhead trips.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>feed</strong> (<em>Any</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>deadhead_trips</strong> (<em>pd.DataFrame</em>) -- Deadhead trip records from <a class="reference internal" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips" title="routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A <code class="docutils literal notranslate"><span class="pre">(stop_times_df,</span> <span class="pre">stops_df,</span> <span class="pre">deadhead_ods_df)</span></code> tuple where
+<code class="docutils literal notranslate"><span class="pre">stop_times_df</span></code> and <code class="docutils literal notranslate"><span class="pre">stops_df</span></code> can be merged into the GTFS feed,
+and <code class="docutils literal notranslate"><span class="pre">deadhead_ods_df</span></code> holds origin/destination geometry for routing.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.mid_block_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_mid_block_deadhead_trips</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_times_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/mid_block_deadhead.html#create_mid_block_deadhead_trips"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips" title="Link to this definition">#</a></dt>
+<dd><p>Create deadhead trips between consecutive trips for each block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- GTFS trips_df (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>stop_times_df</strong> (<em>pd.DataFrame</em>) -- stop_times df in feed resulted from read_in_gtfs.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>pd.DataFrame</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DataFrame with created deadhead trips.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-routee.transit.depot_deadhead">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.create_depot_deadhead_stops">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_depot_deadhead_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">first_stops_gdf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_stops_gdf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadhead_trips</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#create_depot_deadhead_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops" title="Link to this definition">#</a></dt>
+<dd><p>Create stop_times and stops for deadhead trips from and to depots.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>first_stops_gdf</strong> (<em>gpd.GeoDataFrame</em>) -- GeoDataFrame of first stops for each block, with <code class="docutils literal notranslate"><span class="pre">geometry_origin</span></code>
+(depot) and <code class="docutils literal notranslate"><span class="pre">geometry_destination</span></code> (first stop) columns.
+Result from <a class="reference internal" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints" title="routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="xref py py-func docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a>.</p></li>
+<li><p><strong>last_stops_gdf</strong> (<em>gpd.GeoDataFrame</em>) -- GeoDataFrame of last stops for each block, with <code class="docutils literal notranslate"><span class="pre">geometry_origin</span></code>
+(last stop) and <code class="docutils literal notranslate"><span class="pre">geometry_destination</span></code> (depot) columns.
+Result from <a class="reference internal" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints" title="routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="xref py py-func docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a>.</p></li>
+<li><p><strong>deadhead_trips</strong> (<em>pd.DataFrame</em>) -- Deadhead trip records from <a class="reference internal" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips" title="routee.transit.depot_deadhead.create_depot_deadhead_trips"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_depot_deadhead_trips()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A <code class="docutils literal notranslate"><span class="pre">(stop_times_df,</span> <span class="pre">stops_df)</span></code> tuple for the depot deadhead trips.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[pd.DataFrame, pd.DataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.create_depot_deadhead_trips">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_depot_deadhead_trips</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_times_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#create_depot_deadhead_trips"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips" title="Link to this definition">#</a></dt>
+<dd><p>Create deadhead trips from and to depots for each block.</p>
+<p>This function essentially creates rows for the trips.txt DataFrame.
+It does not generate shape traces for them (that is handled by other
+functions in this module).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- trips_df of selected date route (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>stop_times_df</strong> (<em>pd.DataFrame</em>) -- stop_times df in feed resulted from read_in_gtfs.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>pd.DataFrame</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DataFrame with created deadhead trips.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.get_default_depot_path">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">get_default_depot_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Path</span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#get_default_depot_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.get_default_depot_path" title="Link to this definition">#</a></dt>
+<dd><p>Return the default path to the FTA_Depot directory in the repository.</p>
+<p>The default depot locations come from the National Transit Database's
+&quot;Public Transit Facilities and Stations - 2023&quot; dataset, which contains
+depot/facility locations for transit agencies across the United States.</p>
+<p>Data source: <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path to the FTA_Depot directory containing Transit_Depot.shp</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.infer_depot_trip_endpoints">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">infer_depot_trip_endpoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_depots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#infer_depot_trip_endpoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints" title="Link to this definition">#</a></dt>
+<dd><p>Add origin/destination depot geometry for each block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- trips_df of selected date and route (result from read_in_gtfs).</p></li>
+<li><p><strong>feed</strong> (<em>Any</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>path_to_depots</strong> (<em>str</em><em> | </em><em>Path</em>) -- Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(first_stops_gdf, last_stops_gdf). Each GeoDataFrame contains the stop
+geometry (column 'stop_geometry') and the matched depot geometry
+(column 'depot_geometry').</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[GeoDataFrame, GeoDataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="deadhead-trips-internal">
-<h2>Deadhead Trips (Internal)<a class="headerlink" href="#deadhead-trips-internal" title="Link to this heading">#</a></h2>
-</section>
-<section id="thermal-energy-internal">
-<h2>Thermal Energy (Internal)<a class="headerlink" href="#thermal-energy-internal" title="Link to this heading">#</a></h2>
+<section id="module-routee.transit.thermal_energy">
+<span id="thermal-energy-internal"></span><h2>Thermal Energy (Internal)<a class="headerlink" href="#module-routee.transit.thermal_energy" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.thermal_energy.compute_HVAC_energy">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.thermal_energy.</span></span><span class="sig-name descname"><span class="pre">compute_HVAC_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_hours</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Series</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_hours</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Series</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power_array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">number</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">number</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#compute_HVAC_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.thermal_energy.compute_HVAC_energy" title="Link to this definition">#</a></dt>
+<dd><p>Calculate HVAC + BTMS energy consumption between time intervals.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_hours</strong> (<em>array-like</em>) -- fractional start times in hours</p></li>
+<li><p><strong>end_hours</strong> (<em>array-like</em>) -- fractional end times in hours (can be &gt; 24)</p></li>
+<li><p><strong>power_array</strong> (<em>array-like</em>) -- hourly average power values [kW] for hours 0–23</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>energy consumption [kWh] for each interval</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.thermal_energy.download_tmy_files">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.thermal_energy.</span></span><span class="sig-name descname"><span class="pre">download_tmy_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">county_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmy_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#download_tmy_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.thermal_energy.download_tmy_files" title="Link to this definition">#</a></dt>
+<dd><p>Download and save TMY weather files for estimating thermal energy demand.</p>
+<p>TMY stands for Typical Meteorological Year, a dataset that provides representative
+hourly weather data for a location over a synthetic year.  Unlike Actual
+Meteorological Year (AMY) files, which reflect the observed conditions in a specific
+calendar year, TMY files are constructed by selecting typical months from multiple
+years of historical records. This approach smooths out unusual extremes and produces
+a “typical” climate profile, making TMY data well-suited for long-term energy
+modeling and system design studies.</p>
+<p>This function downloads TMY files for all the supplied county IDs and saves them to
+TMY_DIR. It returns None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>county_ids</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) -- List of US Census County IDs for which to download TMY files.</p></li>
+<li><p><strong>tmy_dir</strong> (<em>Path</em>) -- Directory where downloaded TMY CSV files are saved.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.thermal_energy.fetch_counties_gdf">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.thermal_energy.</span></span><span class="sig-name descname"><span class="pre">fetch_counties_gdf</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GeoDataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#fetch_counties_gdf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.thermal_energy.fetch_counties_gdf" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.thermal_energy.get_hourly_temperature">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.thermal_energy.</span></span><span class="sig-name descname"><span class="pre">get_hourly_temperature</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">county_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmy_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#get_hourly_temperature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.thermal_energy.get_hourly_temperature" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.thermal_energy.load_thermal_lookup_table">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.thermal_energy.</span></span><span class="sig-name descname"><span class="pre">load_thermal_lookup_table</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/thermal_energy.html#load_thermal_lookup_table"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.thermal_energy.load_thermal_lookup_table" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 </section>
 </section>
 
@@ -481,11 +1317,11 @@ document.write(`
       </div>
     </a>
     <a class="right-next"
-       href="examples/Utah_Transit_Agency_example.html"
+       href="results.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Utah Transit Agency Example</p>
+        <p class="prev-next-title">Results</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -496,23 +1332,78 @@ document.write(`
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
-  <div class="sidebar-secondary-item">
-  <div class="page-toc tocsection onthispage">
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> Contents
   </div>
-  <nav class="bd-toc-nav page-toc">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#main-package">Main Package</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#network-routing">Network Routing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hvac-energy">HVAC Energy</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfs-processing-internal">GTFS Processing (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grade-calculation-internal">Grade Calculation (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trips-internal">Deadhead Trips (Internal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-energy-internal">Thermal Energy (Internal)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.gtfs_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.gtfs_path</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.depot_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.depot_path</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.n_processes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.n_processes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.feed"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.feed</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.trips</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.shapes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.shapes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.matched_shapes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.matched_shapes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.routee_inputs"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.routee_inputs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.energy_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.energy_predictions</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.__init__"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.add_trip_times"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.add_trip_times()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.aggregate_inputs_by_link"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.aggregate_inputs_by_link()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.filter_trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.filter_trips()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_link_level_inputs"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_link_level_inputs()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_link_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_link_predictions()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.get_trip_predictions"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.get_trip_predictions()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.load_compass_app"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.load_compass_app()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.load_gtfs_data"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.load_gtfs_data()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.predict_energy"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.predict_energy()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.run"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.run()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.save_results"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.save_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#network-routing">Network Routing</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.create_deadhead_shapes"><code class="docutils literal notranslate"><span class="pre">create_deadhead_shapes()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hvac-energy">HVAC Energy</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.add_HVAC_energy"><code class="docutils literal notranslate"><span class="pre">add_HVAC_energy()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.gtfs_processing">GTFS Processing (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.add_stop_flags_to_shape"><code class="docutils literal notranslate"><span class="pre">add_stop_flags_to_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.copy_transit_config"><code class="docutils literal notranslate"><span class="pre">copy_transit_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.estimate_trip_timestamps"><code class="docutils literal notranslate"><span class="pre">estimate_trip_timestamps()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.extend_trip_traces"><code class="docutils literal notranslate"><span class="pre">extend_trip_traces()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.upsample_shape"><code class="docutils literal notranslate"><span class="pre">upsample_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.write_gtfs_stops"><code class="docutils literal notranslate"><span class="pre">write_gtfs_stops()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.mid_block_deadhead">Deadhead Trips (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_stops()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_stops()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.get_default_depot_path"><code class="docutils literal notranslate"><span class="pre">get_default_depot_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.thermal_energy">Thermal Energy (Internal)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.compute_HVAC_energy"><code class="docutils literal notranslate"><span class="pre">compute_HVAC_energy()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.download_tmy_files"><code class="docutils literal notranslate"><span class="pre">download_tmy_files()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.fetch_counties_gdf"><code class="docutils literal notranslate"><span class="pre">fetch_counties_gdf()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.get_hourly_temperature"><code class="docutils literal notranslate"><span class="pre">get_hourly_temperature()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.thermal_energy.load_thermal_lookup_table"><code class="docutils literal notranslate"><span class="pre">load_thermal_lookup_table()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
@@ -561,8 +1452,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
   </footer>

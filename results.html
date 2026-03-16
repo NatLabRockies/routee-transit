@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Developer Guide &#8212; RouteE-Transit</title>
+    <title>Results &#8212; RouteE-Transit</title>
   
   
   
@@ -60,10 +60,11 @@
     <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'contributing';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'results';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Results" href="results.html" />
+    <link rel="next" title="Developer Guide" href="contributing.html" />
+    <link rel="prev" title="API Reference" href="api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
   <meta name="docsearch:version" content="" />
@@ -177,16 +178,16 @@
 <li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="prediction.html">RouteE-Transit Prediction Pipeline</a></li>
 
 
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="results.html">Results</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Results</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Developer Guide</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Developer Guide</a></li>
 </ul>
 
     </div>
@@ -263,7 +264,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2Fcontributing.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2Fresults.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -293,7 +294,7 @@
       
       
       
-      <li><a href="_sources/contributing.md" target="_blank"
+      <li><a href="_sources/results.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -369,7 +370,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Developer Guide</h1>
+    <h1>Results</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -379,13 +380,7 @@
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up-development-environment-with-pixi">Set Up Development Environment with Pixi</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-pixi">1. Install pixi</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clone-and-set-up-the-project">2. Clone and set up the project</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activate-the-environment">3. Activate the environment</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-documentation">Build Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#trip-energy-predictions-csv"><code class="docutils literal notranslate"><span class="pre">trip_energy_predictions.csv</span></code></a></li>
 </ul>
             </nav>
         </div>
@@ -397,47 +392,38 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="developer-guide">
-<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading">#</a></h1>
-<section id="set-up-development-environment-with-pixi">
-<h2>Set Up Development Environment with Pixi<a class="headerlink" href="#set-up-development-environment-with-pixi" title="Link to this heading">#</a></h2>
-<p><a class="reference external" href="https://pixi.sh/">Pixi</a> is a modern package manager that handles both Python and system dependencies automatically.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">routee-transit</span></code> <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> file defines various development environments with Pixi for different Python versions (e.g. <code class="docutils literal notranslate"><span class="pre">dev-py310</span></code>, <code class="docutils literal notranslate"><span class="pre">dev-py311</span></code>, etc.) to ease development and testing. Follow the instructions below to configure your environment with Pixi.</p>
-<section id="install-pixi">
-<h3>1. Install pixi<a class="headerlink" href="#install-pixi" title="Link to this heading">#</a></h3>
-<p>Follow the installation instructions at <a class="reference external" href="https://pixi.sh/latest/#installation">pixi.sh</a> or use:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># On macOS/Linux</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://pixi.sh/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
-</pre></div>
-</div>
-</section>
-<section id="clone-and-set-up-the-project">
-<h3>2. Clone and set up the project<a class="headerlink" href="#clone-and-set-up-the-project" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NREL/routee-transit.git
-<span class="nb">cd</span><span class="w"> </span>routee-transit
-pixi<span class="w"> </span>install
-</pre></div>
-</div>
-</section>
-<section id="activate-the-environment">
-<h3>3. Activate the environment<a class="headerlink" href="#activate-the-environment" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pixi<span class="w"> </span>shell
-</pre></div>
-</div>
-<p>To activate a specific environment (not just the default), use the <code class="docutils literal notranslate"><span class="pre">-e</span></code> flag:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pixi<span class="w"> </span>shell<span class="w"> </span>-e<span class="w"> </span>dev-py310
-</pre></div>
-</div>
-<p>Alternatively, ou can use <code class="docutils literal notranslate"><span class="pre">pixi</span> <span class="pre">run</span> <span class="pre">-e</span> <span class="pre">dev-py310</span> <span class="pre">myfile.py</span></code> to execute a python file in the environment specified. If you're using VS Code, the <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=jjjermiah.pixi-vscode">Pixi VSCode</a> extension is useful.</p>
-</section>
-</section>
-<section id="build-documentation">
-<h2>Build Documentation<a class="headerlink" href="#build-documentation" title="Link to this heading">#</a></h2>
-<p>To build the documentation locally with <code class="docutils literal notranslate"><span class="pre">jupyter-book</span></code>, use the pixi task defined in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pixi<span class="w"> </span>run<span class="w"> </span>docs
-</pre></div>
-</div>
-<p>Be aware that <code class="docutils literal notranslate"><span class="pre">jupyter-book</span></code> will run all of the documentation examples when the docs are built, which can take a few minutes. To build the documentation faster, you can skip the examples by simply commenting them out in the table of contents (<code class="docutils literal notranslate"><span class="pre">docs/_toc.yml</span></code>).</p>
+  <section class="tex2jax_ignore mathjax_ignore" id="results">
+<h1>Results<a class="headerlink" href="#results" title="Link to this heading">#</a></h1>
+<p>RouteE-Transit Energy predictions are stored within the <code class="docutils literal notranslate"><span class="pre">energy_predictions</span></code> attribute of <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code>. If <code class="docutils literal notranslate"><span class="pre">save_results=True</span></code> in <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.run()</span></code>, they are written to CSV files as well. This includes the following files:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trip_energy_predictions.csv</span></code>: The main intended output of the RouteE-Transit pipeline, which includes energy predictions at the GTFS trip level, for each vehicle model and weather scenario analyzed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">link_energy_predictions.csv</span></code>: More granular energy predictions at the road link level. These can be used, for example, to map individual bus trips and see which segments are most energy intensive.</p></li>
+</ul>
+<section id="trip-energy-predictions-csv">
+<h2><code class="docutils literal notranslate"><span class="pre">trip_energy_predictions.csv</span></code><a class="headerlink" href="#trip-energy-predictions-csv" title="Link to this heading">#</a></h2>
+<p>The RouteE-Transit results file (trip_energy_predictions.csv) includes the following columns:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trip_id</span></code>: GTFS trip ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">miles</span></code>: distance of trip in miles (calculated from GTFS shapes)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vehicle</span></code>: name of the vehicle model used to generate energy prediction (e.g., <code class="docutils literal notranslate"><span class="pre">Transit_Bus_Battery_Electric</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">energy_used</span></code>: estimated total energy consumed during this trip, including HVAC energy for electric vehicles</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">energy_unit</span></code>: unit of energy consumption for this trip</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">route_id</span></code>: GTFS route ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">service_id</span></code>: GTFS service ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">block_id</span></code>: GTFS block ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shape_id</span></code>: GTFS shape ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">route_short_name</span></code>: GTFS short name of route served on this trip (the one typically used for displaying to riders, e.g., route number)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">agency_id</span></code>: GTFS agency_id of the agency that operates this trip</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trip_type</span></code>: the type of trip: <code class="docutils literal notranslate"><span class="pre">service</span></code> for passenger service trips defined in GTFS, <code class="docutils literal notranslate"><span class="pre">pull-out</span></code> for deadhead trips from the depot to first trip of the day, <code class="docutils literal notranslate"><span class="pre">pull-in</span></code> for deadhead trips from last trip of the day to depo, or <code class="docutils literal notranslate"><span class="pre">mid_block_deadhead</span></code> for deadhead connecting two service trips</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_time</span></code>: start time of the trip, merged in from GTFS <em>stop_times.txt</em></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">end_time</span></code>: end time of the trip, merged in from GTFS <em>stop_times.txt</em></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trip_duration_minutes</span></code>: duration of the trip in minutes (based on start_time and end_time). not yet implemented for deadhead trips</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trip_count</span></code>: the number of days in the service period described by this GTFS data that the trip operates (a positive integer)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">from_trip</span></code>: for deadhead trips, the trip ID of the service trip before this deadhead trip</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">to_trip</span></code>: for deadhead trips, the trip ID of the service trip after this deadhead trip</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scenario</span></code>: weather scenario used to estimate HVAC energy demand. Current options are “winter”, “summer”, or “median&quot;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hvac_energy_kWh</span></code>: estimated HVAC energy consumption for electric buses, in kWh. Note this has already been added to energy_used in those cases.</p></li>
+</ul>
 </section>
 </section>
 
@@ -472,13 +458,22 @@ pixi<span class="w"> </span>install
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="results.html"
+       href="api.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Results</p>
+        <p class="prev-next-title">API Reference</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="contributing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Developer Guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -498,13 +493,7 @@ pixi<span class="w"> </span>install
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up-development-environment-with-pixi">Set Up Development Environment with Pixi</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-pixi">1. Install pixi</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clone-and-set-up-the-project">2. Clone and set up the project</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activate-the-environment">3. Activate the environment</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-documentation">Build Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#trip-energy-predictions-csv"><code class="docutils literal notranslate"><span class="pre">trip_energy_predictions.csv</span></code></a></li>
 </ul>
   </nav></div>
 

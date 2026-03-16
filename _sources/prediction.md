@@ -1,43 +1,87 @@
 # RouteE-Transit Prediction Pipeline
-RouteE-Transit builds on [RouteE-Powertrain](https://github.com/NatLabRockies/routee-powertrain) to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:
 
-![Prediction Pipeline Overview](images/PredictionOverview.png)
+RouteE-Transit uses [RouteE-Compass](https://github.com/NatLabRockies/routee-compass) to predict the energy consumption of bus trips from a static GTFS feed. The pipeline converts GTFS data into road link-level features (speed, grade, and distance) that RouteE-Compass uses to estimate energy consumption for each trip.
 
-RouteE-Transit moves from static GTFS files to energy predictions in three steps:
+The full workflow proceeds in four stages:
 
-## 1) Specify GTFS Trip Data
-First, users need to specify the scope of predictions by supplying data from a static GTFS feed. See [](data:gtfs-reqs) for details on what GTFS data must be available. RouteE-Transit needs a set of trips along with their shape traces, stop locations, and stop times in order to proce estimated distance, road grade, and speed for RouteE-Powertrain models.
+1. **Load and filter GTFS trips** — select the trips to model
+2. **Infer deadhead trips** *(optional)* — add non-revenue travel between trips and to/from depots
+3. **Prepare road link features** — map match shapes to the road network and extract speed and grade
+4. **Predict energy and thermal impacts** — run RouteE-Compass models and optionally add HVAC loads
 
-Users can supply an entire GTFS feed as input or filter down trips (e.g., only trips on a certain day or serving a certain route).
+## 1) Load and Filter GTFS Trips
 
-## 2) Prepare RouteE-Powertrain Features
-Next, RouteE-Transit transforms the input GTFS data into link-level features on the road network so a RouteE-Powertrain model can be applied. The first step in this process is to upsample the shape traces from `shapes.txt` to approximately 1 Hz resolution for better map matching accuracy, and then match the shapes to OpenStreetMap road links using NREL's `mappymatch` package.
+RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.
 
-The map-matched shapes are then used to calculate link distances and NREL's `gradeit` package appends road grade information to each link based on USGS National Map elevation data.
+See [](data:gtfs-reqs) for the full list of required GTFS files and fields.
 
-Finally, the estimated distances are used along with the time intervals between stops from`stop_times.txt` to estimate bus average speed along each road link.
+## 2) Deadhead Trip Inference
 
-## 3) Predict Energy Consumption with RouteE-Powertrain
-In the last step, a trained RouteE-Powertrain model is run to predict energy consumption for each trip. RouteE-Powertrain version 1.3.2 introduced two initial transit bus models (`Transit_Bus_Diesel` and `Transit_Bus_Battery_Electric`) and additional models for different bus styles and manufacturers will be rolled out over time.
+Revenue service trips don't capture all of a bus's potential energy usage. Buses must also travel between the end of one trip and the start of the next (what we call *mid-block deadhead* and is often known as *interlining* when a bus switches between routes), and between the depot and the first or last stop of the day (*depot deadhead*). Deadheads are not included in the GTFS standard, but RouteE-Transit can infer and route both types automatically.
+
+### Mid-block deadhead
+
+For each block in the GTFS feed, consecutive revenue trips are examined. When the last stop of one trip does not coincide with the first stop of the next, a mid-block deadhead trip is created between those two points. Origin–destination pairs that are closer than 200 m receive a straight-line fallback geometry; all others are routed via RouteE-Compass.
+
+### Depot deadhead (pull-out / pull-in)
+
+Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. By default, depot locations are drawn from the [National Transit Database "Public Transit Facilities and Stations – 2023"](https://data.transportation.gov/stories/s/gd62-jzra) dataset. Custom depot locations can be supplied by passing a `depot_path` to `GTFSEnergyPredictor`.
+
+All deadhead shapes are generated through RouteE-Compass using shortest-time routing on the OpenStreetMap road network. Unique origin–destination pairs are routed only once, so blocks that share identical endpoints incur no additional routing cost.
+
+## 3) Road Link Feature Preparation
+
+Shape traces (both revenue and deadhead) are upsampled to approximately 1 Hz resolution and then map-matched to OpenStreetMap road links using RouteE-Compass's LCSS (Longest Common Subsequence) map matcher. Each matched link is annotated with:
+
+- **Distance** — derived from OSM road geometry
+- **Grade** — elevation data from the USGS National Map, fetched automatically
+- **Speed** — estimated from the scheduled time between GTFS stops and the cumulative shape distance traveled
+
+## 4) Energy Prediction and Thermal Impacts
+
+### Powertrain energy
+
+RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — predicts energy consumption from the road link features computed above. Two transit bus models are included:
+
+| Model name | Output unit |
+|---|---|
+| `Transit_Bus_Battery_Electric` | kWh |
+| `Transit_Bus_Diesel` | gallons diesel |
+
+In RouteE-Transit 0.3.0, both models simply apply a kinetic energy stop penalty at GTFS stop locations (modeled as 0.5mv²). Future release will refine the physical and thermal models used to account for the impacts of stops. Results are also expressed in miles-per-gallon equivalent (MPGe) using EPA/DOE GGE conversion factors for cross-fuel comparison.
+
+### Thermal impacts (HVAC + BTMS)
+
+For battery-electric buses, auxiliary loads from the HVAC system and battery thermal management system (BTMS) can represent a significant share of total energy consumption. When `add_hvac=True`, RouteE-Transit adds these loads using county-level Typical Meteorological Year (TMY3) weather data:
+
+1. Each stop is spatially joined to its US Census county.
+2. TMY3 files for the relevant counties are downloaded from the NREL Open Energy Data Initiative (OEDI) S3 bucket.
+3. Hourly HVAC + BTMS power demand is looked up from a temperature-dependent table (derived from the literature) and integrated over each trip's scheduled time window.
+4. Thermal energy is computed for three weather scenarios — **summer** (hottest day of year), **winter** (coldest day), and **median** — giving a range of thermal impact estimates per trip.
+
+The resulting `hvac_energy_kWh` is added to the powertrain energy for electric models in the trip-level output.
 
 # Using the GTFSEnergyPredictor Class
 
-RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class that simplifies the complete workflow:
+RouteE-Transit provides an object-oriented interface through the `GTFSEnergyPredictor` class:
 
 ```python
 from routee.transit import GTFSEnergyPredictor
 
-# Initialize predictor
+# Initialize predictor — vehicle_models and output_dir are set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
+    vehicle_models=["Transit_Bus_Battery_Electric"],
+    output_dir="reports/my_agency",  # optional; enables result caching
     # depot_path is optional - defaults to NTD depot locations
 )
 
 # Option 1: Use the convenience method (recommended)
 trip_results = predictor.run(
-    vehicle_models="Transit_Bus_Battery_Electric",
     date="2023/08/02",
     routes=["205"],
+    add_mid_block_deadhead=True,
+    add_depot_deadhead=True,
     add_hvac=True,
 )
 
@@ -46,13 +90,13 @@ predictor.load_gtfs_data()
 predictor.filter_trips(date="2023/08/02", routes=["205"])
 predictor.add_mid_block_deadhead()  # Between-trip deadhead
 predictor.add_depot_deadhead()      # To/from depot (uses NTD locations)
-predictor.match_shapes_to_network()
-predictor.add_road_grade()
-predictor.predict_energy(vehicle_models=["Transit_Bus_Battery_Electric"], add_hvac=True)
+predictor.get_link_level_inputs()   # Map matching + grade via RouteE-Compass
+predictor.predict_energy(add_hvac=True)
 ```
 
 # Assumptions and Limitations
-* **HVAC Energy**: Weather impacts are modeled through seasonal HVAC energy consumption (winter and summer) based on ambient temperature data from TMY3 files. Users can enable this with the `add_hvac=True` parameter.
-* **Deadhead Trips**: Both mid-block deadhead trips (between consecutive revenue trips) and depot deadhead trips (pull-out/pull-in) can be included in the analysis using the `add_mid_block_deadhead()` and `add_depot_deadhead()` methods, or by setting the corresponding parameters to `True` in the `run()` method.
-* **Depot Locations**: By default, depot locations come from the National Transit Database's "Public Transit Facilities and Stations - 2023" dataset (https://data.transportation.gov/stories/s/gd62-jzra). Users can provide custom depot locations by specifying `depot_path` when initializing the predictor.
-* **Network Data**: By default, OpenStreetMap is used for road network matching. The class is designed to be extended for use with proprietary network data (e.g., TomTom, HERE) by subclassing and overriding the `_match_shapes_to_network()` method.
+
+- **Speed estimation**: Trip speed is assumed constant along each shape and is derived from scheduled stop times and cumulative shape distance. Actual in-service speed variation is not captured.
+- **Deadhead speed**: Deadhead trips assume a uniform average speed of 30 km/h for travel time estimation.
+- **Depot matching**: The nearest depot is chosen by minimising total pull-out + pull-in distance. Actual depot assignments may differ from operational practice.
+- **TMY weather**: HVAC loads use typical (not actual) meteorological year data.

@@ -1,0 +1,757 @@
+
+<!DOCTYPE html>
+
+
+<html lang="python" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>routee.transit.thermal_energy &#8212; RouteE-Transit</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=30a733bc"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../../../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/routee/transit/thermal_energy';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
+    <img src="../../../_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../index.html">
+                    RouteE-Transit
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../data.html">Data Requirements</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../prediction.html">RouteE-Transit Prediction Pipeline</a></li>
+
+
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../results.html">Results</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Developer Guide</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/NREL/routee-transit" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2F_modules/routee/transit/thermal_energy.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for routee.transit.thermal_energy</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">boto3</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">botocore</span><span class="w"> </span><span class="kn">import</span> <span class="n">UNSIGNED</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">botocore.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gtfsblocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feed</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="fetch_counties_gdf">
+<a class="viewcode-back" href="../../../api.html#routee.transit.fetch_counties_gdf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fetch_counties_gdf</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">:</span>
+    <span class="n">gdf_county</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span>
+        <span class="s2">&quot;https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">gdf_county</span><span class="p">[</span><span class="s2">&quot;county_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;G&quot;</span> <span class="o">+</span> <span class="n">gdf_county</span><span class="p">[</span><span class="s2">&quot;STATEFP&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;0&quot;</span> <span class="o">+</span> <span class="n">gdf_county</span><span class="p">[</span><span class="s2">&quot;COUNTYFP&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;0&quot;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">gdf_county</span></div>
+
+
+
+<div class="viewcode-block" id="download_tmy_files">
+<a class="viewcode-back" href="../../../api.html#routee.transit.download_tmy_files">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">download_tmy_files</span><span class="p">(</span><span class="n">county_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">tmy_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Download and save TMY weather files for estimating thermal energy demand.</span>
+
+<span class="sd">    TMY stands for Typical Meteorological Year, a dataset that provides representative</span>
+<span class="sd">    hourly weather data for a location over a synthetic year.  Unlike Actual</span>
+<span class="sd">    Meteorological Year (AMY) files, which reflect the observed conditions in a specific</span>
+<span class="sd">    calendar year, TMY files are constructed by selecting typical months from multiple</span>
+<span class="sd">    years of historical records. This approach smooths out unusual extremes and produces</span>
+<span class="sd">    a “typical” climate profile, making TMY data well-suited for long-term energy</span>
+<span class="sd">    modeling and system design studies.</span>
+
+<span class="sd">    This function downloads TMY files for all the supplied county IDs and saves them to</span>
+<span class="sd">    TMY_DIR. It returns None.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    county_ids : list[str]</span>
+<span class="sd">        List of US Census County IDs for which to download TMY files.</span>
+<span class="sd">    tmy_dir : Path</span>
+<span class="sd">        Directory where downloaded TMY CSV files are saved.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bucket_name</span> <span class="o">=</span> <span class="s2">&quot;oedi-data-lake&quot;</span>  <span class="c1"># S3 Bucket and path prefix for TMY data</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2021/&quot;</span>
+        <span class="s2">&quot;resstock_tmy3_release_1/weather/tmy3/&quot;</span>
+    <span class="p">)</span>
+    <span class="c1"># Create anonymous S3 client</span>
+    <span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">signature_version</span><span class="o">=</span><span class="n">UNSIGNED</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tmy_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="n">tmy_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Download files for each county</span>
+    <span class="k">for</span> <span class="n">county_id</span> <span class="ow">in</span> <span class="n">county_ids</span><span class="p">:</span>
+        <span class="n">file_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="n">county_id</span><span class="si">}</span><span class="s2">_tmy3.csv&quot;</span>
+        <span class="n">local_file</span> <span class="o">=</span> <span class="n">tmy_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">county_id</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">local_file</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="n">s3</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">,</span> <span class="n">file_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">local_file</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloaded: </span><span class="si">{</span><span class="n">county_id</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_thermal_lookup_table">
+<a class="viewcode-back" href="../../../api.html#routee.transit.load_thermal_lookup_table">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_thermal_lookup_table</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="c1"># Create the HVAC + BTMS power lookup table</span>
+    <span class="n">temperature_list</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">40</span><span class="p">]</span>  <span class="c1"># From literature</span>
+    <span class="n">HVAC_power_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">]</span>  <span class="c1"># From literature</span>
+    <span class="n">BTMS_power_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="mf">4.9</span><span class="p">,</span>
+        <span class="mf">3.6</span><span class="p">,</span>
+        <span class="mf">2.1</span><span class="p">,</span>
+        <span class="mf">0.8</span><span class="p">,</span>
+        <span class="mf">0.2</span><span class="p">,</span>
+        <span class="mf">0.1</span><span class="p">,</span>
+        <span class="mf">0.1</span><span class="p">,</span>
+        <span class="mf">1.4</span><span class="p">,</span>
+        <span class="mf">1.5</span><span class="p">,</span>
+        <span class="mf">2.1</span><span class="p">,</span>
+        <span class="mf">5.6</span><span class="p">,</span>
+    <span class="p">]</span>  <span class="c1"># From literature</span>
+    <span class="n">total_temp_energy_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">HVAC_power_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">BTMS_power_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">HVAC_power_list</span><span class="p">))</span>
+    <span class="p">]</span>
+    <span class="c1"># Add two extreme values to make sure we cover all temperature values</span>
+    <span class="n">min_temp</span> <span class="o">=</span> <span class="o">-</span><span class="mi">100</span>
+    <span class="n">max_temp</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">min_temp_power</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span> <span class="o">-</span> <span class="n">min_temp</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+        <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">/</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">max_temp_power</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_temp</span> <span class="o">-</span> <span class="mi">40</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+        <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">/</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">total_temp_energy_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># Extend temp and energy list</span>
+    <span class="n">temperature_list</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">100</span><span class="p">]</span> <span class="o">+</span> <span class="n">temperature_list</span> <span class="o">+</span> <span class="p">[</span><span class="mi">100</span><span class="p">]</span>
+    <span class="n">total_temp_energy_list</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">[</span><span class="n">min_temp_power</span><span class="p">]</span> <span class="o">+</span> <span class="n">total_temp_energy_list</span> <span class="o">+</span> <span class="p">[</span><span class="n">max_temp_power</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="c1"># Define a dataframe to store the information</span>
+    <span class="n">df_temp_energy</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">:</span> <span class="n">temperature_list</span><span class="p">,</span> <span class="s2">&quot;Power&quot;</span><span class="p">:</span> <span class="n">total_temp_energy_list</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="c1"># Fill every integer Temp_C</span>
+    <span class="n">df_tmp_fill</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mf">100.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)})</span>
+    <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">df_tmp_fill</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_tmp_fill</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">df_temp_energy</span> <span class="o">=</span> <span class="n">df_tmp_fill</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">df_temp_energy</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="c1"># Linear interpolate</span>
+    <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Power&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Power&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+    <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_temp_energy</span><span class="p">[</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df_temp_energy</span></div>
+
+
+
+<div class="viewcode-block" id="compute_HVAC_energy">
+<a class="viewcode-back" href="../../../api.html#routee.transit.compute_HVAC_energy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_HVAC_energy</span><span class="p">(</span>
+    <span class="n">start_hours</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span>
+    <span class="n">end_hours</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span>
+    <span class="n">power_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate HVAC + BTMS energy consumption between time intervals.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        start_hours (array-like): fractional start times in hours</span>
+<span class="sd">        end_hours (array-like): fractional end times in hours (can be &gt; 24)</span>
+<span class="sd">        power_array (array-like): hourly average power values [kW] for hours 0–23</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: energy consumption [kWh] for each interval</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">power_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">power_array</span><span class="p">)</span>
+    <span class="n">power_24</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">power_array</span><span class="p">,</span> <span class="p">[</span><span class="n">power_array</span><span class="p">[</span><span class="mi">0</span><span class="p">]]))</span>  <span class="c1"># wrap for interpolation</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">interp_power</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Linearly interpolate power at fractional hour t.&quot;&quot;&quot;</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="o">%</span> <span class="mi">24</span>
+        <span class="n">frac</span> <span class="o">=</span> <span class="n">t</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">frac</span><span class="p">)</span> <span class="o">*</span> <span class="n">power_24</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">frac</span> <span class="o">*</span> <span class="n">power_24</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">start_hours</span><span class="p">,</span> <span class="n">end_hours</span><span class="p">):</span>
+        <span class="c1"># sample in small steps for accurate integration</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>  <span class="c1"># 0.01 h = 36 s resolution</span>
+        <span class="n">ps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">interp_power</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ts</span><span class="p">])</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapezoid</span><span class="p">(</span><span class="n">ps</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>  <span class="c1"># integrate kW over hours → kWh</span>
+        <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">energy</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_hourly_temperature">
+<a class="viewcode-back" href="../../../api.html#routee.transit.get_hourly_temperature">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_hourly_temperature</span><span class="p">(</span>
+    <span class="n">county_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">scenario</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">tmy_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="n">local_file</span> <span class="o">=</span> <span class="n">tmy_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">county_id</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+    <span class="n">tmy_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">local_file</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;date_time&quot;</span><span class="p">])[</span>
+        <span class="p">[</span><span class="s2">&quot;date_time&quot;</span><span class="p">,</span> <span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">tmy_df</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmy_df</span><span class="p">[</span><span class="s2">&quot;date_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">day_of_year</span>
+    <span class="n">mean_temp_by_day</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">tmy_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">avg_temp_C</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">scenario</span> <span class="o">==</span> <span class="s2">&quot;winter&quot;</span><span class="p">:</span>
+        <span class="c1"># Find the days with the hottest and coldest average temperature</span>
+        <span class="n">cold_day</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">mean_temp_by_day</span><span class="p">[</span>
+            <span class="n">mean_temp_by_day</span><span class="o">.</span><span class="n">avg_temp_C</span> <span class="o">==</span> <span class="n">mean_temp_by_day</span><span class="o">.</span><span class="n">avg_temp_C</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="p">][</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Grab the hourly profiles for the coldest and hottest days</span>
+        <span class="n">df_out</span> <span class="o">=</span> <span class="n">tmy_df</span><span class="p">[</span><span class="n">tmy_df</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cold_day</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="n">scenario</span> <span class="o">==</span> <span class="s2">&quot;summer&quot;</span><span class="p">:</span>
+        <span class="n">hot_day</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">mean_temp_by_day</span><span class="p">[</span>
+            <span class="n">mean_temp_by_day</span><span class="o">.</span><span class="n">avg_temp_C</span> <span class="o">==</span> <span class="n">mean_temp_by_day</span><span class="o">.</span><span class="n">avg_temp_C</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="p">][</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">df_out</span> <span class="o">=</span> <span class="n">tmy_df</span><span class="p">[</span><span class="n">tmy_df</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">hot_day</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="n">scenario</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+        <span class="n">median_day</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">mean_temp_by_day</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span>
+            <span class="p">(</span><span class="n">mean_temp_by_day</span><span class="p">[</span><span class="s2">&quot;avg_temp_C&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">mean_temp_by_day</span><span class="p">[</span><span class="s2">&quot;avg_temp_C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">())</span>
+            <span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">argsort</span><span class="p">()[:</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">][</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">df_out</span> <span class="o">=</span> <span class="n">tmy_df</span><span class="p">[</span><span class="n">tmy_df</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">median_day</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">df_out</span><span class="p">[</span><span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_out</span><span class="p">[</span><span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+            <span class="mi">1</span>
+        <span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown scenario: </span><span class="si">{</span><span class="n">scenario</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">df_out</span><span class="p">[</span><span class="s2">&quot;hour&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_out</span><span class="p">[</span><span class="s2">&quot;date_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">hour</span>
+    <span class="k">return</span> <span class="n">df_out</span></div>
+
+
+
+<div class="viewcode-block" id="add_HVAC_energy">
+<a class="viewcode-back" href="../../../api.html#routee.transit.add_HVAC_energy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_HVAC_energy</span><span class="p">(</span>
+    <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span><span class="p">,</span> <span class="n">trips_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add HVAC energy consumption.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    feed : gtfsblocks.Feed</span>
+<span class="sd">        GTFS feed object containing blocks DataFrame.</span>
+<span class="sd">    trips_df : pd.DataFrame</span>
+<span class="sd">        Trips on selected date and route, including deadhead trips.</span>
+<span class="sd">    output_dir : Path or None</span>
+<span class="sd">        Directory used to store downloaded TMY weather files (in a ``TMY/``</span>
+<span class="sd">        subdirectory). Must not be None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pd.DataFrame</span>
+<span class="sd">        Updated trip-level energy prediction DataFrame with HVAC energy</span>
+<span class="sd">        consumption per trip for each weather scenario</span>
+<span class="sd">        (``summer``, ``winter``, ``median``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tmy_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;TMY&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Must specify output_dir if downloading TMY data&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Based on gtfs stops data, get counties served</span>
+    <span class="n">df_stops</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">stops</span>
+
+    <span class="n">gdf_stops</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
+        <span class="n">df_stops</span><span class="p">,</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="n">gpd</span><span class="o">.</span><span class="n">points_from_xy</span><span class="p">(</span><span class="n">df_stops</span><span class="o">.</span><span class="n">stop_lon</span><span class="p">,</span> <span class="n">df_stops</span><span class="o">.</span><span class="n">stop_lat</span><span class="p">),</span>
+        <span class="n">crs</span><span class="o">=</span><span class="mi">4269</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">gdf_county</span> <span class="o">=</span> <span class="n">fetch_counties_gdf</span><span class="p">()</span>
+
+    <span class="c1"># Make sure that both GDFs use the same CRS</span>
+    <span class="k">if</span> <span class="n">gdf_stops</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">gdf_county</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
+        <span class="n">gdf_county</span> <span class="o">=</span> <span class="n">gdf_county</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">gdf_stops</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+
+    <span class="c1"># Start by joining directly to counties</span>
+    <span class="n">gdf_stops</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">sjoin</span><span class="p">(</span>
+        <span class="n">gdf_stops</span><span class="p">,</span>
+        <span class="n">gdf_county</span><span class="p">[[</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="s2">&quot;county_id&quot;</span><span class="p">]],</span>
+        <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+        <span class="n">predicate</span><span class="o">=</span><span class="s2">&quot;intersects&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># If any county IDs are NA, use sjoin_nearest to map to the nearest county</span>
+    <span class="n">na_mask</span> <span class="o">=</span> <span class="n">gdf_stops</span><span class="p">[</span><span class="s2">&quot;county_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span>
+    <span class="n">na_stops</span> <span class="o">=</span> <span class="n">gdf_stops</span><span class="p">[</span><span class="n">na_mask</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">na_stops</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">na_stops</span> <span class="o">=</span> <span class="n">gdf_stops</span><span class="p">[</span><span class="n">na_mask</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;index_right&quot;</span><span class="p">,</span> <span class="s2">&quot;county_id&quot;</span><span class="p">])</span>
+        <span class="c1"># Project for distance calculation</span>
+        <span class="n">na_stops</span> <span class="o">=</span> <span class="n">na_stops</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;ESRI:102003&quot;</span><span class="p">)</span>
+        <span class="n">na_stops</span> <span class="o">=</span> <span class="n">na_stops</span><span class="o">.</span><span class="n">sjoin_nearest</span><span class="p">(</span>
+            <span class="n">right</span><span class="o">=</span><span class="n">gdf_county</span><span class="p">[[</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="s2">&quot;county_id&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;ESRI:102003&quot;</span><span class="p">),</span>
+            <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+            <span class="n">max_distance</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">na_stops</span><span class="p">[</span><span class="s2">&quot;county_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;One or more stops are not within 3 km of a county boundary. Unable to &quot;</span>
+                <span class="s2">&quot;add county-level weather data and HVAC impacts.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">stops_final</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">gdf_stops</span><span class="p">[</span><span class="o">~</span><span class="n">na_mask</span><span class="p">],</span> <span class="n">na_stops</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;EPSG:4269&quot;</span><span class="p">)])</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">stops_final</span> <span class="o">=</span> <span class="n">gdf_stops</span>
+
+    <span class="n">county_ids</span> <span class="o">=</span> <span class="n">stops_final</span><span class="p">[</span><span class="s2">&quot;county_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="c1"># Download TMY Weather Data</span>
+    <span class="n">download_tmy_files</span><span class="p">(</span><span class="n">county_ids</span><span class="p">,</span> <span class="n">tmy_dir</span><span class="p">)</span>
+
+    <span class="n">df_temp_energy</span> <span class="o">=</span> <span class="n">load_thermal_lookup_table</span><span class="p">()</span>
+
+    <span class="c1"># Get the power tables for different weather scenarios</span>
+    <span class="n">thermal_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">county_id</span> <span class="ow">in</span> <span class="n">county_ids</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">scenario</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;summer&quot;</span><span class="p">,</span> <span class="s2">&quot;winter&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]:</span>
+            <span class="n">hourly_temp_df</span> <span class="o">=</span> <span class="n">get_hourly_temperature</span><span class="p">(</span><span class="n">county_id</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">tmy_dir</span><span class="p">)</span>
+            <span class="n">hourly_temp_df</span><span class="p">[</span><span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hourly_temp_df</span><span class="p">[</span>
+                <span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">hourly_temp_df</span> <span class="o">=</span> <span class="n">hourly_temp_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+                <span class="n">df_temp_energy</span><span class="p">,</span>
+                <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;Dry Bulb Temperature [°C]&quot;</span><span class="p">,</span>
+                <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;Temp_C&quot;</span><span class="p">,</span>
+                <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">hourly_temp_df</span><span class="p">[</span><span class="s2">&quot;scenario&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scenario</span>
+            <span class="n">hourly_temp_df</span><span class="p">[</span><span class="s2">&quot;county&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">county_id</span>
+            <span class="n">thermal_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hourly_temp_df</span><span class="p">)</span>
+
+    <span class="n">thermal_power_vals</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">thermal_dfs</span><span class="p">)</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;scenario&quot;</span><span class="p">,</span> <span class="s2">&quot;hour&quot;</span><span class="p">])[</span><span class="s2">&quot;Power&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Last calculate the trip HVAC energy</span>
+    <span class="c1"># Get the start and end time for each trip</span>
+    <span class="n">df_stop_times</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">stop_times</span><span class="p">[</span>
+        <span class="n">feed</span><span class="o">.</span><span class="n">stop_times</span><span class="p">[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">trips_df</span><span class="p">[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">df_trip_time</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">df_stop_times</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;trip_id&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">start_time</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;min&quot;</span><span class="p">),</span> <span class="n">end_time</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">start_hours</span> <span class="o">=</span> <span class="n">df_trip_time</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span>
+    <span class="n">end_hours</span> <span class="o">=</span> <span class="n">df_trip_time</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span>
+
+    <span class="n">hvac_df_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">scen</span><span class="p">,</span> <span class="n">subdf</span> <span class="ow">in</span> <span class="n">thermal_power_vals</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;scenario&quot;</span><span class="p">):</span>
+        <span class="n">scenario_trips</span> <span class="o">=</span> <span class="n">trips_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">scenario_trips</span><span class="p">[</span><span class="s2">&quot;scenario&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scen</span>
+        <span class="n">scenario_trips</span><span class="p">[</span><span class="s2">&quot;hvac_energy_kWh&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">compute_HVAC_energy</span><span class="p">(</span>
+            <span class="n">start_hours</span><span class="p">,</span> <span class="n">end_hours</span><span class="p">,</span> <span class="n">subdf</span><span class="p">[</span><span class="s2">&quot;Power&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">hvac_df_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">scenario_trips</span><span class="p">)</span>
+
+    <span class="n">all_predictions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">hvac_df_list</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">trips_df_out</span> <span class="o">=</span> <span class="n">trips_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">all_predictions</span><span class="p">[[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">,</span> <span class="s2">&quot;scenario&quot;</span><span class="p">,</span> <span class="s2">&quot;hvac_energy_kWh&quot;</span><span class="p">]],</span>
+        <span class="n">on</span><span class="o">=</span><span class="s2">&quot;trip_id&quot;</span><span class="p">,</span>
+        <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">trips_df_out</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By National Renewable Energy Laboratory
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

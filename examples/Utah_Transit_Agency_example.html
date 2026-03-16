@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Utah Transit Agency Example &#8212; RouteE-Transit</title>
+    <title>Utah Transit Authority &#8212; RouteE-Transit</title>
   
   
   
@@ -16,37 +16,40 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
   
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
     <script src="../_static/documentation_options.js?v=30a733bc"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
-    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
@@ -60,10 +63,11 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/Utah_Transit_Agency_example';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Developer Guide" href="../contributing.html" />
-    <link rel="prev" title="API Reference" href="../api.html" />
+    <link rel="next" title="RouteE-Transit Prediction Pipeline" href="../prediction.html" />
+    <link rel="prev" title="Data Requirements" href="../data.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -79,19 +83,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="../search.html"
       method="get">
@@ -99,7 +92,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search this book..."
          aria-label="Search this book..."
          autocomplete="off"
@@ -107,8 +99,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -124,7 +116,8 @@
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -154,21 +147,17 @@
     
     
     <img src="../_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <script>document.write(`<img src="../_static/routeelogo.png" class="logo__image only-dark" alt="RouteE-Transit - Home"/>`);</script>
+    <img src="../_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
   
   
 </a></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
@@ -184,16 +173,17 @@
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../data.html">Data Requirements</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Utah Transit Authority</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../prediction.html">RouteE-Transit Prediction Pipeline</a></li>
 
 
 <li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Utah Transit Agency Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../results.html">Results</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul class="nav bd-sidenav">
@@ -206,9 +196,14 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -338,7 +333,7 @@
 
 
 <button onclick="toggleFullScreen()"
-  class="btn btn-sm btn-fullscreen-button"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
   title="Fullscreen mode"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
@@ -352,25 +347,17 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
-<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <span class="fa-solid fa-list"></span>
 </button>
 </div></div>
@@ -383,7 +370,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Utah Transit Agency Example</h1>
+    <h1>Utah Transit Authority</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -394,7 +381,11 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-using-the-run-method">Quick Start: Using the <code class="docutils literal notranslate"><span class="pre">run()</span></code> Method</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#calculate-energy-efficiency-metrics">Calculate Energy Efficiency Metrics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#analyze-energy-efficiency">Analyze Energy Efficiency</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#weather-impacts">Weather Impacts</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#efficiency-by-route">Efficiency by Route</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#access-additional-results">Access Additional Results</a></li>
 </ul>
             </nav>
@@ -407,35 +398,22 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="utah-transit-agency-example">
-<h1>Utah Transit Agency Example<a class="headerlink" href="#utah-transit-agency-example" title="Link to this heading">#</a></h1>
+  <section class="tex2jax_ignore mathjax_ignore" id="utah-transit-authority">
+<h1>Utah Transit Authority<a class="headerlink" href="#utah-transit-authority" title="Link to this heading">#</a></h1>
 <p>In this example, we'll predict the energy consumption for some trips operated by
 the Utah Transit Authority (UTA) in Salt Lake City. This requires specifying the
-GTFS data we are analyzing, processing it to produce RouteE-Powertrain inputs,
-and running a RouteE-Powertrain model to produce energy estimates.</p>
+GTFS data we are analyzing, map-matching it to the road network, and running a
+RouteE-Compass model to produce energy estimates.</p>
 <p>This example uses the <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code> class, which provides a clean,
 extensible API for transit energy prediction.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">sample_inputs_path</span>
-
-<span class="c1"># Set up logging: Clear any existing handlers</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-
-<span class="c1"># Configure basic logging</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
-    <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> [</span><span class="si">%(levelname)s</span><span class="s2">] </span><span class="si">%(name)s</span><span class="s2"> - </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
-<span class="p">)</span>
-
-<span class="c1"># Suppress GDAL/PROJ warnings, which flood the output when we run gradeit</span>
-<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PROJ_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
 
 <span class="c1"># Specify input data location</span>
 <span class="n">input_directory</span> <span class="o">=</span> <span class="n">sample_inputs_path</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;saltlake/gtfs&quot;</span>
-<span class="n">output_directory</span> <span class="o">=</span> <span class="s2">&quot;./reports/saltlake&quot;</span>
+<span class="n">output_directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;reports/saltlake&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -446,16 +424,13 @@ extensible API for transit energy prediction.</p>
 complete energy prediction workflow. This single method call chains together all
 processing steps and returns trip-level energy predictions.</p>
 <p>We'll analyze routes 806 and 807 on August 2nd, 2023, using the Battery Electric
-Bus model with HVAC energy impacts included.</p>
-<p>Note: depot_path is not specified, so the predictor will use default depot locations
-from the National Transit Database's &quot;Public Transit Facilities and Stations - 2023&quot;
-dataset (<a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a>).</p>
+Bus model. We'll include deadhead trips and estimated HVAC energy.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
     <span class="n">gtfs_path</span><span class="o">=</span><span class="n">input_directory</span><span class="p">,</span>
-    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_directory</span><span class="p">,</span>
     <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_directory</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
@@ -470,174 +445,79 @@ dataset (<a class="reference external" href="https://data.transportation.gov/sto
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:01,550 [INFO] routee.transit.predictor - Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/routee/transit/resources/sample_inputs/saltlake/gtfs
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:01,551 [INFO] routee.transit.predictor - Loading GTFS data...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,910 [INFO] routee.transit.predictor - Feed includes 1 agencies: [&#39;Utah Transit Authority&#39;]. Total trips: 12037, shapes: 238
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,919 [INFO] routee.transit.predictor - Loaded 12037 trips and 199 shapes
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,920 [INFO] routee.transit.predictor - Filtering trips (date=2023/08/02, routes=[&#39;806&#39;, &#39;807&#39;])...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,958 [INFO] routee.transit.predictor - Filtered to 16 trips and 4 shapes
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:02,989 [INFO] routee.transit.predictor - Preparing mid-block deadhead trips...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:03,081 [INFO] routee.transit.predictor - Preparing depot deadhead trips...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:46:03,226 [INFO] routee.transit.predictor - Building CompassApp from bounding box: (-112.03101, 40.22523, -111.65814, 40.482409999999994)
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:28,952 [INFO] nrel.routee.compass.io.generate_dataset - running pipeline import with phases: [[&#39;GRAPH&#39;, &#39;CONFIG&#39;, &#39;POWERTRAIN&#39;]]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:28,953 [INFO] nrel.routee.compass.io.generate_dataset - processing graph topology and speeds
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:29,509 [INFO] nrel.routee.compass.io.generate_dataset - adding grade information
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:30,102 [INFO] nrel.routee.compass.io.utils - downloading n41w113
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:30,879 [INFO] nrel.routee.compass.io.utils - downloading n41w112
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:33,278 [INFO] nrel.routee.compass.io.generate_dataset - processing vertices
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:33,281 [INFO] nrel.routee.compass.io.generate_dataset - processing edges
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:36,831 [INFO] nrel.routee.compass.io.generate_dataset - writing vertex files
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:37,538 [INFO] nrel.routee.compass.io.generate_dataset - writing edge files
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:40,039 [INFO] nrel.routee.compass.io.generate_dataset - writing edge attribute files
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:44,450 [INFO] nrel.routee.compass.io.generate_dataset - copying default configuration TOML files
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:47:44,500 [INFO] nrel.routee.compass.io.generate_dataset - downloading the default RouteE Powertrain models
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:48:58,740 [INFO] nrel.routee.compass.io.generate_dataset - copying vehicle configuration files
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:48:58,746 [INFO] nrel.routee.compass.io.generate_dataset - running 2 dataset generation hooks
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:19,885 [INFO] gtfs_processing - Wrote 119313 stop-edge mappings to reports/saltlake/compass_app/gtfs_stops.csv
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:19,978 [INFO] gtfs_processing - Copied transit_energy.toml to reports/saltlake/compass_app/transit_energy.toml
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>graph edge list 0: /home/runner/work/routee-transit/routee-transit/docs/examples/reports/saltlake/compass_app/edges-compass.csv.gz: 46711it [00:00, 1660470.62it/s]2026-03-05 00:49:23,090 [INFO] routee.transit.predictor - CompassApp initialized
-
-
-
-building adjacencies: 100%|██████████| 46711/46711 [00:00&lt;00:00, 4233188.50it/s]
-building adjacencies: 100%|██████████| 46711/46711 [00:00&lt;00:00, 4224197.50it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,091 [INFO] routee.transit.predictor - Routing mid-block deadhead trips...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,093 [INFO] routee.transit.deadhead_router - Deadhead routing: 7 trips reduced to 3 unique O-D pairs
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 10635.92it/s]
-
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 112237.65it/s]
-
-
-
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 94.01it/s]
-2026-03-05 00:49:23,194 [INFO] routee.transit.predictor - Added 7 mid-block deadhead trips
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,194 [INFO] routee.transit.predictor - Routing depot deadhead trips...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,197 [INFO] routee.transit.deadhead_router - Deadhead routing: 9 trips reduced to 3 unique O-D pairs
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 52949.28it/s]
-
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 170019.84it/s]
-
-
-
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 37.16it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,299 [INFO] routee.transit.deadhead_router - Deadhead routing: 9 trips reduced to 3 unique O-D pairs
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 53504.55it/s]
-
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 168133.16it/s]
-
-
-
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 69.88it/s]
-2026-03-05 00:49:23,392 [INFO] routee.transit.predictor - Added 18 depot deadhead trips
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:23,393 [INFO] routee.transit.predictor - Predicting energy for 1 vehicle model(s)...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:24,738 [INFO] routee.transit.predictor - Running map matching for 13 shapes...
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>map matching:  15%|█▅        |  2/13 [00:00&lt;00:00, 18.53it/s]
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>map matching:  31%|███▂      |  4/13 [00:00&lt;00:00, 13.19it/s]
-map matching:  62%|██████▃   |  8/13 [00:00&lt;00:00, 13.71it/s]
-map matching:  77%|███████▆  | 10/13 [00:00&lt;00:00, 13.74it/s]
-map matching:  85%|████████▅ | 11/13 [00:01&lt;00:00, 10.82it/s]
-map matching:  92%|█████████▃| 12/13 [00:01&lt;00:00, 9.36it/s]
-map matching: 100%|██████████| 13/13 [00:01&lt;00:00, 8.49it/s]
-2026-03-05 00:49:26,482 [INFO] routee.transit.predictor - Running energy prediction via CompassApp for: Transit_Bus_Battery_Electric
-</pre></div>
-</div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>calculating paths: 100%|██████████| 13/13 [00:00&lt;00:00, 875.24it/s]
-2026-03-05 00:49:26,525 [INFO] routee.transit.predictor - Adding HVAC energy impacts...
-</pre></div>
-</div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900350.csv
 Downloaded: G4900490.csv
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900450.csv
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900110.csv
+Downloaded: G4900450.csv
+Downloaded: G4900110.csv
 Downloaded: G4900570.csv
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloaded: G4900030.csv
+Downloaded: G4900030.csv
 Downloaded: G4900430.csv
 </pre></div>
 </div>
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2026-03-05 00:49:29,158 [INFO] routee.transit.predictor - Energy prediction complete
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:routee.transit.predictor:Initialized GTFSEnergyPredictor for /opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/routee/transit/resources/sample_inputs/saltlake/gtfs
+INFO:routee.transit.predictor:Loading GTFS data...
+INFO:routee.transit.predictor:Feed includes 1 agencies: [&#39;Utah Transit Authority&#39;]. Total trips: 12037, shapes: 238
+INFO:routee.transit.predictor:Loaded 12037 trips and 199 shapes
+INFO:routee.transit.predictor:Filtering trips (date=2023/08/02, routes=[&#39;806&#39;, &#39;807&#39;])...
+INFO:routee.transit.predictor:Filtered to 16 trips and 4 shapes
+INFO:routee.transit.predictor:Preparing mid-block deadhead trips...
+INFO:routee.transit.predictor:Preparing depot deadhead trips...
+INFO:routee.transit.predictor:Building CompassApp from bounding box: (-112.03101, 40.22523, -111.65814, 40.482409999999994)
+INFO:nrel.routee.compass.io.generate_dataset:running pipeline import with phases: [[&#39;GRAPH&#39;, &#39;CONFIG&#39;, &#39;POWERTRAIN&#39;]]
+INFO:nrel.routee.compass.io.generate_dataset:processing graph topology and speeds
+INFO:nrel.routee.compass.io.generate_dataset:adding grade information
+INFO:nrel.routee.compass.io.utils:downloading n41w113
+INFO:nrel.routee.compass.io.utils:downloading n41w112
+INFO:nrel.routee.compass.io.generate_dataset:processing vertices
+INFO:nrel.routee.compass.io.generate_dataset:processing edges
+INFO:nrel.routee.compass.io.generate_dataset:writing vertex files
+INFO:nrel.routee.compass.io.generate_dataset:writing edge files
+INFO:nrel.routee.compass.io.generate_dataset:writing edge attribute files
+INFO:nrel.routee.compass.io.generate_dataset:copying default configuration TOML files
+INFO:nrel.routee.compass.io.generate_dataset:downloading the default RouteE Powertrain models
+INFO:nrel.routee.compass.io.generate_dataset:copying vehicle configuration files
+INFO:nrel.routee.compass.io.generate_dataset:running 2 dataset generation hooks
+INFO:gtfs_processing:Wrote 115737 stop-edge mappings to reports/saltlake/compass_app/gtfs_stops.csv
+INFO:gtfs_processing:Copied transit_energy.toml to reports/saltlake/compass_app/transit_energy.toml
+graph edge list 0: /home/runner/work/routee-transit/routee-transit/docs/examples/reports/saltlake/compass_app/edges-compass.csv.gz: 46733it [00:00, 1760773.88it/s]
+building adjacencies: 100%|██████████| 46733/46733 [00:00&lt;00:00, 5450841.50it/s]
+INFO:routee.transit.predictor:CompassApp initialized
+INFO:routee.transit.predictor:Routing mid-block deadhead trips...
+INFO:routee.transit.deadhead_router:Deadhead routing: 7 trips reduced to 3 unique O-D pairs
+
+
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 9336.55it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 185105.22it/s]
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 70.38it/s]
+INFO:routee.transit.predictor:Added 7 mid-block deadhead trips
+INFO:routee.transit.predictor:Routing depot deadhead trips...
+INFO:routee.transit.deadhead_router:Deadhead routing: 9 trips reduced to 3 unique O-D pairs
+
+
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 34901.17it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 133570.78it/s]
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 33.03it/s]
+INFO:routee.transit.deadhead_router:Deadhead routing: 9 trips reduced to 3 unique O-D pairs
+
+
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 55451.84it/s]
+
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 375000.00it/s]
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 76.77it/s]
+INFO:routee.transit.predictor:Added 18 depot deadhead trips
+INFO:routee.transit.predictor:Predicting energy for 1 vehicle model(s)...
+INFO:routee.transit.predictor:Running map matching for 13 shapes...
+map matching:  15%|█▅        |  2/13 [00:00&lt;00:00, 17.20it/s]
+map matching: 100%|██████████| 13/13 [00:01&lt;00:00, 7.36it/s]
+INFO:routee.transit.predictor:Running energy prediction via CompassApp for: Transit_Bus_Battery_Electric
+calculating paths: 100%|██████████| 13/13 [00:00&lt;00:00, 908.84it/s]
+INFO:routee.transit.predictor:Adding HVAC energy impacts...
+INFO:routee.transit.predictor:Energy prediction complete
 </pre></div>
 </div>
 </div>
@@ -648,143 +528,325 @@ Downloaded: G4900430.csv
 <li><p>Filters trips by date and routes</p></li>
 <li><p>Adds mid-block deadhead trips (between consecutive trips)</p></li>
 <li><p>Adds depot deadhead trips (to/from depot)</p></li>
-<li><p>Matches shapes to OpenStreetMap road network</p></li>
-<li><p>Adds road grade information using USGS elevation data</p></li>
-<li><p>Predicts energy consumption with RouteE-Powertrain</p></li>
+<li><p>Matches shapes to OpenStreetMap road network and adds road grade (via RouteE-Compass)</p></li>
+<li><p>Predicts energy consumption with RouteE-Compass</p></li>
 <li><p>Adds estimated HVAC energy impacts</p></li>
 <li><p>Saves results to CSV files</p></li>
 </ol>
-<p>Let's examine the results:</p>
+<p>Let's examine the results. The columns include information about the energy predictions made (including any HVAC component) as well as GTFS fields that apply to each trip, and a description of the weather scenario considered:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">trip_results</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">trip_results</span><span class="o">.</span><span class="n">columns</span>
+<span class="n">trip_results</span><span class="p">[[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">,</span> <span class="s2">&quot;vehicle&quot;</span><span class="p">,</span> <span class="s2">&quot;scenario&quot;</span><span class="p">,</span> <span class="s2">&quot;energy_used&quot;</span><span class="p">,</span> <span class="s2">&quot;miles&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>   energy_used      miles                       vehicle energy_unit  \
-0    16.953909  15.492026  Transit_Bus_Battery_Electric         kWh   
-1    16.011903  15.492026  Transit_Bus_Battery_Electric         kWh   
-2    44.525431  15.492026  Transit_Bus_Battery_Electric         kWh   
-3    12.586445  15.492026  Transit_Bus_Battery_Electric         kWh   
-4    12.573726  15.492026  Transit_Bus_Battery_Electric         kWh   
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
 
-              trip_id route_id service_id block_id  \
-0  5181298_to_5181301     2152          4  1156079   
-1  5181298_to_5181301     2152          4  1156079   
-2  5181298_to_5181301     2152          4  1156079   
-3  5181297_to_5181299     2152          4  1156088   
-4  5181297_to_5181299     2152          4  1156088   
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
 
-                           shape_id route_short_name  ...  agency_id  \
-0  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
-1  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
-2  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
-3  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
-4  -111.712,40.276-&gt;-111.895,40.426             None  ...        NaN   
-
-            trip_type start_time  end_time trip_duration_minutes trip_count  \
-0  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
-1  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
-2  mid_block_deadhead   06:55:00  07:22:00                  27.0         87   
-3  mid_block_deadhead   07:25:00  07:52:00                  27.0         87   
-4  mid_block_deadhead   07:25:00  07:52:00                  27.0         87   
-
-   from_trip  to_trip scenario hvac_energy_kWh  
-0    5181298  5181301   median        4.607329  
-1    5181298  5181301   summer        3.665324  
-2    5181298  5181301   winter       32.178852  
-3    5181297  5181299   median        0.239866  
-4    5181297  5181299   summer        0.227146  
-
-[5 rows x 22 columns]
-</pre></div>
-</div>
-</div>
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>trip_id</th>
+      <th>vehicle</th>
+      <th>scenario</th>
+      <th>energy_used</th>
+      <th>miles</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>5181298_to_5181301</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>median</td>
+      <td>17.649992</td>
+      <td>16.287717</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>5181298_to_5181301</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>summer</td>
+      <td>16.707986</td>
+      <td>16.287717</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>5181298_to_5181301</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>winter</td>
+      <td>45.221514</td>
+      <td>16.287717</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>5181297_to_5181299</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>median</td>
+      <td>13.282528</td>
+      <td>16.287717</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5181297_to_5181299</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>summer</td>
+      <td>13.269808</td>
+      <td>16.287717</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
 </div>
 </section>
-<section id="calculate-energy-efficiency-metrics">
-<h2>Calculate Energy Efficiency Metrics<a class="headerlink" href="#calculate-energy-efficiency-metrics" title="Link to this heading">#</a></h2>
+<section id="analyze-energy-efficiency">
+<h2>Analyze Energy Efficiency<a class="headerlink" href="#analyze-energy-efficiency" title="Link to this heading">#</a></h2>
 <p>We can calculate energy efficiency in kWh per mile, including HVAC loads.
-The results now include a 'scenario' column (summer/winter) for HVAC impacts.</p>
+The results include a <code class="docutils literal notranslate"><span class="pre">scenario</span></code> column (summer/winter.median) for HVAC impacts.</p>
+<section id="weather-impacts">
+<h3>Weather Impacts<a class="headerlink" href="#weather-impacts" title="Link to this heading">#</a></h3>
+<p>Let's see how energy efficiency in kWh/mi compares across different weather scenarios:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="s2">&quot;scenario&quot;</span> <span class="ow">in</span> <span class="n">trip_results</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
     <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;energy_used&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;miles&quot;</span><span class="p">]</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="n">trip_results</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;scenario&quot;</span><span class="p">)[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="n">trip_results</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;scenario&quot;</span><span class="p">)[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>scenario
-median    1.668295
-summer    1.957103
-winter    5.350892
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>scenario
+median    1.690299
+summer    1.783457
+winter    5.556801
 Name: kwh_per_mi, dtype: float64
 </pre></div>
 </div>
 </div>
 </div>
+<p>We can see that winter requires the greatest energy, since the cold climate in Utah requires a heavy HVAC load.</p>
 </section>
-<section id="access-additional-results">
-<h2>Access Additional Results<a class="headerlink" href="#access-additional-results" title="Link to this heading">#</a></h2>
-<p>After running predictions, you can access link-level results and RouteE inputs:</p>
+<section id="efficiency-by-route">
+<h3>Efficiency by Route<a class="headerlink" href="#efficiency-by-route" title="Link to this heading">#</a></h3>
+<p>How does typical energy efficiency in the <code class="docutils literal notranslate"><span class="pre">median</span></code> scenario (meaning temperatures are taken from the day of a typical year with the median average temperature)?</p>
+<p>We can check by filtering by scenario and then grouping by route:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Link-level predictions show energy for each road segment</span>
-<span class="n">link_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_link_predictions</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">link_results</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># First, filter out any deadhead trips</span>
+<span class="n">median_results</span> <span class="o">=</span> <span class="n">trip_results</span><span class="p">[</span><span class="n">trip_results</span><span class="p">[</span><span class="s2">&quot;trip_type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;service&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="c1"># Then, only include median weather impacts</span>
+<span class="n">median_results</span> <span class="o">=</span> <span class="n">median_results</span><span class="p">[</span><span class="n">median_results</span><span class="p">[</span><span class="s2">&quot;scenario&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span>
+<span class="n">median_results</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;route_short_name&quot;</span><span class="p">)[</span><span class="s2">&quot;kwh_per_mi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>   match_id  edge_index  edge_list_id  edge_id  edge_distance  trip_distance  \
-0         0           0             0    30126       0.025420       0.025420   
-1         0           1             0    30127       0.029904       0.055324   
-2         0           2             0      246       0.091411       0.146736   
-3         0           3             0    40098       0.020931       0.167667   
-4         0           4             0      259       0.017637       0.185304   
-
-   trip_soc  trip_time  edge_energy_electric  edge_turn_delay  ...  \
-0  0.999840   0.055813              0.080132              0.0  ...   
-1  0.999494   0.138138              0.172851              1.0  ...   
-2  0.999959   0.497176             -0.232710              9.5  ...   
-3  0.999906   0.551467              0.026962              0.5  ...   
-4  0.999897   0.582071              0.004460              0.0  ...   
-
-   edge_speed  battery_capacity  trip_energy_electric  trip_elevation_loss  \
-0   27.327045             500.0              0.080132             0.000000   
-1   27.327045             500.0              0.252983             0.000000   
-2   27.327045             500.0              0.020274            -0.006952   
-3   27.327045             500.0              0.047235            -0.006952   
-4   34.578084             500.0              0.051695            -0.007189   
-
-   edge_grade                                           geometry  \
-0    0.034760  LINESTRING (-111.71143 40.27542, -111.71156 40...   
-1    0.088317  LINESTRING (-111.71166 40.27568, -111.71109 40...   
-2   -0.076052  LINESTRING (-111.71109 40.27571, -111.71139 40...   
-3    0.001036  LINESTRING (-111.71275 40.27596, -111.71275 40...   
-4   -0.013422  LINESTRING (-111.71305 40.27608, -111.7131 40....   
-
-                           shape_id                       vehicle energy_used  \
-0  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
-1  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
-2  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
-3  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
-4  -111.712,40.276-&gt;-111.895,40.426  Transit_Bus_Battery_Electric    12.34658   
-
-  energy_unit  
-0         kWh  
-1         kWh  
-2         kWh  
-3         kWh  
-4         kWh  
-
-[5 rows x 22 columns]
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>route_short_name
+807    1.294837
+806    1.020726
+Name: kwh_per_mi, dtype: float64
 </pre></div>
 </div>
 </div>
+</div>
+<p>Route 807 requires more energy on average.</p>
+</section>
+</section>
+<section id="access-additional-results">
+<h2>Access Additional Results<a class="headerlink" href="#access-additional-results" title="Link to this heading">#</a></h2>
+<p>Besides trip-level results, you can also access link-level results. These detailed results can help you better understand differences in predictions across trips.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Link-level predictions show energy for each road segment</span>
+<span class="n">link_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_link_predictions</span><span class="p">()</span>
+<span class="n">link_results</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>match_id</th>
+      <th>edge_index</th>
+      <th>edge_list_id</th>
+      <th>edge_id</th>
+      <th>battery_capacity</th>
+      <th>trip_soc</th>
+      <th>edge_time</th>
+      <th>trip_elevation_loss</th>
+      <th>trip_energy_electric</th>
+      <th>trip_time</th>
+      <th>...</th>
+      <th>trip_elevation_gain</th>
+      <th>trip_distance</th>
+      <th>edge_energy_electric</th>
+      <th>edge_grade</th>
+      <th>edge_speed</th>
+      <th>geometry</th>
+      <th>shape_id</th>
+      <th>vehicle</th>
+      <th>energy_used</th>
+      <th>energy_unit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>30130</td>
+      <td>500.0</td>
+      <td>0.999840</td>
+      <td>0.055812</td>
+      <td>0.000000</td>
+      <td>0.080133</td>
+      <td>0.055812</td>
+      <td>...</td>
+      <td>0.000884</td>
+      <td>0.025420</td>
+      <td>0.080133</td>
+      <td>0.034760</td>
+      <td>27.327372</td>
+      <td>LINESTRING (-111.71143 40.27542, -111.71156 40...</td>
+      <td>-111.712,40.276-&gt;-111.895,40.426</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>13.042662</td>
+      <td>kWh</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>30131</td>
+      <td>500.0</td>
+      <td>0.999494</td>
+      <td>0.082324</td>
+      <td>0.000000</td>
+      <td>0.252984</td>
+      <td>0.138136</td>
+      <td>...</td>
+      <td>0.003525</td>
+      <td>0.055324</td>
+      <td>0.172851</td>
+      <td>0.088317</td>
+      <td>27.327372</td>
+      <td>LINESTRING (-111.71166 40.27568, -111.71109 40...</td>
+      <td>-111.712,40.276-&gt;-111.895,40.426</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>13.042662</td>
+      <td>kWh</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0</td>
+      <td>2</td>
+      <td>0</td>
+      <td>246</td>
+      <td>500.0</td>
+      <td>0.999959</td>
+      <td>0.359036</td>
+      <td>-0.006952</td>
+      <td>0.020268</td>
+      <td>0.497173</td>
+      <td>...</td>
+      <td>0.003525</td>
+      <td>0.146736</td>
+      <td>-0.232716</td>
+      <td>-0.076052</td>
+      <td>27.327372</td>
+      <td>LINESTRING (-111.71109 40.27571, -111.71139 40...</td>
+      <td>-111.712,40.276-&gt;-111.895,40.426</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>13.042662</td>
+      <td>kWh</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>40104</td>
+      <td>500.0</td>
+      <td>0.999906</td>
+      <td>0.054290</td>
+      <td>-0.006952</td>
+      <td>0.047230</td>
+      <td>0.551462</td>
+      <td>...</td>
+      <td>0.003546</td>
+      <td>0.167667</td>
+      <td>0.026961</td>
+      <td>0.001036</td>
+      <td>27.327372</td>
+      <td>LINESTRING (-111.71275 40.27596, -111.71275 40...</td>
+      <td>-111.712,40.276-&gt;-111.895,40.426</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>13.042662</td>
+      <td>kWh</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>4</td>
+      <td>0</td>
+      <td>259</td>
+      <td>500.0</td>
+      <td>0.999897</td>
+      <td>0.030604</td>
+      <td>-0.007189</td>
+      <td>0.051690</td>
+      <td>0.582066</td>
+      <td>...</td>
+      <td>0.003546</td>
+      <td>0.185304</td>
+      <td>0.004460</td>
+      <td>-0.013422</td>
+      <td>34.578084</td>
+      <td>LINESTRING (-111.71305 40.27608, -111.7131 40....</td>
+      <td>-111.712,40.276-&gt;-111.895,40.426</td>
+      <td>Transit_Bus_Battery_Electric</td>
+      <td>13.042662</td>
+      <td>kWh</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 22 columns</p>
+</div></div></div>
 </div>
 </section>
 </section>
@@ -820,20 +882,20 @@ Name: kwh_per_mi, dtype: float64
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../api.html"
+       href="../data.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">API Reference</p>
+        <p class="prev-next-title">Data Requirements</p>
       </div>
     </a>
     <a class="right-next"
-       href="../contributing.html"
+       href="../prediction.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Developer Guide</p>
+        <p class="prev-next-title">RouteE-Transit Prediction Pipeline</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -844,17 +906,23 @@ Name: kwh_per_mi, dtype: float64
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
-  <div class="sidebar-secondary-item">
-  <div class="page-toc tocsection onthispage">
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> Contents
   </div>
-  <nav class="bd-toc-nav page-toc">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-using-the-run-method">Quick Start: Using the <code class="docutils literal notranslate"><span class="pre">run()</span></code> Method</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#calculate-energy-efficiency-metrics">Calculate Energy Efficiency Metrics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#analyze-energy-efficiency">Analyze Energy Efficiency</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#weather-impacts">Weather Impacts</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#efficiency-by-route">Efficiency by Route</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#access-additional-results">Access Additional Results</a></li>
 </ul>
   </nav></div>
@@ -904,8 +972,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
   </footer>

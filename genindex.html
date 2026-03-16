@@ -15,37 +15,40 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
@@ -61,6 +64,7 @@
     <link rel="search" title="Search" href="search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -76,19 +80,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="search.html"
       method="get">
@@ -96,7 +89,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search this book..."
          aria-label="Search this book..."
          autocomplete="off"
@@ -104,8 +96,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -123,7 +115,8 @@
       
         
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -153,21 +146,17 @@
     
     
     <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <script>document.write(`<img src="_static/routeelogo.png" class="logo__image only-dark" alt="RouteE-Transit - Home"/>`);</script>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
   
   
 </a></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
@@ -183,16 +172,17 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">Data Requirements</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="prediction.html">RouteE-Transit Prediction Pipeline</a></li>
 
 
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Agency Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="results.html">Results</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul class="nav bd-sidenav">
@@ -205,9 +195,14 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -289,7 +284,7 @@
 
 
 <button onclick="toggleFullScreen()"
-  class="btn btn-sm btn-fullscreen-button"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
   title="Fullscreen mode"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
@@ -303,24 +298,16 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
+</button>
 
 </div></div>
       
@@ -350,8 +337,268 @@ document.write(`
 <h1 id="index">Index</h1>
 
 <div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#W"><strong>W</strong></a>
  
 </div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.__init__">__init__() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.add_HVAC_energy">add_HVAC_energy() (in module routee.transit)</a>
+</li>
+      <li><a href="api.html#routee.transit.gtfs_processing.add_stop_flags_to_shape">add_stop_flags_to_shape() (in module routee.transit.gtfs_processing)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.add_trip_times">add_trip_times() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.aggregate_inputs_by_link">aggregate_inputs_by_link() (routee.transit.GTFSEnergyPredictor static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.thermal_energy.compute_HVAC_energy">compute_HVAC_energy() (in module routee.transit.thermal_energy)</a>
+</li>
+      <li><a href="api.html#routee.transit.gtfs_processing.copy_transit_config">copy_transit_config() (in module routee.transit.gtfs_processing)</a>
+</li>
+      <li><a href="api.html#routee.transit.create_deadhead_shapes">create_deadhead_shapes() (in module routee.transit)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.depot_deadhead.create_depot_deadhead_stops">create_depot_deadhead_stops() (in module routee.transit.depot_deadhead)</a>
+</li>
+      <li><a href="api.html#routee.transit.depot_deadhead.create_depot_deadhead_trips">create_depot_deadhead_trips() (in module routee.transit.depot_deadhead)</a>
+</li>
+      <li><a href="api.html#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops">create_mid_block_deadhead_stops() (in module routee.transit.mid_block_deadhead)</a>
+</li>
+      <li><a href="api.html#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips">create_mid_block_deadhead_trips() (in module routee.transit.mid_block_deadhead)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.depot_path">depot_path (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.thermal_energy.download_tmy_files">download_tmy_files() (in module routee.transit.thermal_energy)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.energy_predictions">energy_predictions (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.gtfs_processing.estimate_trip_timestamps">estimate_trip_timestamps() (in module routee.transit.gtfs_processing)</a>
+</li>
+      <li><a href="api.html#routee.transit.gtfs_processing.extend_trip_traces">extend_trip_traces() (in module routee.transit.gtfs_processing)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.feed">feed (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.thermal_energy.fetch_counties_gdf">fetch_counties_gdf() (in module routee.transit.thermal_energy)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.filter_trips">filter_trips() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.depot_deadhead.get_default_depot_path">get_default_depot_path() (in module routee.transit.depot_deadhead)</a>
+</li>
+      <li><a href="api.html#routee.transit.thermal_energy.get_hourly_temperature">get_hourly_temperature() (in module routee.transit.thermal_energy)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.get_link_level_inputs">get_link_level_inputs() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.get_link_predictions">get_link_predictions() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.get_trip_predictions">get_trip_predictions() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.gtfs_path">gtfs_path (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor">GTFSEnergyPredictor (class in routee.transit)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.depot_deadhead.infer_depot_trip_endpoints">infer_depot_trip_endpoints() (in module routee.transit.depot_deadhead)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.load_compass_app">load_compass_app() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.load_gtfs_data">load_gtfs_data() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+      <li><a href="api.html#routee.transit.thermal_energy.load_thermal_lookup_table">load_thermal_lookup_table() (in module routee.transit.thermal_energy)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.matched_shapes">matched_shapes (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="api.html#module-routee.transit.depot_deadhead">routee.transit.depot_deadhead</a>
+</li>
+        <li><a href="api.html#module-routee.transit.gtfs_processing">routee.transit.gtfs_processing</a>
+</li>
+        <li><a href="api.html#module-routee.transit.mid_block_deadhead">routee.transit.mid_block_deadhead</a>
+</li>
+        <li><a href="api.html#module-routee.transit.thermal_energy">routee.transit.thermal_energy</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.n_processes">n_processes (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.predict_energy">predict_energy() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    routee.transit.depot_deadhead
+
+      <ul>
+        <li><a href="api.html#module-routee.transit.depot_deadhead">module</a>
+</li>
+      </ul></li>
+      <li>
+    routee.transit.gtfs_processing
+
+      <ul>
+        <li><a href="api.html#module-routee.transit.gtfs_processing">module</a>
+</li>
+      </ul></li>
+      <li>
+    routee.transit.mid_block_deadhead
+
+      <ul>
+        <li><a href="api.html#module-routee.transit.mid_block_deadhead">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    routee.transit.thermal_energy
+
+      <ul>
+        <li><a href="api.html#module-routee.transit.thermal_energy">module</a>
+</li>
+      </ul></li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.routee_inputs">routee_inputs (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.run">run() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.save_results">save_results() (routee.transit.GTFSEnergyPredictor method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.shapes">shapes (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.GTFSEnergyPredictor.trips">trips (routee.transit.GTFSEnergyPredictor attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.gtfs_processing.upsample_shape">upsample_shape() (in module routee.transit.gtfs_processing)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#routee.transit.gtfs_processing.write_gtfs_stops">write_gtfs_stops() (in module routee.transit.gtfs_processing)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 
 
                 </article>
@@ -414,8 +661,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
   </footer>

@@ -16,37 +16,40 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
   
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
@@ -61,9 +64,10 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Reference" href="api.html" />
-    <link rel="prev" title="Data Requirements" href="data.html" />
+    <link rel="prev" title="Utah Transit Authority" href="examples/Utah_Transit_Agency_example.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -79,19 +83,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="search.html"
       method="get">
@@ -99,7 +92,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search this book..."
          aria-label="Search this book..."
          autocomplete="off"
@@ -107,8 +99,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -124,7 +116,8 @@
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -154,21 +147,17 @@
     
     
     <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <script>document.write(`<img src="_static/routeelogo.png" class="logo__image only-dark" alt="RouteE-Transit - Home"/>`);</script>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
   
   
 </a></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
@@ -184,16 +173,17 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">Data Requirements</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">RouteE-Transit Prediction Pipeline</a></li>
 
 
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="examples/Utah_Transit_Agency_example.html">Utah Transit Agency Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="results.html">Results</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul class="nav bd-sidenav">
@@ -206,9 +196,14 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -338,7 +333,7 @@
 
 
 <button onclick="toggleFullScreen()"
-  class="btn btn-sm btn-fullscreen-button"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
   title="Fullscreen mode"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
@@ -352,25 +347,17 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
-<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <span class="fa-solid fa-list"></span>
 </button>
 </div></div>
@@ -394,9 +381,18 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specify-gtfs-trip-data">1) Specify GTFS Trip Data</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-routee-powertrain-features">2) Prepare RouteE-Powertrain Features</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#predict-energy-consumption-with-routee-powertrain">3) Predict Energy Consumption with RouteE-Powertrain</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trip-inference">2) Deadhead Trip Inference</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mid-block-deadhead">Mid-block deadhead</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#depot-deadhead-pull-out-pull-in">Depot deadhead (pull-out / pull-in)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#road-link-feature-preparation">3) Road Link Feature Preparation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-prediction-and-thermal-impacts">4) Energy Prediction and Thermal Impacts</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#powertrain-energy">Powertrain energy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-impacts-hvac-btms">Thermal impacts (HVAC + BTMS)</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#using-the-gtfsenergypredictor-class">Using the GTFSEnergyPredictor Class</a></li>
@@ -415,41 +411,96 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="routee-transit-prediction-pipeline">
 <h1>RouteE-Transit Prediction Pipeline<a class="headerlink" href="#routee-transit-prediction-pipeline" title="Link to this heading">#</a></h1>
-<p>RouteE-Transit builds on <a class="reference external" href="https://github.com/NatLabRockies/routee-powertrain">RouteE-Powertrain</a> to predict the energy consumption of bus trips given a static GTFS feed. Its key role is to convert GTFS features (such as trip and shape data) into RouteE features (such as vehicle speed, road grade, and distance along road links), so that a RouteE-Powertrain model can be used to predict energy consumption. The full prediction pipeline is summarized by the following figure:</p>
-<p><img alt="Prediction Pipeline Overview" src="_images/PredictionOverview.png" /></p>
-<p>RouteE-Transit moves from static GTFS files to energy predictions in three steps:</p>
-<section id="specify-gtfs-trip-data">
-<h2>1) Specify GTFS Trip Data<a class="headerlink" href="#specify-gtfs-trip-data" title="Link to this heading">#</a></h2>
-<p>First, users need to specify the scope of predictions by supplying data from a static GTFS feed. See [](data:gtfs-reqs) for details on what GTFS data must be available. RouteE-Transit needs a set of trips along with their shape traces, stop locations, and stop times in order to proce estimated distance, road grade, and speed for RouteE-Powertrain models.</p>
-<p>Users can supply an entire GTFS feed as input or filter down trips (e.g., only trips on a certain day or serving a certain route).</p>
+<p>RouteE-Transit uses <a class="reference external" href="https://github.com/NatLabRockies/routee-compass">RouteE-Compass</a> to predict the energy consumption of bus trips from a static GTFS feed. The pipeline converts GTFS data into road link-level features (speed, grade, and distance) that RouteE-Compass uses to estimate energy consumption for each trip.</p>
+<p>The full workflow proceeds in four stages:</p>
+<ol class="arabic simple">
+<li><p><strong>Load and filter GTFS trips</strong> — select the trips to model</p></li>
+<li><p><strong>Infer deadhead trips</strong> <em>(optional)</em> — add non-revenue travel between trips and to/from depots</p></li>
+<li><p><strong>Prepare road link features</strong> — map match shapes to the road network and extract speed and grade</p></li>
+<li><p><strong>Predict energy and thermal impacts</strong> — run RouteE-Compass models and optionally add HVAC loads</p></li>
+</ol>
+<section id="load-and-filter-gtfs-trips">
+<h2>1) Load and Filter GTFS Trips<a class="headerlink" href="#load-and-filter-gtfs-trips" title="Link to this heading">#</a></h2>
+<p>RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.</p>
+<p>See [](data:gtfs-reqs) for the full list of required GTFS files and fields.</p>
 </section>
-<section id="prepare-routee-powertrain-features">
-<h2>2) Prepare RouteE-Powertrain Features<a class="headerlink" href="#prepare-routee-powertrain-features" title="Link to this heading">#</a></h2>
-<p>Next, RouteE-Transit transforms the input GTFS data into link-level features on the road network so a RouteE-Powertrain model can be applied. The first step in this process is to upsample the shape traces from <code class="docutils literal notranslate"><span class="pre">shapes.txt</span></code> to approximately 1 Hz resolution for better map matching accuracy, and then match the shapes to OpenStreetMap road links using NREL's <code class="docutils literal notranslate"><span class="pre">mappymatch</span></code> package.</p>
-<p>The map-matched shapes are then used to calculate link distances and NREL's <code class="docutils literal notranslate"><span class="pre">gradeit</span></code> package appends road grade information to each link based on USGS National Map elevation data.</p>
-<p>Finally, the estimated distances are used along with the time intervals between stops from<code class="docutils literal notranslate"><span class="pre">stop_times.txt</span></code> to estimate bus average speed along each road link.</p>
+<section id="deadhead-trip-inference">
+<h2>2) Deadhead Trip Inference<a class="headerlink" href="#deadhead-trip-inference" title="Link to this heading">#</a></h2>
+<p>Revenue service trips don't capture all of a bus's potential energy usage. Buses must also travel between the end of one trip and the start of the next (what we call <em>mid-block deadhead</em> and is often known as <em>interlining</em> when a bus switches between routes), and between the depot and the first or last stop of the day (<em>depot deadhead</em>). Deadheads are not included in the GTFS standard, but RouteE-Transit can infer and route both types automatically.</p>
+<section id="mid-block-deadhead">
+<h3>Mid-block deadhead<a class="headerlink" href="#mid-block-deadhead" title="Link to this heading">#</a></h3>
+<p>For each block in the GTFS feed, consecutive revenue trips are examined. When the last stop of one trip does not coincide with the first stop of the next, a mid-block deadhead trip is created between those two points. Origin–destination pairs that are closer than 200 m receive a straight-line fallback geometry; all others are routed via RouteE-Compass.</p>
 </section>
-<section id="predict-energy-consumption-with-routee-powertrain">
-<h2>3) Predict Energy Consumption with RouteE-Powertrain<a class="headerlink" href="#predict-energy-consumption-with-routee-powertrain" title="Link to this heading">#</a></h2>
-<p>In the last step, a trained RouteE-Powertrain model is run to predict energy consumption for each trip. RouteE-Powertrain version 1.3.2 introduced two initial transit bus models (<code class="docutils literal notranslate"><span class="pre">Transit_Bus_Diesel</span></code> and <code class="docutils literal notranslate"><span class="pre">Transit_Bus_Battery_Electric</span></code>) and additional models for different bus styles and manufacturers will be rolled out over time.</p>
+<section id="depot-deadhead-pull-out-pull-in">
+<h3>Depot deadhead (pull-out / pull-in)<a class="headerlink" href="#depot-deadhead-pull-out-pull-in" title="Link to this heading">#</a></h3>
+<p>Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. By default, depot locations are drawn from the <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">National Transit Database &quot;Public Transit Facilities and Stations – 2023&quot;</a> dataset. Custom depot locations can be supplied by passing a <code class="docutils literal notranslate"><span class="pre">depot_path</span></code> to <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code>.</p>
+<p>All deadhead shapes are generated through RouteE-Compass using shortest-time routing on the OpenStreetMap road network. Unique origin–destination pairs are routed only once, so blocks that share identical endpoints incur no additional routing cost.</p>
+</section>
+</section>
+<section id="road-link-feature-preparation">
+<h2>3) Road Link Feature Preparation<a class="headerlink" href="#road-link-feature-preparation" title="Link to this heading">#</a></h2>
+<p>Shape traces (both revenue and deadhead) are upsampled to approximately 1 Hz resolution and then map-matched to OpenStreetMap road links using RouteE-Compass's LCSS (Longest Common Subsequence) map matcher. Each matched link is annotated with:</p>
+<ul class="simple">
+<li><p><strong>Distance</strong> — derived from OSM road geometry</p></li>
+<li><p><strong>Grade</strong> — elevation data from the USGS National Map, fetched automatically</p></li>
+<li><p><strong>Speed</strong> — estimated from the scheduled time between GTFS stops and the cumulative shape distance traveled</p></li>
+</ul>
+</section>
+<section id="energy-prediction-and-thermal-impacts">
+<h2>4) Energy Prediction and Thermal Impacts<a class="headerlink" href="#energy-prediction-and-thermal-impacts" title="Link to this heading">#</a></h2>
+<section id="powertrain-energy">
+<h3>Powertrain energy<a class="headerlink" href="#powertrain-energy" title="Link to this heading">#</a></h3>
+<p>RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — predicts energy consumption from the road link features computed above. Two transit bus models are included:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model name</p></th>
+<th class="head"><p>Output unit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Battery_Electric</span></code></p></td>
+<td><p>kWh</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Diesel</span></code></p></td>
+<td><p>gallons diesel</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>In RouteE-Transit 0.3.0, both models simply apply a kinetic energy stop penalty at GTFS stop locations (modeled as 0.5mv²). Future release will refine the physical and thermal models used to account for the impacts of stops. Results are also expressed in miles-per-gallon equivalent (MPGe) using EPA/DOE GGE conversion factors for cross-fuel comparison.</p>
+</section>
+<section id="thermal-impacts-hvac-btms">
+<h3>Thermal impacts (HVAC + BTMS)<a class="headerlink" href="#thermal-impacts-hvac-btms" title="Link to this heading">#</a></h3>
+<p>For battery-electric buses, auxiliary loads from the HVAC system and battery thermal management system (BTMS) can represent a significant share of total energy consumption. When <code class="docutils literal notranslate"><span class="pre">add_hvac=True</span></code>, RouteE-Transit adds these loads using county-level Typical Meteorological Year (TMY3) weather data:</p>
+<ol class="arabic simple">
+<li><p>Each stop is spatially joined to its US Census county.</p></li>
+<li><p>TMY3 files for the relevant counties are downloaded from the NREL Open Energy Data Initiative (OEDI) S3 bucket.</p></li>
+<li><p>Hourly HVAC + BTMS power demand is looked up from a temperature-dependent table (derived from the literature) and integrated over each trip's scheduled time window.</p></li>
+<li><p>Thermal energy is computed for three weather scenarios — <strong>summer</strong> (hottest day of year), <strong>winter</strong> (coldest day), and <strong>median</strong> — giving a range of thermal impact estimates per trip.</p></li>
+</ol>
+<p>The resulting <code class="docutils literal notranslate"><span class="pre">hvac_energy_kWh</span></code> is added to the powertrain energy for electric models in the trip-level output.</p>
+</section>
 </section>
 </section>
 <section class="tex2jax_ignore mathjax_ignore" id="using-the-gtfsenergypredictor-class">
 <h1>Using the GTFSEnergyPredictor Class<a class="headerlink" href="#using-the-gtfsenergypredictor-class" title="Link to this heading">#</a></h1>
-<p>RouteE-Transit provides an object-oriented interface through the <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code> class that simplifies the complete workflow:</p>
+<p>RouteE-Transit provides an object-oriented interface through the <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code> class:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span>
 
-<span class="c1"># Initialize predictor</span>
+<span class="c1"># Initialize predictor — vehicle_models and output_dir are set here</span>
 <span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
     <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;path/to/gtfs&quot;</span><span class="p">,</span>
+    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;reports/my_agency&quot;</span><span class="p">,</span>  <span class="c1"># optional; enables result caching</span>
     <span class="c1"># depot_path is optional - defaults to NTD depot locations</span>
 <span class="p">)</span>
 
 <span class="c1"># Option 1: Use the convenience method (recommended)</span>
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="n">vehicle_models</span><span class="o">=</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">,</span>
     <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
     <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">],</span>
+    <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -458,19 +509,18 @@ document.write(`
 <span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">])</span>
 <span class="n">predictor</span><span class="o">.</span><span class="n">add_mid_block_deadhead</span><span class="p">()</span>  <span class="c1"># Between-trip deadhead</span>
 <span class="n">predictor</span><span class="o">.</span><span class="n">add_depot_deadhead</span><span class="p">()</span>      <span class="c1"># To/from depot (uses NTD locations)</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">match_shapes_to_network</span><span class="p">()</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">add_road_grade</span><span class="p">()</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">predict_energy</span><span class="p">(</span><span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span> <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">get_link_level_inputs</span><span class="p">()</span>   <span class="c1"># Map matching + grade via RouteE-Compass</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">predict_energy</span><span class="p">(</span><span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section class="tex2jax_ignore mathjax_ignore" id="assumptions-and-limitations">
 <h1>Assumptions and Limitations<a class="headerlink" href="#assumptions-and-limitations" title="Link to this heading">#</a></h1>
 <ul class="simple">
-<li><p><strong>HVAC Energy</strong>: Weather impacts are modeled through seasonal HVAC energy consumption (winter and summer) based on ambient temperature data from TMY3 files. Users can enable this with the <code class="docutils literal notranslate"><span class="pre">add_hvac=True</span></code> parameter.</p></li>
-<li><p><strong>Deadhead Trips</strong>: Both mid-block deadhead trips (between consecutive revenue trips) and depot deadhead trips (pull-out/pull-in) can be included in the analysis using the <code class="docutils literal notranslate"><span class="pre">add_mid_block_deadhead()</span></code> and <code class="docutils literal notranslate"><span class="pre">add_depot_deadhead()</span></code> methods, or by setting the corresponding parameters to <code class="docutils literal notranslate"><span class="pre">True</span></code> in the <code class="docutils literal notranslate"><span class="pre">run()</span></code> method.</p></li>
-<li><p><strong>Depot Locations</strong>: By default, depot locations come from the National Transit Database's &quot;Public Transit Facilities and Stations - 2023&quot; dataset (<a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a>). Users can provide custom depot locations by specifying <code class="docutils literal notranslate"><span class="pre">depot_path</span></code> when initializing the predictor.</p></li>
-<li><p><strong>Network Data</strong>: By default, OpenStreetMap is used for road network matching. The class is designed to be extended for use with proprietary network data (e.g., TomTom, HERE) by subclassing and overriding the <code class="docutils literal notranslate"><span class="pre">_match_shapes_to_network()</span></code> method.</p></li>
+<li><p><strong>Speed estimation</strong>: Trip speed is assumed constant along each shape and is derived from scheduled stop times and cumulative shape distance. Actual in-service speed variation is not captured.</p></li>
+<li><p><strong>Deadhead speed</strong>: Deadhead trips assume a uniform average speed of 30 km/h for travel time estimation.</p></li>
+<li><p><strong>Depot matching</strong>: The nearest depot is chosen by minimising total pull-out + pull-in distance. Actual depot assignments may differ from operational practice.</p></li>
+<li><p><strong>TMY weather</strong>: HVAC loads use typical (not actual) meteorological year data.</p></li>
 </ul>
 </section>
 
@@ -505,12 +555,12 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="data.html"
+       href="examples/Utah_Transit_Agency_example.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Data Requirements</p>
+        <p class="prev-next-title">Utah Transit Authority</p>
       </div>
     </a>
     <a class="right-next"
@@ -529,19 +579,30 @@ document.write(`
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
-  <div class="sidebar-secondary-item">
-  <div class="page-toc tocsection onthispage">
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> Contents
   </div>
-  <nav class="bd-toc-nav page-toc">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specify-gtfs-trip-data">1) Specify GTFS Trip Data</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-routee-powertrain-features">2) Prepare RouteE-Powertrain Features</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#predict-energy-consumption-with-routee-powertrain">3) Predict Energy Consumption with RouteE-Powertrain</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trip-inference">2) Deadhead Trip Inference</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mid-block-deadhead">Mid-block deadhead</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#depot-deadhead-pull-out-pull-in">Depot deadhead (pull-out / pull-in)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#road-link-feature-preparation">3) Road Link Feature Preparation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-prediction-and-thermal-impacts">4) Energy Prediction and Thermal Impacts</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#powertrain-energy">Powertrain energy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-impacts-hvac-btms">Thermal impacts (HVAC + BTMS)</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#using-the-gtfsenergypredictor-class">Using the GTFSEnergyPredictor Class</a></li>
@@ -595,8 +656,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
   </footer>
