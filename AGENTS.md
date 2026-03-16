@@ -4,11 +4,11 @@ This document provides guidance for AI coding assistants working on the RouteE-T
 
 ## Project Overview
 
-**RouteE-Transit** (`nrel.routee.transit`) is a Python package that predicts energy consumption for transit bus trips based on GTFS (General Transit Feed Specification) data and RouteE-Powertrain models. The package:
+**RouteE-Transit** (`routee.transit`) is a Python package that predicts energy consumption for transit bus trips based on GTFS (General Transit Feed Specification) data and RouteE-Compass. The package:
 
 - Matches GTFS shapes to the OpenStreetMap road network
 - Aggregates speed, distance, and grade estimates at the OSM road link level
-- Uses trained RouteE-Powertrain models to predict energy consumption
+- Uses RouteE-Compass to predict energy consumption
 - Supports HVAC energy impacts for battery-electric buses
 - Models both mid-block deadhead (between trips) and depot deadhead (pull-out/pull-in) trips
 
@@ -16,38 +16,45 @@ This document provides guidance for AI coding assistants working on the RouteE-T
 
 - **Language**: Python 3.10-3.12
 - **Package Manager**: Pixi (recommended) or pip
-- **Build System**: Hatch
+- **Build System**: Maturin (Rust/Python hybrid)
 - **Key Dependencies**:
   - `gtfsblocks` - GTFS data processing
-  - `nrel-routee-powertrain` - Energy consumption modeling
-  - `mappymatch` - Map matching algorithms
+  - `nrel.routee.compass` - Routing engine and energy prediction
   - `geopandas` - Geospatial data handling
-  - `gradeit` - Grade/elevation processing
-  - `nrel-routee-compass` - Routing engine (local editable dependency)
+  - `osmnx` - OpenStreetMap network download
+  - `geopy` - Geocoding utilities
+  - `boto3` / `requests` - Data fetching
 
 ## Project Structure
 
 ```
 routee-transit/
-├── nrel/routee/transit/     # Main package code
-├── tests/                   # Test suite
-├── scripts/                 # Example scripts and utilities
-├── docs/                    # Documentation and examples
-├── FTA_Depot/              # Default depot location data (NTD 2023)
-├── TMY/                    # Typical Meteorological Year data
-├── sample-inputs/          # Sample GTFS and configuration files
-├── pyproject.toml          # Project configuration
-└── pixi.lock               # Pixi lock file
+├── routee/transit/                  # Main package code
+│   ├── resources/sample_inputs/     # Bundled resources
+│   │   ├── FTA_Depot/               # Default depot location data (NTD 2023)
+│   │   └── saltlake/                # Sample GTFS feed (Salt Lake City)
+│   └── ...                          # predictor.py, deadhead_router.py, etc.
+├── rust/                            # Rust extension (routee-transit-py)
+├── tests/                           # Test suite
+├── scripts/                         # Example scripts and utilities
+├── docs/                            # Documentation and examples
+├── pyproject.toml                   # Project configuration
+└── pixi.lock                        # Pixi lock file
 ```
 
 ## Development Workflow
 
 ### Environment Setup
 
+**Using Pixi (recommended)**:
+```bash
+pixi install
+```
+
 **Using pip and conda**:
 ```bash
 conda activate routee-transit
-maturin develop
+maturin develop  # required to build the Rust extension
 ```
 
 ### Running Checks 
@@ -109,7 +116,7 @@ Uses RouteE-Compass to predict energy consumption based on:
 1. **Understand the pipeline**: The main entry point is `GTFSEnergyPredictor.run()` which orchestrates the entire workflow
 2. **Identify the component**: Determine which module your feature affects (e.g., deadhead routing, map matching, energy prediction)
 3. **Write tests first**: Add tests in `tests/` directory
-4. **Implement the feature**: Add code to appropriate module in `nrel/routee/transit/`
+4. **Implement the feature**: Add code to appropriate module in `routee/transit/`
 5. **Update documentation**: Add examples to `docs/examples/` if user-facing
 
 ### Debugging Issues
@@ -138,7 +145,7 @@ Uses RouteE-Compass to predict energy consumption based on:
 - **Integration tests**: Test complete workflows
 - **Use pytest fixtures**: For common test data and setup
 - **Test with real GTFS data**: Use sample feeds from `sample-inputs/`
-- **Mock external dependencies**: When testing RouteE-Compass or RouteE-Powertrain interactions
+- **Mock external dependencies**: When testing RouteE-Compass interactions
 
 ## Documentation
 
@@ -149,9 +156,11 @@ Uses RouteE-Compass to predict energy consumption based on:
 
 ## Common Pitfalls
 
-3. **Time Format**: GTFS times can exceed 24 hours (e.g., "25:30:00" for 1:30 AM next day)
-4. **Block IDs**: Not all GTFS feeds have block IDs; handle `NaN` values appropriately
-5. **CRS Mismatches**: Always verify coordinate reference systems when working with geospatial data
+1. **Time Format**: GTFS times can exceed 24 hours (e.g., "25:30:00" for 1:30 AM next day)
+2. **Block IDs**: Not all GTFS feeds have block IDs; handle `NaN` values appropriately
+3. **CRS Mismatches**: Always verify coordinate reference systems when working with geospatial data
+4. **`vehicle_models` placement**: Pass `vehicle_models` to `GTFSEnergyPredictor.__init__()`, not to `run()`
+5. **Rust extension**: Run `maturin develop` after any Rust code changes before running Python code or tests
 
 ## Questions to Ask
 

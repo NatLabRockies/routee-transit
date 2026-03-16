@@ -40,9 +40,9 @@ def download_tmy_files(county_ids: list[str], tmy_dir: Path) -> None:
     Parameters
     ----------
     county_ids : list[str]
-        List of US Census County IDs for which to download TMY files
-    trips_df : pd.DataFrame
-        Trips on selected date and route, including deadhead trips.
+        List of US Census County IDs for which to download TMY files.
+    tmy_dir : Path
+        Directory where downloaded TMY CSV files are saved.
     """
     bucket_name = "oedi-data-lake"  # S3 Bucket and path prefix for TMY data
     prefix = (
@@ -211,11 +211,16 @@ def add_HVAC_energy(
         GTFS feed object containing blocks DataFrame.
     trips_df : pd.DataFrame
         Trips on selected date and route, including deadhead trips.
+    output_dir : Path or None
+        Directory used to store downloaded TMY weather files (in a ``TMY/``
+        subdirectory). Must not be None.
 
     Returns
     -------
     pd.DataFrame
-        Updated trip level energy prediction DataFrame with HVAC energy consumption data
+        Updated trip-level energy prediction DataFrame with HVAC energy
+        consumption per trip for each weather scenario
+        (``summer``, ``winter``, ``median``).
     """
     if output_dir is not None:
         tmy_dir = output_dir / "TMY"

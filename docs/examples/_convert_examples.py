@@ -1,4 +1,5 @@
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -16,7 +17,18 @@ def script_to_notebook(script_path: Path, notebook_path: Path) -> None:
 
     def add_code_cell(block: list[str]) -> None:
         if block:
-            notebook.cells.append(nbformat.v4.new_code_cell("".join(block)))
+            tags: list[str] = []
+            filtered: list[str] = []
+            for line in block:
+                m = re.match(r"^# cell-tags:\s*(.+)$", line.rstrip())
+                if m:
+                    tags = [t.strip() for t in m.group(1).split(",")]
+                else:
+                    filtered.append(line)
+            cell = nbformat.v4.new_code_cell("".join(filtered))
+            if tags:
+                cell.metadata["tags"] = tags
+            notebook.cells.append(cell)
 
     def add_markdown_cell(block: list[str]) -> None:
         if block:

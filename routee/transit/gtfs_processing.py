@@ -314,8 +314,8 @@ def extend_trip_traces(
             multiprocessing. Defaults to mp.cpu_count().
 
     Returns:
-        A list of DataFrames, one per trip, with extended trace information
-        including estimated timestamps.
+        A single concatenated DataFrame with extended trace information
+        for all trips, including estimated timestamps.
     """
     # Add stop coordinates to stop_times
     stop_times_ext = feed.stop_times[["trip_id", "stop_sequence", "stop_id"]].merge(
