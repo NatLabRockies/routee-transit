@@ -53,8 +53,8 @@ def plot_link_speeds(link_distrib, color_column):
 
 
 if __name__ == "__main__":
-    data_dir = Path("reports/realtime/greater_portland_me")
-    link_summary = pd.read_csv(data_dir / "realtime_link_speeds_20251023.csv")
+    data_dir = Path("reports/realtime/kingcounty")
+    link_summary = pd.read_csv(data_dir / "realtime_link_speeds_20251029.csv")
 
     # Convert the WKT column to a GeoSeries
     geometry = gpd.GeoSeries.from_wkt(link_summary["geom"])

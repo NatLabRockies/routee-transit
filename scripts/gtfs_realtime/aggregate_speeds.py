@@ -1,26 +1,99 @@
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
 import numpy as np
 import osmnx as ox
 import pandas as pd
+import pyproj
 import shapely
+import shapely.geometry
 from nrel.routee.compass import CompassApp
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
+# WGS84 geodesic calculator (module-level singleton for reuse)
+_GEOD = pyproj.Geod(ellps="WGS84")
+
+# Dwell detection thresholds
+DWELL_DISTANCE_THRESHOLD_M = 10.0  # meters
+DWELL_TIME_THRESHOLD_S = 15.0  # seconds
+
+
+def _parse_maxspeed_mph(val: object) -> float:
+    """Parse an OSM maxspeed value to mph. Returns NaN if unparseable."""
+    if val is None:
+        return float("nan")
+    if isinstance(val, list):
+        parsed = [_parse_maxspeed_mph(v) for v in val]
+        valid = [v for v in parsed if not np.isnan(v)]
+        return min(valid) if valid else float("nan")
+    if isinstance(val, (int, float)):
+        return float(val) if not np.isnan(float(val)) else float("nan")
+    s = str(val).strip().lower()
+    if s in ("", "none", "signals", "variable", "walk", "national"):
+        return float("nan")
+    m = re.match(r"(\d+(?:\.\d+)?)\s*(mph|km/h|kph|kmh)?", s)
+    if m:
+        speed = float(m.group(1))
+        unit = (m.group(2) or "mph").lower().replace("/", "")
+        if unit in ("kmh", "kph"):
+            speed *= 0.621371
+        return speed
+    return float("nan")
+
+
+def _parse_highway(val: object) -> str | None:
+    """Return the OSM highway tag as a string (normalises list values)."""
+    if val is None:
+        return None
+    if isinstance(val, list):
+        return str(val[0]) if val else None
+    return str(val)
+
+
+def _parse_lanes(val: object) -> float:
+    """Parse an OSM lanes value to a float. Returns NaN if unparseable."""
+    if val is None:
+        return float("nan")
+    if isinstance(val, list):
+        nums = []
+        for v in val:
+            try:
+                nums.append(int(v))
+            except (ValueError, TypeError):
+                pass
+        return float(max(nums)) if nums else float("nan")
+    try:
+        return float(int(val))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def geodesic_line_length_m(line_geom: shapely.geometry.LineString) -> float:
+    """Compute geodesic length of a LineString in meters using the WGS84 ellipsoid."""
+    coords = shapely.get_coordinates(line_geom)
+    if len(coords) < 2:
+        return 0.0
+    total = 0.0
+    for i in range(len(coords) - 1):
+        _, _, dist = _GEOD.inv(
+            coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1]
+        )
+        total += dist
+    return total
+
 
 def read_realtime_records(path_to_json):
-    # Read and flatten the JSON data
+    """Read and flatten GTFS-RT vehicle position records from a JSONL file."""
     records = []
     with open(path_to_json, "r") as f:
         for line in f:
             record = json.loads(line)
             records.append(record)
 
-    # Flatten the nested JSON structure
     df = pd.json_normalize(records)
     column_names = {
         "vehicle.trip.tripId": "trip_id",
@@ -40,25 +113,35 @@ def read_realtime_records(path_to_json):
         "vehicle.position.bearing": "bearing",
     }
     df = df.rename(columns=column_names)
-    
+
     df["trip_id"] = df["trip_id"].astype(str)
+
+    # Zero lat/lon values sometimes come up — treat as NA
+    zero_mask = (df["latitude"] == 0) | (df["longitude"] == 0)
+    if zero_mask.any():
+        print(f"Replacing {zero_mask.sum()} zero lat/lon values with NA")
+    df.loc[zero_mask, ["latitude", "longitude"]] = np.nan
+
     return df
 
 
 def clean_trip_df(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
-    """Remove duplicates in realtime DataFrame for a single trip.
+    """Remove duplicates and sort chronologically for a single trip.
 
-    Args:
-        trip_rt_df (pd.DataFrame): DataFrame with realtime observations for a single
-            bus trip
+    Parameters
+    ----------
+    trip_rt_df : pd.DataFrame
+        DataFrame with realtime observations for a single bus trip.
 
-    Returns:
-        pd.DataFrame: cleaned DataFrame with duplicates removed
+    Returns
+    -------
+    pd.DataFrame
+        Cleaned DataFrame sorted by timestamp with duplicates removed.
     """
+    trip_rt_df = trip_rt_df.dropna(subset=["timestamp"]).copy()
     trip_rt_df["timestamp"] = pd.to_datetime(
         trip_rt_df["timestamp"].astype(int), unit="s"
     )
-    # Remove duplicate observations based on key columns
     keep_cols = [
         "timestamp",
         "latitude",
@@ -67,469 +150,480 @@ def clean_trip_df(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
         "stop_id",
     ]
     keep_cols = [c for c in keep_cols if c in trip_rt_df.columns]
-    trip_rt_filt = trip_rt_df.drop_duplicates(subset=keep_cols).reset_index(drop=True)
+    trip_rt_filt = trip_rt_df.drop_duplicates(subset=keep_cols)
+    trip_rt_filt = trip_rt_filt.sort_values("timestamp").reset_index(drop=True)
     return trip_rt_filt
 
 
-def build_compass_app(rt_df: pd.DataFrame, buffer_deg: float = 0.05) -> CompassApp:
-    """Build a CompassApp from the bounding box of realtime observations.
+def build_compass_app(
+    shapes_df: pd.DataFrame,
+    buffer_deg: float = 0.05,
+) -> tuple[CompassApp, pd.DataFrame]:
+    """Build a CompassApp from the bounding box of GTFS shapes.
 
-    Args:
-        rt_df (pd.DataFrame): DataFrame of all GTFS Realtime observations.
-        buffer_deg (float): Buffer in degrees to add around the bounding box.
+    Parameters
+    ----------
+    shapes_df : pd.DataFrame
+        GTFS shapes DataFrame with columns 'shape_pt_lat' and 'shape_pt_lon'.
+    buffer_deg : float
+        Buffer in degrees to add around the bounding box.
 
-    Returns:
-        CompassApp: Initialized CompassApp for map matching.
+    Returns
+    -------
+    app : CompassApp
+        Initialized CompassApp for map matching.
+    edge_attr_df : pd.DataFrame
+        OSM edge attributes (highway, maxspeed_mph, lanes, grade, grade_abs)
+        indexed by edge geometry WKB bytes. Grade columns are populated by
+        Compass, which downloads SRTM elevation data during ``from_graph``.
     """
-    min_lon = rt_df["longitude"].min() - buffer_deg
-    max_lon = rt_df["longitude"].max() + buffer_deg
-    min_lat = rt_df["latitude"].min() - buffer_deg
-    max_lat = rt_df["latitude"].max() + buffer_deg
-    bbox = (min_lon, min_lat, max_lon, max_lat)
+    min_lat = shapes_df["shape_pt_lat"].min()
+    max_lat = shapes_df["shape_pt_lat"].max()
+    min_lon = shapes_df["shape_pt_lon"].min()
+    max_lon = shapes_df["shape_pt_lon"].max()
+
+    bbox = (
+        min_lon - buffer_deg,
+        min_lat - buffer_deg,
+        max_lon + buffer_deg,
+        max_lat + buffer_deg,
+    )
+    print(f"Building CompassApp from GTFS shapes bounding box: {bbox}")
 
     graph = ox.graph_from_bbox(bbox=bbox, network_type="drive")
+
+    # Compass downloads SRTM elevation data and calls ox.add_edge_grades
+    # internally, mutating the graph in-place before returning the app.
     app = CompassApp.from_graph(graph)
-    return app
+
+    # Build edge attribute lookup keyed by geometry WKB for later joining.
+    # Must happen AFTER from_graph so grade/grade_abs are present on the graph.
+    edges_gdf = ox.graph_to_gdfs(graph, nodes=False, fill_edge_geometry=True)
+    attr_records: dict[bytes, dict[str, object]] = {}
+    for _, row in edges_gdf.iterrows():
+        attrs: dict[str, object] = {
+            "highway": _parse_highway(row.get("highway")),
+            "maxspeed_mph": _parse_maxspeed_mph(row.get("maxspeed")),
+            "lanes": _parse_lanes(row.get("lanes")),
+        }
+        if "grade" in edges_gdf.columns:
+            g = row.get("grade")
+            attrs["grade"] = float(g) if g is not None and pd.notna(g) else float("nan")
+        if "grade_abs" in edges_gdf.columns:
+            g = row.get("grade_abs")
+            attrs["grade_abs"] = float(g) if g is not None and pd.notna(g) else float("nan")
+        attr_records[row.geometry.wkb] = attrs
+
+    edge_attr_df = pd.DataFrame.from_dict(attr_records, orient="index")
+    edge_attr_df.index.name = "_geom_wkb"
+
+    return app, edge_attr_df
 
 
 def match_realtime_trip(
-    trip_rt_df: pd.DataFrame, app: CompassApp
-) -> pd.DataFrame:
-    """Match realtime observations to the OSM network using routee-compass.
+    trip_rt_df: pd.DataFrame,
+    app: CompassApp,
+    edge_attr_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Match realtime observations to the OSM network and compute route positions.
 
-    Args:
-        trip_rt_df (pd.DataFrame): DataFrame of GTFS Realtime observations for
-            a single bus trip.
-        app (CompassApp): Initialized CompassApp for map matching.
+    Uses the map matcher's ordered edge sequence as the source of truth for
+    observation-to-link assignment.  Each observation is projected onto the matched
+    route to obtain a cumulative distance, enabling accurate timestamp interpolation
+    at link boundaries.
 
-    Returns:
-        pd.DataFrame: trip_rt_df with road link features appended
+    Parameters
+    ----------
+    trip_rt_df : pd.DataFrame
+        Cleaned, chronologically sorted GTFS-RT observations for a single trip.
+        Must have columns: latitude, longitude, timestamp.
+    app : CompassApp
+        Initialized CompassApp for map matching.
+
+    Returns
+    -------
+    obs_df : pd.DataFrame
+        Observations augmented with: edge_idx, road_id, geom, link_length_km,
+        cumul_dist_m (position along the matched route in meters).
+    edges_df : pd.DataFrame
+        GeoDataFrame of matched edges in traversal order with geodesic lengths
+        and cumulative start distances.
     """
-    # Build a map matching query from the realtime trace
+    valid = trip_rt_df.dropna(subset=["latitude", "longitude"]).copy()
+    if len(valid) < 2:
+        raise ValueError("Fewer than 2 valid coordinates after dropping NaN lat/lon")
+
     trace = [
         {"x": float(row["longitude"]), "y": float(row["latitude"])}
-        for _, row in trip_rt_df.iterrows()
+        for _, row in valid.iterrows()
     ]
-    query = {"trace": trace}
 
-    results = app.map_match([query])
+    results = app.map_match([{"trace": trace}])
+    result = results[0]
+
     gdf = match_result_to_geopandas(results)
-
     if gdf.empty:
         raise ValueError("Map matching returned no results")
 
-    # Compute link length in kilometers from the geometry (EPSG:4326 -> EPSG:3857)
-    gdf_projected = gdf.to_crs("EPSG:3857")
-    gdf["kilometers"] = gdf_projected.geometry.length / 1000.0
+    # Compute geodesic edge lengths (accurate regardless of latitude)
+    gdf["link_length_m"] = gdf.geometry.apply(geodesic_line_length_m)
+    gdf["link_length_km"] = gdf["link_length_m"] / 1000.0
 
-    # Assign each observation to the nearest matched edge
-    # Build a mapping from edge_index to road attributes
-    edge_attrs = gdf[["edge_index", "edge_id", "geometry", "kilometers"]].copy()
-    edge_attrs = edge_attrs.rename(columns={"edge_id": "road_id", "geometry": "geom"})
+    # Build cumulative distance at the start of each edge
+    cumul_start = np.zeros(len(gdf))
+    for i in range(1, len(gdf)):
+        cumul_start[i] = cumul_start[i - 1] + gdf.iloc[i - 1]["link_length_m"]
+    gdf["cumul_start_m"] = cumul_start
 
-    # For each observation, find the closest matched edge
-    obs_points = [
-        shapely.geometry.Point(row["longitude"], row["latitude"])
-        for _, row in trip_rt_df.iterrows()
+    # --- Assign each trace point to a matched edge ---
+    # Use point_matches (authoritative per-point edge assignment from the map matcher)
+    # and resolve to edge_index with greedy forward matching for loop disambiguation.
+    point_matches = result.get("point_matches", [])
+    edge_ids = gdf["edge_id"].values
+    n_edges = len(edge_ids)
+
+    obs_edge_idx = []
+    obs_cumul_dist = []
+    last_edge_idx = 0
+
+    for i in range(len(valid)):
+        row = valid.iloc[i]
+        pt = shapely.geometry.Point(row["longitude"], row["latitude"])
+
+        # Get target edge_id from point_matches if available
+        target_edge_id = None
+        if i < len(point_matches):
+            target_edge_id = point_matches[i].get("edge_id")
+
+        # Search forward in the edge sequence for the target edge_id
+        matched_idx = None
+        if target_edge_id is not None:
+            for ei in range(last_edge_idx, n_edges):
+                if edge_ids[ei] == target_edge_id:
+                    matched_idx = ei
+                    break
+
+        # Fallback: nearest edge forward from current position
+        if matched_idx is None:
+            best_dist = float("inf")
+            for ei in range(last_edge_idx, n_edges):
+                d = pt.distance(gdf.geometry.iloc[ei])
+                if d < best_dist:
+                    best_dist = d
+                    matched_idx = ei
+
+        if matched_idx is None:
+            matched_idx = last_edge_idx
+
+        # Project observation onto matched edge to get fractional position
+        edge_geom = gdf.geometry.iloc[matched_idx]
+        frac = edge_geom.project(pt, normalized=True)
+        frac = max(0.0, min(1.0, frac))
+
+        dist_along_route = (
+            cumul_start[matched_idx]
+            + frac * gdf.iloc[matched_idx]["link_length_m"]
+        )
+
+        obs_edge_idx.append(matched_idx)
+        obs_cumul_dist.append(dist_along_route)
+        last_edge_idx = matched_idx
+
+    valid["edge_idx"] = obs_edge_idx
+    valid["cumul_dist_m"] = obs_cumul_dist
+
+    # Enforce monotonicity: the bus can only move forward along the matched route
+    valid["cumul_dist_m"] = np.maximum.accumulate(valid["cumul_dist_m"].values)
+
+    # Map edge attributes to observations
+    valid["road_id"] = [str(edge_ids[ei]) for ei in obs_edge_idx]
+    valid["geom"] = [gdf.geometry.iloc[ei] for ei in obs_edge_idx]
+    valid["link_length_km"] = [
+        gdf.iloc[ei]["link_length_km"] for ei in obs_edge_idx
     ]
 
-    road_ids = []
-    geoms = []
-    km_values = []
+    # Join OSM road attributes (highway type, speed limit, grade, lanes) onto
+    # each matched edge so they flow through to the output CSV.
+    if edge_attr_df is not None:
+        geom_wkb = gdf.geometry.apply(lambda g: g.wkb)
+        for col in edge_attr_df.columns:
+            gdf[col] = geom_wkb.map(edge_attr_df[col])
 
-    for pt in obs_points:
-        min_dist = float("inf")
-        best_idx = 0
-        for idx, row in edge_attrs.iterrows():
-            if row["geom"] is not None:
-                dist = pt.distance(row["geom"])
-                if dist < min_dist:
-                    min_dist = dist
-                    best_idx = idx
-        best = edge_attrs.loc[best_idx]
-        road_ids.append(best["road_id"])
-        geoms.append(best["geom"])
-        km_values.append(best["kilometers"])
-
-    trip_rt_df = trip_rt_df.copy()
-    trip_rt_df["road_id"] = road_ids
-    trip_rt_df["geom"] = geoms
-    trip_rt_df["kilometers"] = km_values
-
-    return trip_rt_df
+    return valid, gdf
 
 
-def calculate_shape_distance(shape_df, lat1, lon1, lat2, lon2, max_distance_meters=100):
-    """
-    Calculate the distance between two points along a shape.
+def detect_dwell_time(
+    obs_df: pd.DataFrame,
+    dist_threshold_m: float = DWELL_DISTANCE_THRESHOLD_M,
+    time_threshold_s: float = DWELL_TIME_THRESHOLD_S,
+) -> pd.Series:
+    """Estimate dwell time per edge from consecutive near-stationary observations.
 
-    Parameters:
-    -----------
-    shape_df : pd.DataFrame
-        DataFrame with columns 'shape_pt_lat', 'shape_pt_lon', 'shape_dist_traveled'
-        sorted by 'shape_pt_sequence'
-    lat1, lon1 : float
-        Coordinates of the first point
-    lat2, lon2 : float
-        Coordinates of the second point
-    max_distance_meters : float
-        Maximum allowed distance (in meters) from a point to the shape
+    A dwell is detected when consecutive observations on the same edge are less than
+    ``dist_threshold_m`` apart (along the route) but more than ``time_threshold_s``
+    apart in time.
 
-    Returns:
-    --------
-    float
-        Distance along the shape between the two points (in the units of shape_dist_traveled)
+    Parameters
+    ----------
+    obs_df : pd.DataFrame
+        Observations with edge_idx, cumul_dist_m, and timestamp columns.
+    dist_threshold_m : float
+        Maximum displacement (meters) for an interval to count as dwelling.
+    time_threshold_s : float
+        Minimum elapsed time (seconds) for an interval to count as dwelling.
 
-    Raises:
+    Returns
     -------
-    ValueError
-        If either point is too far from the shape
+    pd.Series
+        Dwell time in seconds, indexed by edge_idx.
     """
-    # Extract shape coordinates
-    shape_lats = shape_df["shape_pt_lat"].values
-    shape_lons = shape_df["shape_pt_lon"].values
-    shape_distances = shape_df["shape_dist_traveled"].values
+    dwell_by_edge: dict[int, float] = {}
+    for edge_idx, group in obs_df.groupby("edge_idx"):
+        if len(group) < 2:
+            dwell_by_edge[edge_idx] = 0.0
+            continue
 
-    # Find nearest shape point to each input coordinate via brute-force
-    # (GTFS shapes are small enough that this is effectively instant)
-    dists1 = np.sqrt((shape_lats - lat1) ** 2 + (shape_lons - lon1) ** 2)
-    idx1 = np.argmin(dists1)
-    dist1 = dists1[idx1]
+        sorted_group = group.sort_values("timestamp")
+        dists = sorted_group["cumul_dist_m"].values
+        times = sorted_group["timestamp"].values
 
-    dists2 = np.sqrt((shape_lats - lat2) ** 2 + (shape_lons - lon2) ** 2)
-    idx2 = np.argmin(dists2)
-    dist2 = dists2[idx2]
+        dwell = 0.0
+        for i in range(1, len(sorted_group)):
+            d_dist = dists[i] - dists[i - 1]
+            d_time = (times[i] - times[i - 1]) / np.timedelta64(1, "s")
+            if d_dist < dist_threshold_m and d_time > time_threshold_s:
+                dwell += d_time
+        dwell_by_edge[edge_idx] = dwell
 
-    # Convert degrees to approximate meters
-    # At mid-latitudes, 1 degree lat ≈ 111km, 1 degree lon ≈ 111km * cos(lat)
-    avg_lat = (lat1 + lat2) / 2
-    dist1_meters = (
-        dist1 * 111000 * np.sqrt(1 + (np.cos(np.radians(avg_lat))) ** 2) / np.sqrt(2)
-    )
-    dist2_meters = (
-        dist2 * 111000 * np.sqrt(1 + (np.cos(np.radians(avg_lat))) ** 2) / np.sqrt(2)
-    )
-
-    # Check if points are within acceptable distance from shape
-    if dist1_meters > max_distance_meters:
-        logging.debug(
-            f"Point 1 ({lat1}, {lon1}) is {dist1_meters:.1f}m from the shape, exceeds max of {max_distance_meters}m"
-        )
-        return np.nan
-
-    if dist2_meters > max_distance_meters:
-        logging.debug(
-            f"Point 2 ({lat2}, {lon2}) is {dist2_meters:.1f}m from the shape, exceeds max of {max_distance_meters}m"
-        )
-        return np.nan
-
-    # Get the shape_dist_traveled values at the matched points
-    shape_dist1 = shape_distances[idx1]
-    shape_dist2 = shape_distances[idx2]
-
-    # Return the absolute difference (distance along shape)
-    return abs(shape_dist2 - shape_dist1)
+    return pd.Series(dwell_by_edge, name="dwell_time_sec")
 
 
-def add_speed_between_points(
-    trip_rt_df: pd.DataFrame, shape_df: pd.DataFrame
+def estimate_link_speeds(
+    obs_df: pd.DataFrame, edges_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Estimate the speed between consecutive points for a single GTFS-RT trip.
+    """Estimate average speed for each link in the matched route.
 
-    Args:
-        trip_rt_df (pd.DataFrame): trip realtime DataFrame
-        shape_df (pd.DataFrame): DataFrame of this trip's shape from shapes.txt
+    Interpolates timestamps at link boundaries using cumulative distance along the
+    matched route (via ``np.interp``), then computes speed = link_length / transit_time.
 
-    Returns:
-        pd.DataFrame: trip_rt_df with distance between observations added
+    Parameters
+    ----------
+    obs_df : pd.DataFrame
+        Observations with cumul_dist_m and timestamp columns (from match_realtime_trip).
+    edges_df : pd.DataFrame
+        Matched edges with link_length_m and cumul_start_m (from match_realtime_trip).
+
+    Returns
+    -------
+    pd.DataFrame
+        Per-link speed estimates with quality indicators.
     """
-    # Calculate distance between consecutive observations using the shape
-    trip_rt_df["shape_distance_to_next"] = np.nan
+    if len(obs_df) < 2:
+        return pd.DataFrame()
 
-    for i in range(len(trip_rt_df) - 1):
-        lat1 = trip_rt_df.loc[i, "latitude"]
-        lon1 = trip_rt_df.loc[i, "longitude"]
-        lat2 = trip_rt_df.loc[i + 1, "latitude"]
-        lon2 = trip_rt_df.loc[i + 1, "longitude"]
+    # Work in float seconds for interpolation
+    t0 = obs_df["timestamp"].iloc[0]
+    obs_dists = obs_df["cumul_dist_m"].values
+    obs_times_sec = (obs_df["timestamp"] - t0).dt.total_seconds().values
 
-        distance = calculate_shape_distance(
-            shape_df, lat1, lon1, lat2, lon2, max_distance_meters=100
-        )
-        trip_rt_df.loc[i, "shape_distance_to_next"] = distance
+    # Compute link boundary positions (start of each edge + end of last edge)
+    edge_starts = edges_df["cumul_start_m"].values
+    total_route_m = edge_starts[-1] + edges_df.iloc[-1]["link_length_m"]
+    boundaries = np.append(edge_starts, total_route_m)
 
-    trip_rt_df["timedelta_seconds"] = trip_rt_df["timestamp"].diff().dt.total_seconds()
-    FT_TO_MILES = 1.0 / 5280
-    trip_rt_df["mph"] = (
-        trip_rt_df["shape_distance_to_next"]
-        * FT_TO_MILES
-        / (trip_rt_df["timedelta_seconds"] / 3600)
-    )
-    trip_rt_df["mph"] = trip_rt_df["mph"].replace(np.inf, np.nan)
-    return trip_rt_df
+    # Interpolate timestamps at each link boundary
+    boundary_sec = np.interp(boundaries, obs_dists, obs_times_sec)
 
+    n_edges = len(edges_df)
+    link_length_m = edges_df["link_length_m"].values
+    link_length_mi = link_length_m / 1609.344
 
-def add_link_endpoints_to_realtime_df(
-    matched_rt_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Add endpoints of map-matched road links to the realtime data.
+    entry_sec = boundary_sec[:n_edges]
+    exit_sec = boundary_sec[1:]
+    transit_sec = exit_sec - entry_sec
 
-    These endpoints are included so that we can interpolate timestamps when the vehicle
-    started and finished each road link, in order to estimate average speed over links.
-
-    Args:
-        matched_rt_df (pd.DataFrame): Map-matched DataFrame of GTFS-RT observations
-            for a single bus trip.
-
-    Returns:
-        pd.DataFrame: matched_rt_df with rows added for all road link endpoints.
-    """
-    # Identify the start and end coordinates of each map-matched link.
-    # Geometry from routee-compass is already in EPSG:4326 (lon, lat).
-    segment_starts = {}
-    segment_ends = {}
-    for geo in matched_rt_df["geom"].unique():
-        coords = shapely.get_coordinates(geo)
-        # coords are (lon, lat) in EPSG:4326
-        segment_starts[geo] = (coords[0][1], coords[0][0])   # (lat, lon)
-        segment_ends[geo] = (coords[-1][1], coords[-1][0])    # (lat, lon)
-
-    # Create a list to hold all rows (existing + new endpoint rows)
-    new_rows = []
-
-    # Group by road_id to process each link segment
-    for road_id, group in matched_rt_df.groupby("road_id", sort=False):
-        # Get the geometry for this road_id (take first since they should all be the same)
-        geom = group["geom"].iloc[0]
-
-        # Get start and end coordinates
-        start_coords = segment_starts[geom]  # (lat, lon)
-        end_coords = segment_ends[geom]  # (lat, lon)
-
-        # Create a row for the segment start with only essential fields
-        start_row = pd.Series(index=matched_rt_df.columns, dtype=object)
-        start_row["latitude"] = start_coords[0]
-        start_row["longitude"] = start_coords[1]
-        start_row["is_endpoint"] = "start"
-        start_row["geom"] = geom  # Keep geom for reference
-        start_row["road_id"] = road_id  # Keep road_id for reference
-
-        # Create a row for the segment end with only essential fields
-        end_row = pd.Series(index=matched_rt_df.columns, dtype=object)
-        end_row["latitude"] = end_coords[0]
-        end_row["longitude"] = end_coords[1]
-        end_row["is_endpoint"] = "end"
-        end_row["geom"] = geom  # Keep geom for reference
-        end_row["road_id"] = road_id  # Keep road_id for reference
-
-        # Add start endpoint, then all original rows, then end endpoint
-        new_rows.append(start_row)
-        for _, row in group.iterrows():
-            row_copy = row.copy()
-            row_copy["is_endpoint"] = "original"
-            new_rows.append(row_copy)
-        new_rows.append(end_row)
-
-    # Create new dataframe with all rows
-    return pd.DataFrame(new_rows).reset_index(drop=True)
-
-
-def interpolate_timestamps(
-    df_with_endpoints: pd.DataFrame, shape: pd.DataFrame
-) -> pd.DataFrame:
-    """Estimate values of missing timestamps for all link start/end points.
-
-    This function estimates the timestamps by interpolation, based on the timestamps
-    of the previous and next original points from the GTFS-RT trace and the estimated
-    distance from the link endpoint to each of those observed points.
-
-    Args:
-        df_with_endpoints (pd.DataFrame): map-matched DataFrame of GTFS-RT trip with
-            road link endpoints inserted
-        shape (pd.DataFrame): GTFS shape DataFrame
-
-    Returns:
-        pd.DataFrame: df_with_endpoints with all timestamps populated
-    """
-
-    df_with_endpoints["mph"] = df_with_endpoints["mph"].ffill()
-    # Grab coordinates of next point and previous point. We'll calculate the distance to
-    # each and interpolate the timestamp based on them.
-    # Create a version of coordinates that only includes original observations
-    original_mask = df_with_endpoints["is_endpoint"] == "original"
-    df_with_endpoints["orig_latitude"] = df_with_endpoints["latitude"].where(
-        original_mask
-    )
-    df_with_endpoints["orig_longitude"] = df_with_endpoints["longitude"].where(
-        original_mask
-    )
-    df_with_endpoints["orig_timestamp"] = df_with_endpoints["timestamp"].where(
-        original_mask
+    # Speed in mph (NaN when transit time is zero or negative)
+    mph = np.where(
+        transit_sec > 0, link_length_mi / (transit_sec / 3600), np.nan
     )
 
-    # Forward and backward fill to get previous and next original observations
-    df_with_endpoints["last_latitude"] = df_with_endpoints["orig_latitude"].ffill()
-    df_with_endpoints["last_longitude"] = df_with_endpoints["orig_longitude"].ffill()
-    df_with_endpoints["last_timestamp"] = df_with_endpoints["orig_timestamp"].ffill()
+    # Observation count per edge
+    obs_counts = obs_df.groupby("edge_idx").size()
+    n_obs = np.array([obs_counts.get(i, 0) for i in range(n_edges)], dtype=int)
 
-    df_with_endpoints["next_latitude"] = df_with_endpoints["orig_latitude"].bfill()
-    df_with_endpoints["next_longitude"] = df_with_endpoints["orig_longitude"].bfill()
-    df_with_endpoints["next_timestamp"] = df_with_endpoints["orig_timestamp"].bfill()
+    # Dwell time per edge
+    dwell = detect_dwell_time(obs_df)
+    dwell_sec = np.array([dwell.get(i, 0.0) for i in range(n_edges)])
 
-    # Calculate distances for endpoint rows that have both previous and next observations
-    endpoint_mask = df_with_endpoints["is_endpoint"].isin(["start", "end"])
-    # Only process endpoints that have valid last and next coordinates
-    valid_interpolation_mask = (
-        endpoint_mask
-        & df_with_endpoints["last_latitude"].notna()
-        & df_with_endpoints["next_latitude"].notna()
+    # Speed excluding dwell time
+    moving_sec = transit_sec - dwell_sec
+    mph_moving = np.where(
+        moving_sec > 0, link_length_mi / (moving_sec / 3600), np.nan
     )
 
-    # Distance from last original point to current endpoint
-    df_with_endpoints.loc[valid_interpolation_mask, "distance_from_last"] = (
-        df_with_endpoints.loc[valid_interpolation_mask].apply(
-            lambda row: calculate_shape_distance(
-                shape,
-                lat1=row["last_latitude"],
-                lon1=row["last_longitude"],
-                lat2=row["latitude"],
-                lon2=row["longitude"],
-                max_distance_meters=100,
-            ),
-            axis=1,
-        )
+    # Convert boundary times back to timestamps for the output
+    entry_timestamps = t0 + pd.to_timedelta(entry_sec, unit="s")
+
+    link_summary = pd.DataFrame(
+        {
+            "road_id": edges_df["edge_id"].astype(str).values,
+            "edge_idx": np.arange(n_edges),
+            "geom": edges_df.geometry.values,
+            "link_length_km": link_length_m / 1000.0,
+            "transit_time_sec": transit_sec,
+            "mph": mph,
+            "dwell_time_sec": dwell_sec,
+            "mph_moving": mph_moving,
+            "first_timestamp": entry_timestamps,
+            "n_observations": n_obs,
+            "speed_source": np.where(n_obs >= 2, "observed", "interpolated"),
+        }
     )
 
-    # Distance from current endpoint to next original point
-    df_with_endpoints.loc[valid_interpolation_mask, "distance_to_next"] = (
-        df_with_endpoints.loc[valid_interpolation_mask].apply(
-            lambda row: calculate_shape_distance(
-                shape,
-                lat1=row["latitude"],
-                lon1=row["longitude"],
-                lat2=row["next_latitude"],
-                lon2=row["next_longitude"],
-                max_distance_meters=100,
-            ),
-            axis=1,
-        )
-    )
+    # Propagate OSM road attributes from the matched edges GeoDataFrame.
+    for col in ("highway", "maxspeed_mph", "lanes", "grade", "grade_abs"):
+        if col in edges_df.columns:
+            link_summary[col] = edges_df[col].values
 
-    # Interpolate timestamp based on distances
-    df_with_endpoints.loc[valid_interpolation_mask, "total_distance"] = (
-        df_with_endpoints.loc[valid_interpolation_mask, "distance_from_last"]
-        + df_with_endpoints.loc[valid_interpolation_mask, "distance_to_next"]
-    )
-
-    df_with_endpoints.loc[valid_interpolation_mask, "total_time_seconds"] = (
-        df_with_endpoints.loc[valid_interpolation_mask, "next_timestamp"]
-        - df_with_endpoints.loc[valid_interpolation_mask, "last_timestamp"]
-    ).dt.total_seconds()
-
-    # Interpolate: timestamp = last_timestamp + (distance_from_last / total_distance) * total_time
-    df_with_endpoints.loc[valid_interpolation_mask, "timestamp"] = (
-        df_with_endpoints.loc[valid_interpolation_mask, "last_timestamp"]
-        + pd.to_timedelta(
-            (
-                df_with_endpoints.loc[valid_interpolation_mask, "distance_from_last"]
-                / df_with_endpoints.loc[valid_interpolation_mask, "total_distance"]
-            )
-            * df_with_endpoints.loc[valid_interpolation_mask, "total_time_seconds"],
-            unit="s",
-        )
-    )
-    return df_with_endpoints
-
-
-def estimate_link_speeds(interpolated_df):
-    # Group by road_id to calculate link-level speeds
-    link_gb = interpolated_df.groupby("road_id")
-
-    link_summary = pd.DataFrame()
-
-    # Calculate total distance traveled on each link
-    # Sum all shape_distance_to_next values, but exclude the last row's value (which is distance to next link)
-    link_summary["distance_traveled_km"] = link_gb["kilometers"].mean()
-
-    # Convert to miles
-    link_summary["distance_traveled_mi"] = link_summary["distance_traveled_km"] / 1.609
-
-    # Calculate time difference between first and last timestamp on each link
-    link_summary["time_diff_sec"] = (
-        link_gb["timestamp"].max() - link_gb["timestamp"].min()
-    ).dt.total_seconds()
-
-    # Calculate average speed in mph
-    link_summary["mph"] = link_summary["distance_traveled_mi"] / (
-        link_summary["time_diff_sec"] / 3600
-    )
-
-    # Include shape for plotting
-    link_summary["geom"] = link_gb["geom"].apply(lambda x: x.bfill().iloc[0])
-
-    # Add some additional useful info
-    link_summary["first_timestamp"] = link_gb["timestamp"].min()
-    link_summary["n_observations"] = link_gb["is_endpoint"].apply(
-        lambda x: (x == "original").sum()
-    )
     return link_summary
 
 
-def get_link_speeds_for_trip(trip_id, rt_df, trips_df, shapes_df, app):
-    # Extract the trip with the most observed points
+def get_link_speeds_for_trip(
+    trip_id: str,
+    rt_df: pd.DataFrame,
+    trips_df: pd.DataFrame,
+    app: CompassApp,
+    edge_attr_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Compute per-link speed estimates for a single trip.
+
+    Parameters
+    ----------
+    trip_id : str
+        GTFS trip ID.
+    rt_df : pd.DataFrame
+        All realtime records (will be filtered to this trip).
+    trips_df : pd.DataFrame
+        GTFS trips.txt indexed by trip_id.
+    app : CompassApp
+        Initialized CompassApp for map matching.
+
+    Returns
+    -------
+    pd.DataFrame
+        Per-link speed estimates, or empty DataFrame if the trip can't be processed.
+    """
     trip_df = rt_df[rt_df["trip_id"] == trip_id].copy()
-
-    trip_id = trip_df.trip_id.iloc[0]
-    shape_id = trips_df.loc[trip_id, "shape_id"]
-    shape = shapes_df[shapes_df["shape_id"] == shape_id].sort_values(
-        by="shape_pt_sequence"
-    )
-
     trip_df_filt = clean_trip_df(trip_df)
+
     if len(trip_df_filt) < 10:
-        # Throw out trips with under 10 unique points
-        return pd.DataFrame()
-    
-    trip_with_speeds = add_speed_between_points(trip_df_filt, shape)
+        logging.debug(
+            "Trip %s skipped: only %d observations after cleaning",
+            trip_id,
+            len(trip_df_filt),
+        )
+        return pd.DataFrame(columns=["_skip_reason"]).assign(
+            _skip_reason=f"too_few_obs:{len(trip_df_filt)}"
+        )[:0]
+
+    has_rt_speed = "speed" in trip_df_filt.columns
+
     try:
-        matched_df = match_realtime_trip(trip_with_speeds, app)
-    except ValueError:
-        return pd.DataFrame()
-    except shapely.errors.GEOSException:
-        return pd.DataFrame()
-    
-    try:
-        matched_df_ext = add_link_endpoints_to_realtime_df(matched_df)
-    except TypeError as e:
-        print(f"Caught error for trip {trip_id}, skipping. Error was: {e}")
+        obs_df, edges_df = match_realtime_trip(trip_df_filt, app, edge_attr_df=edge_attr_df)
+    except (ValueError, shapely.errors.GEOSException) as exc:
+        logging.debug("Trip %s skipped: map match error: %s", trip_id, exc)
         return pd.DataFrame()
 
-    matched_df_with_timestamps = interpolate_timestamps(matched_df_ext, shape)
-    link_summary = estimate_link_speeds(matched_df_with_timestamps)
+    link_summary = estimate_link_speeds(obs_df, edges_df)
+    if link_summary.empty:
+        return pd.DataFrame()
 
-    # Clean up output
-    link_summary.index = link_summary.index.astype(str)
+    # Attach trip metadata
     link_summary["trip_id"] = trip_id
     link_summary["route_id"] = trip_df_filt["route_id"].iloc[0]
     link_summary["vehicle_id"] = trip_df_filt["vehicle_id"].iloc[0]
-    return link_summary[
-        [
-            "geom",
-            "mph",
-            "trip_id",
-            "first_timestamp",
-            "vehicle_id",
-            "route_id",
-            "n_observations",
-        ]
+
+    # Attach median GTFS-RT reported speed per link for verification
+    if has_rt_speed:
+        rt_speed_by_edge = (
+            obs_df.dropna(subset=["speed"]).groupby("edge_idx")["speed"].median()
+        )
+        link_summary["rt_speed_mps"] = link_summary["edge_idx"].map(rt_speed_by_edge)
+
+    return link_summary
+
+
+def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate per-trip link speeds into a single estimate per road link.
+
+    Uses observation-count-weighted average across trips for each unique road segment.
+
+    Parameters
+    ----------
+    all_trip_speeds : pd.DataFrame
+        Concatenated per-trip link speed estimates.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per unique road_id with weighted-average speed.
+    """
+    valid = all_trip_speeds.dropna(subset=["mph"]).copy()
+    valid = valid[np.isfinite(valid["mph"])]
+
+    if valid.empty:
+        return pd.DataFrame()
+
+    def weighted_mean(group: pd.DataFrame) -> pd.Series:
+        weights = group["n_observations"].values.astype(float)
+        total_weight = weights.sum()
+        if total_weight == 0:
+            weights = np.ones(len(group))
+            total_weight = float(len(group))
+
+        wmean_mph = np.average(group["mph"].values, weights=weights)
+
+        wmean_moving = np.nan
+        moving_valid = group["mph_moving"].dropna()
+        if len(moving_valid) > 0:
+            w_moving = weights[group["mph_moving"].notna()]
+            if w_moving.sum() == 0:
+                w_moving = np.ones(len(moving_valid))
+            wmean_moving = np.average(moving_valid.values, weights=w_moving)
+
+        return pd.Series(
+            {
+                "mph_mean": wmean_mph,
+                "mph_moving_mean": wmean_moving,
+                "geom": group["geom"].iloc[0],
+                "link_length_km": group["link_length_km"].iloc[0],
+                "n_trips": len(group),
+                "total_observations": int(total_weight),
+            }
+        )
+
+    aggregated = valid.groupby("road_id").apply(
+        weighted_mean, include_groups=False
+    ).reset_index()
+
+    # Road properties are constant per road_id — attach from first occurrence.
+    road_prop_cols = [
+        c for c in valid.columns
+        if c in {"highway", "maxspeed_mph", "lanes", "grade", "grade_abs"}
     ]
+    if road_prop_cols:
+        road_props = valid.groupby("road_id")[road_prop_cols].first().reset_index()
+        aggregated = aggregated.merge(road_props, on="road_id", how="left")
+
+    return aggregated
 
 
-def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
+def get_speeds_for_one_day(
+    path_to_json: Path | os.PathLike,
+):
     if not isinstance(path_to_json, Path):
         path_to_json = Path(path_to_json)
 
-    # Parent directory of json file, should contain a "static" folder with
-    # GTFS static files (we need trips and shapes)
     gtfs_root = path_to_json.parent
 
     # Read relevant static files
@@ -555,25 +649,45 @@ def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
     if "route_id" not in rt_df.columns:
         rt_df = rt_df.merge(trips_df[["route_id"]], left_on="trip_id", right_index=True)
 
-    # Build the CompassApp once from the bounding box of all observations
-    print("Building CompassApp from realtime observation bounding box...")
-    app = build_compass_app(rt_df)
+    # Build the CompassApp once using the GTFS shapes bounding box (clean, authoritative)
+    app, edge_attr_df = build_compass_app(shapes_df)
 
     first_trip_start = time.time()
+    all_results = []
 
     for ix, (route_id, route_rt) in enumerate(rt_df.groupby("route_id")):
         trip_ids = list(route_rt["trip_id"].unique())
         print(f"Analyzing {len(trip_ids)} trips on route {route_id}")
         route_start = time.time()
-        results = [
+        raw_results = [
             get_link_speeds_for_trip(
-                tid, rt_df=rt_df, shapes_df=shapes_df, trips_df=trips_df, app=app
+                tid, rt_df=rt_df, trips_df=trips_df, app=app, edge_attr_df=edge_attr_df
             )
             for tid in trip_ids
         ]
-        results = [r for r in results if not r.empty]
+        n_skipped = sum(
+            1 for r in raw_results
+            if r.empty or ("_skip_reason" in r.columns)
+        )
+        results = [
+            r for r in raw_results
+            if not r.empty and "_skip_reason" not in r.columns
+        ]
+        if n_skipped:
+            # Sample a few raw observations to help diagnose sparse/missing data
+            sample_tid = trip_ids[0]
+            sample_raw = rt_df[rt_df["trip_id"] == sample_tid]
+            sample_clean = clean_trip_df(sample_raw.copy())
+            print(
+                f"  ⚠ {n_skipped}/{len(trip_ids)} trips skipped on route {route_id}. "
+                f"Sample trip '{sample_tid}': "
+                f"{len(sample_raw)} raw rows → {len(sample_clean)} after cleaning"
+                + (f" (need ≥10; lat/lon null: {sample_raw[['latitude','longitude']].isna().any(axis=1).sum()})" if not sample_raw.empty else "")
+            )
         if results:
-            pd.concat(results).to_csv(gtfs_root / f"realtime_speeds_{route_id}.csv")
+            route_df = pd.concat(results, ignore_index=True)
+            route_df.to_csv(gtfs_root / f"realtime_speeds_{route_id}.csv")
+            all_results.append(route_df)
         print(
             f"Analyzing {route_rt.trip_id.nunique()} trips on route {route_id} "
             f"took {time.time() - route_start:.2f} s"
@@ -584,15 +698,28 @@ def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
     # file and delete the smaller files.
     file_date = str(path_to_json).split(".")[0].split("_")[-1]
     all_csvs = list(gtfs_root.glob("realtime_speeds_*.csv"))
-    combined_df = pd.concat([pd.read_csv(f) for f in all_csvs], ignore_index=True)
-    all_speeds_file = gtfs_root / f"realtime_link_speeds_{file_date}.csv"
-    combined_df.to_csv(all_speeds_file, index=False)
-    for f in all_csvs:
-        os.remove(f)
-    print(
-        f"Combined all route CSVs into {all_speeds_file}"
-        " and deleted originals."
-    )
+    if all_csvs:
+        combined_df = pd.concat(
+            [pd.read_csv(f) for f in all_csvs], ignore_index=True
+        )
+        all_speeds_file = gtfs_root / f"realtime_link_speeds_{file_date}.csv"
+        combined_df.to_csv(all_speeds_file, index=False)
+        for f in all_csvs:
+            os.remove(f)
+        print(
+            f"Combined all route CSVs into {all_speeds_file}"
+            " and deleted originals."
+        )
+
+    # Aggregate speeds across trips (weighted average per road segment)
+    if all_results:
+        all_trips_df = pd.concat(all_results, ignore_index=True)
+        aggregated = aggregate_speeds_across_trips(all_trips_df)
+        if not aggregated.empty:
+            agg_file = gtfs_root / f"realtime_link_speeds_aggregated_{file_date}.csv"
+            aggregated.to_csv(agg_file, index=False)
+            print(f"Aggregated link speeds saved to {agg_file}")
+
     print(
         f"Analyzing all {rt_df.trip_id.nunique()} trips "
         f"took {time.time() - first_trip_start:.2f} s"
@@ -600,5 +727,6 @@ def get_speeds_for_one_day(path_to_json: Path | os.PathLike):
 
 
 if __name__ == "__main__":
-    json_path = "reports/realtime/greater_portland_me/gtfs_realtime_records_20251023.jsonl"
+    # json_path = "reports/realtime/greater_portland_me/gtfs_realtime_records_20251023.jsonl"
+    json_path = "reports/realtime/kingcounty/gtfs_realtime_records_20251029.jsonl"
     get_speeds_for_one_day(json_path)
