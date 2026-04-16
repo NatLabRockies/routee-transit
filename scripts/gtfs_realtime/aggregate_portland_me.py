@@ -1,8 +1,8 @@
-"""Aggregate realtime link speeds for Portland ME across all days of service.
+"""Aggregate realtime link speeds across all days of service for a transit agency.
 
-This script processes every JSONL file in the Greater Portland ME realtime
-data directory, computes per-link speed estimates for each day, and then
-produces a combined multi-day aggregation.
+This script processes every JSONL file in a given realtime data directory,
+computes per-link speed estimates for each day, and then produces a combined
+multi-day aggregation.
 
 It reuses the helper functions from ``aggregate_speeds.py`` and builds the
 CompassApp only once for efficiency.
@@ -163,7 +163,7 @@ def main(data_dir: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Aggregate Portland ME realtime speeds"
+        description="Aggregate realtime speeds for a transit agency"
     )
     parser.add_argument(
         "--data-dir",

@@ -1,22 +1,28 @@
 """Fit speed prediction models to aggregated realtime link speed data.
 
-Reads the combined per-trip link speed CSV produced by
-``aggregate_portland_me.py``, removes outliers, aggregates to mean speed per
-road link × time-of-day bin × weekday/weekend, and trains three regression
-models using only features available from OSM (generalizable to any US
-transit agency).
+Reads combined per-trip link speed CSVs from one or more transit agency
+directories, removes outliers, aggregates to mean speed per road link ×
+time-of-day bin × weekday/weekend, and trains regression models using only
+features available from OSM (generalizable to any US transit agency).
 
-1. Linear Regression (OLS baseline)
+0. Baseline  — speed_limit × constant
+1. Linear Regression (OLS)
 2. Random Forest
 3. Histogram Gradient Boosting (handles NaN natively)
 
 The train/test split is spatial — entire road segments are held out — so
 that metrics reflect the real use-case of predicting speeds on *unseen*
-roads.
+roads in *both* networks.
 
 Usage
 -----
-    python fit_speed_models.py [--data-dir PATH] [--input FILE]
+    # Single agency
+    python fit_speed_models.py --data-dir reports/realtime/greater_portland_me
+
+    # Multiple agencies (combined training)
+    python fit_speed_models.py \\
+        --data-dir reports/realtime/greater_portland_me \\
+        --data-dir reports/realtime/cdta_albany
 """
 
 import argparse
@@ -42,7 +48,10 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-DEFAULT_DATA_DIR = Path("reports/realtime/greater_portland_me")
+DEFAULT_DATA_DIRS = [
+    Path("reports/realtime/greater_portland_me"),
+    Path("reports/realtime/cdta_albany"),
+]
 
 # Only features derivable from OSM — no agency- or trip-specific data.
 NUMERIC_FEATURES = ["maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km"]
@@ -56,10 +65,8 @@ SPEED_CEIL_MPH = 65.0  # above this is implausible for transit buses
 IQR_MULTIPLIER = 1.5  # per-road IQR fence
 
 
-def _resolve_input(data_dir: Path, input_file: str | None) -> Path:
-    """Find the best available per-trip speed CSV."""
-    if input_file:
-        return Path(input_file)
+def _resolve_input(data_dir: Path) -> Path:
+    """Find the best available per-trip speed CSV in a single agency directory."""
     all_days = data_dir / "realtime_link_speeds_all_days.csv"
     if all_days.exists():
         return all_days
@@ -70,11 +77,11 @@ def _resolve_input(data_dir: Path, input_file: str | None) -> Path:
     return candidates[-1]
 
 
-def load_and_clean(csv_path: Path) -> pd.DataFrame:
+def load_and_clean(csv_path: Path, agency_label: str | None = None) -> pd.DataFrame:
     """Load per-trip link speeds and apply basic sanity filters."""
     log.info("Loading data from %s", csv_path)
     df = pd.read_csv(csv_path)
-    log.info("Raw rows: %d", len(df))
+    log.info("  Raw rows: %d", len(df))
 
     df = df.dropna(subset=[TARGET])
     df = df[np.isfinite(df[TARGET])]
@@ -83,7 +90,13 @@ def load_and_clean(csv_path: Path) -> pd.DataFrame:
         df = df[df["speed_source"] == "observed"]
     # Hard floor/ceiling
     df = df[(df[TARGET] >= SPEED_FLOOR_MPH) & (df[TARGET] <= SPEED_CEIL_MPH)]
-    log.info("After basic filters: %d rows", len(df))
+    log.info("  After basic filters: %d rows", len(df))
+
+    # Tag agency so road_ids from different networks don't collide
+    if agency_label:
+        df["agency"] = agency_label
+        df["road_id"] = agency_label + "_" + df["road_id"].astype(str)
+
     return df
 
 
@@ -143,6 +156,8 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
     Weighted by n_observations (links with more GPS pings contribute more).
     """
     group_cols = ["road_id", "hour", "is_weekday"]
+    if "agency" in df.columns:
+        group_cols = ["agency"] + group_cols
     # Carry forward road-level attributes (constant per road_id)
     road_attrs = ["highway", "maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km"]
     first_cols = {c: "first" for c in road_attrs if c in df.columns}
@@ -210,13 +225,29 @@ def evaluate_model(
     return {"model": name, "r2": r2, "rmse_mph": rmse, "mae_mph": mae}
 
 
-def main(data_dir: Path, input_file: str | None = None) -> None:
-    csv_path = _resolve_input(data_dir, input_file)
+def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
+    # --- Determine output directory -------------------------------------------
+    if output_dir is None:
+        output_dir = data_dirs[0] if len(data_dirs) == 1 else Path("reports/realtime")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # --- Load, clean, outlier-filter ------------------------------------------
-    df = load_and_clean(csv_path)
-    df = remove_outliers(df)
-    df = add_temporal_features(df)
+    # --- Load, clean, outlier-filter from all agencies ------------------------
+    all_dfs: list[pd.DataFrame] = []
+    agency_names: list[str] = []
+    for data_dir in data_dirs:
+        agency_label = data_dir.name
+        agency_names.append(agency_label)
+        csv_path = _resolve_input(data_dir)
+        df_agency = load_and_clean(csv_path, agency_label=agency_label)
+        df_agency = remove_outliers(df_agency)
+        df_agency = add_temporal_features(df_agency)
+        all_dfs.append(df_agency)
+
+    df = pd.concat(all_dfs, ignore_index=True)
+    log.info(
+        "Combined data from %d agencies (%s): %d rows",
+        len(data_dirs), ", ".join(agency_names), len(df),
+    )
 
     # --- Aggregate to (road × hour × weekday/weekend) -------------------------
     agg = aggregate_to_road_hour(df)
@@ -263,6 +294,13 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
         len(y_train), n_roads_train, len(y_test), n_roads_test,
     )
 
+    # Per-agency test breakdown
+    if "agency" in agg.columns:
+        for ag in sorted(agg["agency"].unique()):
+            ag_test_mask = agg.iloc[test_idx]["agency"].values == ag
+            n_ag = ag_test_mask.sum()
+            log.info("  Test set — %s: %d rows", ag, n_ag)
+
     # Impute NaN with training-set medians (for LR and RF)
     col_medians = np.nanmedian(X_train, axis=0)
     X_train_imp = np.where(np.isnan(X_train), col_medians, X_train)
@@ -271,24 +309,20 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
     results: list[dict] = []
 
     # --- 0. Baseline: speed_limit × constant ----------------------------------
-    # Fit a single scalar k such that predicted_speed = maxspeed_mph × k.
-    # On roads with no speed limit, fall back to the training-set mean speed.
     log.info("Fitting Speed-Limit Baseline (speed = maxspeed × k) …")
     speed_limit_idx = NUMERIC_FEATURES.index("maxspeed_mph")
     sl_train = X_train_imp[:, speed_limit_idx]
     sl_test = X_test_imp[:, speed_limit_idx]
 
-    # Only fit k on rows where speed limit is known (non-zero, non-NaN)
     sl_known_mask = sl_train > 0
     if sl_known_mask.sum() > 0:
-        # Weighted least-squares for k: minimise Σ w·(y − k·sl)²  → k = Σ(w·y·sl) / Σ(w·sl²)
         w_known = w_train[sl_known_mask]
         k_opt = (
             np.sum(w_known * y_train[sl_known_mask] * sl_train[sl_known_mask])
             / np.sum(w_known * sl_train[sl_known_mask] ** 2)
         )
     else:
-        k_opt = 0.6  # sensible default
+        k_opt = 0.6
 
     fallback_speed = np.average(y_train, weights=w_train)
     log.info("  Optimal k = %.4f   (fallback for missing speed limit = %.1f mph)", k_opt, fallback_speed)
@@ -346,16 +380,16 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
     log.info("\n%s", results_df.to_string(index=False))
 
     # --- Save outputs ---------------------------------------------------------
-    results_path = data_dir / "speed_model_results.json"
+    results_path = output_dir / "speed_model_results.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
     log.info("Model metrics saved → %s", results_path)
 
-    fi_path = data_dir / "feature_importances.csv"
+    fi_path = output_dir / "feature_importances.csv"
     fi.to_csv(fi_path, header=["importance"])
     log.info("Feature importances saved → %s", fi_path)
 
-    agg_path = data_dir / "aggregated_training_data.csv"
+    agg_path = output_dir / "aggregated_training_data.csv"
     agg.to_csv(agg_path, index=False)
     log.info("Aggregated training data saved → %s", agg_path)
 
@@ -363,10 +397,10 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
     best = max(results, key=lambda r: r["r2"])
     worst = min(results, key=lambda r: r["r2"])
 
-    n_raw = pd.read_csv(csv_path, usecols=[TARGET], nrows=0)  # just for the path
-    summary_path = data_dir / "speed_model_summary.md"
+    agencies_str = ", ".join(agency_names)
+    summary_path = output_dir / "speed_model_summary.md"
     summary = textwrap.dedent(f"""\
-    # Portland ME — Transit Speed Prediction Model Summary
+    # Transit Speed Prediction — Model Summary
 
     ## Goal
     Predict average transit bus moving-speed on any US road segment given only
@@ -374,11 +408,11 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
     agencies without realtime data by relying on universally available features.
 
     ## Dataset
-    - **Source**: Greater Portland METRO GTFS-RT link-level speed observations
-    - **Per-trip rows loaded**: {len(df):,}
-    - **After outlier removal (IQR per road + hard [{SPEED_FLOOR_MPH}–{SPEED_CEIL_MPH}] mph)**: {len(df):,}
+    - **Agencies**: {agencies_str}
+    - **Per-trip rows (after cleaning + outlier removal)**: {len(df):,}
     - **Aggregated to (road × hour × weekday/weekend)**: {len(agg):,} groups (≥3 trips each)
     - **Target variable**: `{agg_target}` — observation-weighted mean moving speed (mph)
+    - **Outlier removal**: IQR per road + hard [{SPEED_FLOOR_MPH}–{SPEED_CEIL_MPH}] mph
     - **Train / Test split**: spatial hold-out by road_id — {len(y_train):,} train ({n_roads_train} roads) / {len(y_test):,} test ({n_roads_test} held-out roads)
 
     ## Features (all OSM-derivable or temporal)
@@ -414,9 +448,9 @@ def main(data_dir: Path, input_file: str | None = None) -> None:
     summary += textwrap.dedent("""
     ## Recommendations for Improvement
 
-    1. **Multi-agency training**: Add data from agencies in different city sizes,
-       climates, and traffic patterns (King County, CDTA Albany, etc.) to learn
-       generalizable speed–road relationships rather than Portland-specific ones.
+    1. **More agencies**: Add data from agencies in different city sizes,
+       climates, and traffic patterns to learn generalizable speed–road
+       relationships.
     2. **Spatial features**: Add intersection density or traffic-signal density
        within a buffer — these are computable from OSM for any US city and
        strongly affect transit speeds.
@@ -445,14 +479,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=DEFAULT_DATA_DIR,
-        help="Directory with per-trip speed CSVs",
+        action="append",
+        dest="data_dirs",
+        help="Agency data directory (may be repeated for multi-agency training)",
     )
     parser.add_argument(
-        "--input",
-        type=str,
+        "--output-dir",
+        type=Path,
         default=None,
-        help="Specific CSV file to use as input",
+        help="Directory for model outputs (default: first data-dir, or reports/realtime for multi-agency)",
     )
     args = parser.parse_args()
-    main(args.data_dir, args.input)
+    dirs = args.data_dirs if args.data_dirs else DEFAULT_DATA_DIRS
+    main(dirs, args.output_dir)
