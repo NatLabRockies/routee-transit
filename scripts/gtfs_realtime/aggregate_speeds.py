@@ -174,7 +174,7 @@ def build_compass_app(
         Initialized CompassApp for map matching.
     edge_attr_df : pd.DataFrame
         OSM edge attributes (highway, maxspeed_mph, lanes, grade, grade_abs)
-        indexed by edge geometry WKB bytes. Grade columns are populated by
+        indexed by Compass edge_id (int). Grade columns are populated by
         Compass, which downloads SRTM elevation data during ``from_graph``.
     """
     min_lat = shapes_df["shape_pt_lat"].min()
@@ -196,26 +196,25 @@ def build_compass_app(
     # internally, mutating the graph in-place before returning the app.
     app = CompassApp.from_graph(graph)
 
-    # Build edge attribute lookup keyed by geometry WKB for later joining.
+    # Build edge attribute lookup keyed by Compass edge_id.
     # Must happen AFTER from_graph so grade/grade_abs are present on the graph.
-    edges_gdf = ox.graph_to_gdfs(graph, nodes=False, fill_edge_geometry=True)
-    attr_records: dict[bytes, dict[str, object]] = {}
-    for _, row in edges_gdf.iterrows():
+    # Compass assigns sequential edge IDs via enumerate(graph.edges()), so we
+    # iterate in the same order to get a direct eid → OSM attributes mapping.
+    attr_records: dict[int, dict[str, object]] = {}
+    for eid, (_u, _v, _key, data) in enumerate(graph.edges(data=True, keys=True)):
         attrs: dict[str, object] = {
-            "highway": _parse_highway(row.get("highway")),
-            "maxspeed_mph": _parse_maxspeed_mph(row.get("maxspeed")),
-            "lanes": _parse_lanes(row.get("lanes")),
+            "highway": _parse_highway(data.get("highway")),
+            "maxspeed_mph": _parse_maxspeed_mph(data.get("maxspeed")),
+            "lanes": _parse_lanes(data.get("lanes")),
         }
-        if "grade" in edges_gdf.columns:
-            g = row.get("grade")
-            attrs["grade"] = float(g) if g is not None and pd.notna(g) else float("nan")
-        if "grade_abs" in edges_gdf.columns:
-            g = row.get("grade_abs")
-            attrs["grade_abs"] = float(g) if g is not None and pd.notna(g) else float("nan")
-        attr_records[row.geometry.wkb] = attrs
+        g = data.get("grade")
+        attrs["grade"] = float(g) if g is not None and pd.notna(g) else float("nan")
+        g = data.get("grade_abs")
+        attrs["grade_abs"] = float(g) if g is not None and pd.notna(g) else float("nan")
+        attr_records[eid] = attrs
 
     edge_attr_df = pd.DataFrame.from_dict(attr_records, orient="index")
-    edge_attr_df.index.name = "_geom_wkb"
+    edge_attr_df.index.name = "edge_id"
 
     return app, edge_attr_df
 
@@ -343,11 +342,10 @@ def match_realtime_trip(
     ]
 
     # Join OSM road attributes (highway type, speed limit, grade, lanes) onto
-    # each matched edge so they flow through to the output CSV.
+    # each matched edge using Compass edge_id as the join key.
     if edge_attr_df is not None:
-        geom_wkb = gdf.geometry.apply(lambda g: g.wkb)
         for col in edge_attr_df.columns:
-            gdf[col] = geom_wkb.map(edge_attr_df[col])
+            gdf[col] = gdf["edge_id"].map(edge_attr_df[col])
 
     return valid, gdf
 
