@@ -12,6 +12,7 @@ from gtfsblocks import Feed
 from scripts.feeds.extract_static_gtfs import GtfsExtractor
 
 GTFS_ROUTE_TYPE_BUS = 3
+SINGLE_AGENCY_PLACEHOLDER = "_single_agency_"
 
 
 def collect_active_feeds(
@@ -171,7 +172,7 @@ def compute_agency_metrics(
         - ``agency_id``
         - ``agency_name``
         - ``n_routes``
-        - ``trips_per_day``
+        - ``median_trips_per_day``
         - ``avg_trip_duration_minutes``
         - ``avg_trip_distance_miles``
     """
@@ -188,98 +189,90 @@ def compute_agency_metrics(
         trip_info["agency_id"] = None
 
     # For single-agency feeds the agency_id column may be entirely NaN.
-    # In that case, treat all trips as belonging to the sole agency and
-    # use a placeholder value so groupby works correctly.
-    SINGLE_AGENCY_PLACEHOLDER = "_single_agency_"
+    # Use a placeholder so groupby works correctly.
     all_null = trip_info["agency_id"].isna().all()
     if all_null:
         trip_info["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
 
-    # --- trips_per_day -------------------------------------------------------
-    date_sids = dataset.get_service_ids_all_dates()
-
+    # --- median_trips_per_day ------------------------------------------------
     sid_trip_counts = (
         trip_info.groupby(["service_id", "agency_id"])["trip_id"]
         .nunique()
         .reset_index(name="n_trips")
     )
-    trips_by_date = date_sids.merge(sid_trip_counts, on="service_id", how="inner")
     daily_trips = (
-        trips_by_date.groupby(["date", "agency_id"])["n_trips"].sum().reset_index()
+        dataset.get_service_ids_all_dates()
+        .merge(sid_trip_counts, on="service_id", how="inner")
+        .groupby(["date", "agency_id"])["n_trips"]
+        .sum()
+        .reset_index()
     )
-    trips_per_day: pd.Series = daily_trips.groupby("agency_id")["n_trips"].mean()
+    median_trips_per_day: pd.Series = daily_trips.groupby("agency_id")[
+        "n_trips"
+    ].median()
 
     # --- avg_trip_duration_minutes -------------------------------------------
-    bus_trip_ids = trip_info["trip_id"].unique()
-    st = dataset.stop_times[dataset.stop_times["trip_id"].isin(bus_trip_ids)]
-    trip_durations: pd.Series = st.groupby("trip_id")["arrival_time"].agg(
-        lambda x: (x.max() - x.min()).total_seconds() / 60
+    trip_durations = (
+        dataset.stop_times[dataset.stop_times["trip_id"].isin(bus_trips["trip_id"])]
+        .groupby("trip_id")["arrival_time"]
+        .agg(lambda x: (x.max() - x.min()).total_seconds() / 60)
     )
-    trip_info_dur = trip_info.join(trip_durations.rename("duration_min"), on="trip_id")
-    avg_duration: pd.Series = trip_info_dur.groupby("agency_id")["duration_min"].mean()
+    avg_duration: pd.Series = (
+        trip_info.join(trip_durations.rename("duration_min"), on="trip_id")
+        .groupby("agency_id")["duration_min"]
+        .mean()
+    )
 
     # --- avg_trip_distance_miles ---------------------------------------------
     avg_distance: pd.Series = pd.Series(dtype=float)
-    shape_ids: list[str] = []
-    if "shape_id" in bus_trips.columns:
-        shape_ids = bus_trips["shape_id"].dropna().unique().tolist()
+    shape_ids = (
+        bus_trips["shape_id"].dropna().unique().tolist()
+        if "shape_id" in bus_trips.columns
+        else []
+    )
     if shape_ids and dataset.shapes is not None and not dataset.shapes.empty:
         dataset.summarize_shapes(shape_ids)
         if (
             dataset.shapes_summary is not None
             and "service_dist" in dataset.shapes_summary.columns
         ):
-            trip_shapes = trip_info.merge(
-                bus_trips[["trip_id", "shape_id"]].dropna(subset=["shape_id"]),
-                on="trip_id",
-                how="left",
+            avg_distance = (
+                trip_info.merge(
+                    bus_trips[["trip_id", "shape_id"]].dropna(subset=["shape_id"]),
+                    on="trip_id",
+                    how="left",
+                )
+                .join(dataset.shapes_summary["service_dist"], on="shape_id")
+                .groupby("agency_id")["service_dist"]
+                .mean()
             )
-            trip_shapes = trip_shapes.join(
-                dataset.shapes_summary["service_dist"], on="shape_id"
-            )
-            avg_distance = trip_shapes.groupby("agency_id")["service_dist"].mean()
 
-    # --- Build per-agency records --------------------------------------------
-    # Build a lookup from placeholder/real agency_id -> (real_id, agency_name)
-    agency_df = dataset.agency.copy()
+    # --- agency lookup: placeholder/real key -> (real_id, agency_name) -------
+    agency_df = dataset.agency
     if all_null:
-        # Map placeholder to the sole agency
-        sole_name = agency_df["agency_name"].iloc[0]
-        sole_id = (
-            agency_df["agency_id"].iloc[0] if "agency_id" in agency_df.columns else None
-        )
         agency_lookup: dict[str, tuple[Any, Any]] = {
-            SINGLE_AGENCY_PLACEHOLDER: (sole_id, sole_name)
+            SINGLE_AGENCY_PLACEHOLDER: (
+                agency_df["agency_id"].iloc[0]
+                if "agency_id" in agency_df.columns
+                else None,
+                agency_df["agency_name"].iloc[0],
+            )
         }
     else:
-        has_id_col = "agency_id" in agency_df.columns
-        agency_lookup = {}
-        for _, row in agency_df.iterrows():
-            key = str(row["agency_id"]) if has_id_col else SINGLE_AGENCY_PLACEHOLDER
-            agency_lookup[key] = (
-                row["agency_id"] if has_id_col else None,
-                row["agency_name"],
-            )
+        agency_lookup = {
+            str(aid): (aid, name)
+            for aid, name in zip(agency_df["agency_id"], agency_df["agency_name"])
+        }
 
+    # --- n_routes per agency -------------------------------------------------
+    bus_routes = routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS].copy()
+    if "agency_id" not in bus_routes.columns:
+        bus_routes["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
+    n_routes_by_agency = bus_routes.groupby("agency_id").size()
+
+    # --- Build per-agency records --------------------------------------------
     records: list[dict[str, Any]] = []
-
-    # Calculate number of routes per agency
-    n_routes_by_agency = (
-        routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS]
-        .groupby(
-            "agency_id"
-            if "agency_id" in routes.columns
-            else lambda x: SINGLE_AGENCY_PLACEHOLDER
-        )
-        .size()
-    )
-
-    for lookup_key in trips_per_day.index:
-        n_routes = n_routes_by_agency.get(lookup_key, 0)
-        tpd = trips_per_day.get(lookup_key)
-        if tpd is None:
-            continue
-
+    for lookup_key in median_trips_per_day.index:
         lookup_result = agency_lookup.get(lookup_key)
         if lookup_result is None:
             # Unexpected key — skip rather than leaking the placeholder value
@@ -287,17 +280,17 @@ def compute_agency_metrics(
         real_id, agency_name = lookup_result
 
         adur = avg_duration.get(lookup_key)
-        adist = (
-            avg_distance.get(lookup_key) if lookup_key in avg_distance.index else None
-        )
+        adist = avg_distance.get(lookup_key)
 
         records.append(
             {
                 "dataset_id": dataset_id,
                 "agency_id": real_id,
                 "agency_name": agency_name,
-                "n_routes": n_routes,
-                "trips_per_day": round(float(tpd), 1),
+                "n_routes": n_routes_by_agency.get(lookup_key, 0),
+                "median_trips_per_day": round(
+                    float(median_trips_per_day[lookup_key]), 1
+                ),
                 "avg_trip_duration_minutes": (
                     round(float(adur), 1)
                     if adur is not None and not pd.isna(adur)
