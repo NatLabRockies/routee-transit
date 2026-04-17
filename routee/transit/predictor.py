@@ -1367,110 +1367,6 @@ class GTFSEnergyPredictor:
             )
         return self.energy_predictions[key]
 
-    def get_agency_overview(self) -> pd.DataFrame:
-        """
-        Compute agency-specific overview metrics from trip predictions.
-
-        Metrics are computed from service trips only (deadhead trips are excluded).
-        Results are grouped by ``agency_id``.
-
-        Returns
-        -------
-        pd.DataFrame
-            One row per agency with columns:
-
-            - ``agency_id``: GTFS agency identifier (``"unknown"`` when not present
-              in the feed)
-            - ``agency_name``: Human-readable agency name (when available in the feed)
-            - ``trips_per_day``: Average number of service trips per service day,
-              computed as ``sum(trip_count) / total_service_days``
-            - ``avg_trip_duration_minutes``: Mean service-trip duration in minutes
-            - ``avg_trip_distance_miles``: Mean service-trip distance in miles
-
-        Raises
-        ------
-        KeyError
-            If trip predictions have not been generated yet.
-        """
-        trip_df = self.get_trip_predictions()
-
-        # Filter to service trips only
-        service_trips = trip_df[trip_df["trip_type"] == "service"].copy()
-
-        if service_trips.empty:
-            logger.warning("No service trips found for agency overview")
-            return pd.DataFrame()
-
-        # De-duplicate trips across vehicle models (distance is vehicle-independent)
-        service_trips_dedup = service_trips.drop_duplicates(subset="trip_id")
-
-        # Compute total service days for the trips_per_day metric
-        if self.feed is not None:
-            total_service_days: int = int(
-                self.feed.get_service_ids_all_dates()["date"].nunique()
-            )
-        elif "trip_count" in service_trips_dedup.columns:
-            total_service_days = int(service_trips_dedup["trip_count"].max())
-        else:
-            total_service_days = 1
-
-        # Normalise agency_id: fill missing values so every trip maps to a row
-        if "agency_id" not in service_trips_dedup.columns:
-            service_trips_dedup["agency_id"] = "unknown"
-        else:
-            service_trips_dedup["agency_id"] = (
-                service_trips_dedup["agency_id"].fillna("unknown")
-            )
-
-        # Build aggregation dict from available columns
-        agg_dict: dict[str, str] = {}
-        if "trip_count" in service_trips_dedup.columns:
-            agg_dict["trip_count"] = "sum"
-        if "trip_duration_minutes" in service_trips_dedup.columns:
-            agg_dict["trip_duration_minutes"] = "mean"
-        if "miles" in service_trips_dedup.columns:
-            agg_dict["miles"] = "mean"
-
-        agency_stats = (
-            service_trips_dedup.groupby("agency_id", dropna=False)
-            .agg(agg_dict)
-            .reset_index()
-        )
-
-        # Rename columns to descriptive names
-        rename_map: dict[str, str] = {}
-        if "trip_count" in agency_stats.columns:
-            rename_map["trip_count"] = "_total_trip_days"
-        if "trip_duration_minutes" in agency_stats.columns:
-            rename_map["trip_duration_minutes"] = "avg_trip_duration_minutes"
-        if "miles" in agency_stats.columns:
-            rename_map["miles"] = "avg_trip_distance_miles"
-        agency_stats = agency_stats.rename(columns=rename_map)
-
-        # Derive trips_per_day from the summed trip_count
-        if "_total_trip_days" in agency_stats.columns:
-            agency_stats["trips_per_day"] = (
-                agency_stats["_total_trip_days"] / total_service_days
-            )
-            agency_stats = agency_stats.drop(columns=["_total_trip_days"])
-
-        # Optionally merge in human-readable agency name from the feed
-        if self.feed is not None and hasattr(self.feed, "agency"):
-            agency_df = self.feed.agency.copy()
-            agency_df["agency_id"] = agency_df["agency_id"].fillna("unknown")
-            agency_stats = agency_stats.merge(
-                agency_df[["agency_id", "agency_name"]],
-                on="agency_id",
-                how="left",
-            )
-
-        # Bring agency_id and agency_name to the front
-        leading = [c for c in ["agency_id", "agency_name"] if c in agency_stats.columns]
-        other = [c for c in agency_stats.columns if c not in leading]
-        agency_stats = agency_stats[leading + other]
-
-        return agency_stats
-
     def save_results(
         self,
         output_dir: str | Path | None = None,
@@ -1533,17 +1429,6 @@ class GTFSEnergyPredictor:
             trip_path = output_path / "trip_energy_predictions.csv"
             self.energy_predictions["trip"].to_csv(trip_path, index=False)
             logger.info(f"Saved trip predictions to {trip_path}")
-
-        # Save agency-level overview metrics
-        if "trip" in self.energy_predictions:
-            try:
-                agency_overview = self.get_agency_overview()
-                if not agency_overview.empty:
-                    overview_path = output_path / "agency_overview.csv"
-                    agency_overview.to_csv(overview_path, index=False)
-                    logger.info(f"Saved agency overview to {overview_path}")
-            except Exception as exc:
-                logger.warning(f"Could not compute agency overview: {exc}")
 
         # Save RouteE inputs
         if save_inputs and self.routee_inputs is not None:
