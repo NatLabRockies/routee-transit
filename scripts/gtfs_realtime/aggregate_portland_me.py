@@ -39,6 +39,8 @@ def get_speeds_for_day(
     app,
     edge_attr_df: pd.DataFrame,
     trips_df: pd.DataFrame,
+    stop_times_df: pd.DataFrame | None = None,
+    stops_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame | None:
     """Process a single day's JSONL file and return per-trip link speeds.
 
@@ -68,6 +70,8 @@ def get_speeds_for_day(
                 trips_df=trips_df,
                 app=app,
                 edge_attr_df=edge_attr_df,
+                stop_times_df=stop_times_df,
+                stops_df=stops_df,
             )
             if not result.empty and "_skip_reason" not in result.columns:
                 results.append(result)
@@ -94,6 +98,26 @@ def main(data_dir: Path) -> None:
         "Loaded static GTFS: %d trips, %d shape points", len(trips_df), len(shapes_df)
     )
 
+    # Load stop data for GTFS features (optional — graceful fallback when absent).
+    stop_times_df: pd.DataFrame | None = None
+    stops_df: pd.DataFrame | None = None
+    try:
+        stop_times_df = pd.read_csv(
+            gtfs_root / "static/stop_times.txt",
+            dtype={"trip_id": str, "stop_id": str},
+        )
+        stops_df = pd.read_csv(
+            gtfs_root / "static/stops.txt",
+            dtype={"stop_id": str},
+        ).set_index("stop_id")
+        log.info(
+            "Loaded stop data: %d stop_times rows, %d stops",
+            len(stop_times_df),
+            len(stops_df),
+        )
+    except FileNotFoundError:
+        log.warning("stop_times.txt or stops.txt not found — GTFS stop features will be NaN")
+
     # --- Build CompassApp once ------------------------------------------------
     log.info("Building CompassApp (one-time)…")
     app, edge_attr_df = build_compass_app(shapes_df)
@@ -117,7 +141,10 @@ def main(data_dir: Path) -> None:
         log.info("Processing day %s …", file_date)
         t0 = time.time()
 
-        day_df = get_speeds_for_day(jf, app, edge_attr_df, trips_df)
+        day_df = get_speeds_for_day(
+            jf, app, edge_attr_df, trips_df,
+            stop_times_df=stop_times_df, stops_df=stops_df,
+        )
         if day_df is not None and not day_df.empty:
             day_df["date"] = file_date
             day_df.to_csv(per_day_csv, index=False)

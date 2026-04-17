@@ -27,6 +27,7 @@ dev = [
     "folium>=0.19",
     "python-dotenv>=1.2.1,<2",
     "maturin>=1.0,<2.0",
+    "scikit-learn>=1.7.2,<2",
 ]
 
 [build-system]

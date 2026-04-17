@@ -1,11 +1,11 @@
 """Fit speed prediction models to aggregated realtime link speed data.
 
 Reads combined per-trip link speed CSVs from one or more transit agency
-directories, removes outliers, aggregates to mean speed per road link ×
-time-of-day bin × weekday/weekend, and trains regression models using only
+directories, removes outliers, aggregates to mean speed per road link x
+time-of-day bin x weekday/weekend, and trains regression models using only
 features available from OSM (generalizable to any US transit agency).
 
-0. Baseline  — speed_limit × constant
+0. Baseline  — speed_limit x constant
 1. Linear Regression (OLS)
 2. Random Forest
 3. Histogram Gradient Boosting (handles NaN natively)
@@ -54,7 +54,7 @@ DEFAULT_DATA_DIRS = [
 ]
 
 # Only features derivable from OSM — no agency- or trip-specific data.
-NUMERIC_FEATURES = ["maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km"]
+NUMERIC_FEATURES = ["maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km", "n_stops", "scheduled_speed_mph"]
 CATEGORICAL_FEATURES = ["highway"]
 TEMPORAL_FEATURES = ["hour", "is_weekday", "is_peak"]
 TARGET = "mph_moving"
@@ -187,7 +187,7 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     log.info(
-        "Aggregated to %d (road × hour × weekday/weekend) groups from %d trips",
+        "Aggregated to %d (road x hour x weekday/weekend) groups from %d trips",
         len(agg), df["trip_id"].nunique() if "trip_id" in df.columns else -1,
     )
     return agg
@@ -249,7 +249,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
         len(data_dirs), ", ".join(agency_names), len(df),
     )
 
-    # --- Aggregate to (road × hour × weekday/weekend) -------------------------
+    # --- Aggregate to (road x hour x weekday/weekend) -------------------------
     agg = aggregate_to_road_hour(df)
     agg_target = "mph_moving_mean"
 
@@ -272,7 +272,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     all_feature_names = num_cols + cat_names
 
     log.info(
-        "Feature matrix: %d samples × %d features  (target: %s)",
+        "Feature matrix: %d samples x %d features  (target: %s)",
         X_full.shape[0], X_full.shape[1], agg_target,
     )
 
@@ -308,8 +308,8 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
 
     results: list[dict] = []
 
-    # --- 0. Baseline: speed_limit × constant ----------------------------------
-    log.info("Fitting Speed-Limit Baseline (speed = maxspeed × k) …")
+    # --- 0. Baseline: speed_limit x constant ----------------------------------
+    log.info("Fitting Speed-Limit Baseline (speed = maxspeed x k) …")
     speed_limit_idx = NUMERIC_FEATURES.index("maxspeed_mph")
     sl_train = X_train_imp[:, speed_limit_idx]
     sl_test = X_test_imp[:, speed_limit_idx]
@@ -328,7 +328,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     log.info("  Optimal k = %.4f   (fallback for missing speed limit = %.1f mph)", k_opt, fallback_speed)
 
     y_pred_baseline = np.where(sl_test > 0, sl_test * k_opt, fallback_speed)
-    results.append(evaluate_model("Baseline (speed_limit × k)", y_test, y_pred_baseline, w_test))
+    results.append(evaluate_model("Baseline (speed_limit x k)", y_test, y_pred_baseline, w_test))
 
     # --- 1. Linear Regression -------------------------------------------------
     log.info("Fitting Linear Regression …")
@@ -410,7 +410,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     ## Dataset
     - **Agencies**: {agencies_str}
     - **Per-trip rows (after cleaning + outlier removal)**: {len(df):,}
-    - **Aggregated to (road × hour × weekday/weekend)**: {len(agg):,} groups (≥3 trips each)
+    - **Aggregated to (road x hour x weekday/weekend)**: {len(agg):,} groups (≥3 trips each)
     - **Target variable**: `{agg_target}` — observation-weighted mean moving speed (mph)
     - **Outlier removal**: IQR per road + hard [{SPEED_FLOOR_MPH}–{SPEED_CEIL_MPH}] mph
     - **Train / Test split**: spatial hold-out by road_id — {len(y_train):,} train ({n_roads_train} roads) / {len(y_test):,} test ({n_roads_test} held-out roads)

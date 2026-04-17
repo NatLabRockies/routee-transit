@@ -486,12 +486,269 @@ def estimate_link_speeds(
     return link_summary
 
 
+# ---------------------------------------------------------------------------
+# GTFS scheduled-speed and stop-count features
+# ---------------------------------------------------------------------------
+
+
+def parse_gtfs_time_to_seconds(time_val: object) -> float:
+    """Parse a GTFS time value to total seconds since midnight.
+
+    Handles strings like ``"08:30:00"`` or ``"25:30:00"`` (hours > 24 are
+    valid in GTFS for service past midnight), pandas Timedelta objects (as
+    returned by gtfsblocks Feed), and plain numeric values already in seconds.
+
+    Returns ``float("nan")`` for missing or unparseable values.
+    """
+    if time_val is None:
+        return float("nan")
+    try:
+        if pd.isna(time_val):  # type: ignore[arg-type]
+            return float("nan")
+    except (TypeError, ValueError):
+        pass
+    if isinstance(time_val, pd.Timedelta):
+        return time_val.total_seconds()
+    if isinstance(time_val, (int, float)):
+        return float(time_val)
+    parts = str(time_val).strip().split(":")
+    if len(parts) == 3:
+        try:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        except ValueError:
+            pass
+    return float("nan")
+
+
+def project_stops_to_route(
+    stop_times_trip: pd.DataFrame,
+    stops_df: pd.DataFrame,
+    edges_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Project GTFS stops onto the matched OSM edge sequence for a single trip.
+
+    Each stop is assigned to the nearest forward edge in the matched route
+    using the same greedy-forward search as :func:`match_realtime_trip`.  The
+    stop's position within that edge is obtained by projecting its WGS84
+    coordinates onto the edge geometry, yielding a cumulative distance along
+    the matched route.
+
+    ``shape_dist_traveled`` is intentionally ignored — that field has
+    non-standard units and is unreliable across GTFS feeds.  All distances are
+    derived purely from coordinates.
+
+    Parameters
+    ----------
+    stop_times_trip : pd.DataFrame
+        stop_times.txt rows for a **single trip**, sorted or unsorted.  Must
+        have columns ``stop_id``, ``stop_sequence``, and ``departure_time``.
+        The column ``arrival_time`` is used when present.
+    stops_df : pd.DataFrame
+        stops.txt **indexed by stop_id** with columns ``stop_lat`` and
+        ``stop_lon`` (WGS84 degrees).
+    edges_df : pd.DataFrame
+        Matched edges GeoDataFrame from :func:`match_realtime_trip`, with
+        columns ``edge_id``, ``geometry`` (LineString, WGS84),
+        ``link_length_m``, and ``cumul_start_m``.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per successfully matched stop, columns: ``stop_id``,
+        ``stop_sequence``, ``edge_idx``, ``road_id``, ``cumul_dist_m``,
+        ``departure_sec``, ``arrival_sec``.  Stops whose ``stop_id`` is absent
+        from *stops_df* are silently dropped.
+    """
+    _EMPTY = pd.DataFrame(
+        columns=[
+            "stop_id", "stop_sequence", "edge_idx", "road_id",
+            "cumul_dist_m", "departure_sec", "arrival_sec",
+        ]
+    )
+    if edges_df.empty or stop_times_trip.empty:
+        return _EMPTY
+
+    stops_ordered = stop_times_trip.sort_values("stop_sequence")
+    edge_ids = edges_df["edge_id"].values
+    n_edges = len(edge_ids)
+    cumul_start = edges_df["cumul_start_m"].values
+    link_lengths = edges_df["link_length_m"].values
+
+    results: list[dict] = []
+    last_edge_idx = 0
+
+    for _, row in stops_ordered.iterrows():
+        stop_id = row["stop_id"]
+        if stop_id not in stops_df.index:
+            continue
+
+        stop_row = stops_df.loc[stop_id]
+        # stops_df.loc may return a DataFrame when stop_id is duplicated; take first.
+        if isinstance(stop_row, pd.DataFrame):
+            stop_row = stop_row.iloc[0]
+
+        pt = shapely.geometry.Point(
+            float(stop_row["stop_lon"]), float(stop_row["stop_lat"])
+        )
+
+        # Greedy-forward search: scan edges from last matched position onward,
+        # choose the one whose geometry is nearest to the stop coordinate.
+        best_dist = float("inf")
+        best_idx = last_edge_idx
+        for ei in range(last_edge_idx, n_edges):
+            d = pt.distance(edges_df.geometry.iloc[ei])
+            if d < best_dist:
+                best_dist = d
+                best_idx = ei
+
+        # Project stop onto the matched edge to get fractional position.
+        edge_geom = edges_df.geometry.iloc[best_idx]
+        frac = max(0.0, min(1.0, edge_geom.project(pt, normalized=True)))
+        cumul_dist_m = cumul_start[best_idx] + frac * link_lengths[best_idx]
+
+        results.append(
+            {
+                "stop_id": stop_id,
+                "stop_sequence": int(row["stop_sequence"]),
+                "edge_idx": best_idx,
+                "road_id": str(edge_ids[best_idx]),
+                "cumul_dist_m": cumul_dist_m,
+                "departure_sec": parse_gtfs_time_to_seconds(row.get("departure_time")),
+                "arrival_sec": parse_gtfs_time_to_seconds(
+                    row.get("arrival_time", float("nan"))
+                ),
+            }
+        )
+        last_edge_idx = best_idx
+
+    return pd.DataFrame(results) if results else _EMPTY
+
+
+def compute_scheduled_speeds_between_stops(
+    stops_on_route: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute GTFS-scheduled moving speed for each consecutive stop pair.
+
+    Uses departure-to-departure timing, which excludes dwell time at
+    intermediate stops.  This matches the semantics of ``mph_moving`` in
+    :func:`estimate_link_speeds`.
+
+    Parameters
+    ----------
+    stops_on_route : pd.DataFrame
+        Output of :func:`project_stops_to_route` for a single trip.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per consecutive stop pair, columns: ``stop_seq_from``,
+        ``stop_seq_to``, ``edge_idx_from``, ``edge_idx_to``, ``dist_m``,
+        ``time_sec``, ``scheduled_speed_mph``.  ``scheduled_speed_mph`` is NaN
+        when ``time_sec`` ≤ 0 or ``dist_m`` ≤ 0.
+    """
+    _EMPTY_COLS = [
+        "stop_seq_from", "stop_seq_to", "edge_idx_from", "edge_idx_to",
+        "dist_m", "time_sec", "scheduled_speed_mph",
+    ]
+    if len(stops_on_route) < 2:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    rows = stops_on_route.sort_values("stop_sequence").reset_index(drop=True)
+    results: list[dict] = []
+
+    for i in range(len(rows) - 1):
+        a = rows.iloc[i]
+        b = rows.iloc[i + 1]
+
+        dist_m = b["cumul_dist_m"] - a["cumul_dist_m"]
+        # Departure-to-departure: time the bus is moving between stops,
+        # excluding dwell at stop A.
+        time_sec = b["departure_sec"] - a["departure_sec"]
+
+        if time_sec > 0 and dist_m > 0:
+            speed_mph = (dist_m / 1609.344) / (time_sec / 3600.0)
+        else:
+            speed_mph = float("nan")
+
+        results.append(
+            {
+                "stop_seq_from": int(a["stop_sequence"]),
+                "stop_seq_to": int(b["stop_sequence"]),
+                "edge_idx_from": int(a["edge_idx"]),
+                "edge_idx_to": int(b["edge_idx"]),
+                "dist_m": dist_m,
+                "time_sec": time_sec,
+                "scheduled_speed_mph": speed_mph,
+            }
+        )
+
+    return pd.DataFrame(results)
+
+
+def aggregate_gtfs_features_by_edge(
+    stops_on_route: pd.DataFrame,
+    sched_speeds: pd.DataFrame,
+    n_edges: int,
+) -> pd.DataFrame:
+    """Aggregate GTFS stop and scheduled-speed features to the OSM edge level.
+
+    Parameters
+    ----------
+    stops_on_route : pd.DataFrame
+        Output of :func:`project_stops_to_route`.
+    sched_speeds : pd.DataFrame
+        Output of :func:`compute_scheduled_speeds_between_stops`.
+    n_edges : int
+        Total number of matched edges in the route.
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexed by ``edge_idx`` (0 to *n_edges* − 1), two columns:
+
+        ``n_stops``
+            Integer count of scheduled stops projected onto this edge.
+        ``scheduled_speed_mph``
+            Mean GTFS-scheduled speed (mph) across all stop-to-stop segments
+            whose projected range spans this edge.  NaN when no segment covers
+            the edge.
+    """
+    n_stops_arr = np.zeros(n_edges, dtype=int)
+    sched_speed_arr = np.full(n_edges, float("nan"))
+
+    if not stops_on_route.empty:
+        for ei, count in stops_on_route.groupby("edge_idx").size().items():
+            if 0 <= ei < n_edges:
+                n_stops_arr[int(ei)] = int(count)
+
+    if not sched_speeds.empty:
+        speed_accum: dict[int, list[float]] = {i: [] for i in range(n_edges)}
+        for _, seg in sched_speeds.iterrows():
+            if pd.isna(seg["scheduled_speed_mph"]):
+                continue
+            ei_from = int(seg["edge_idx_from"])
+            ei_to = int(seg["edge_idx_to"])
+            spd = float(seg["scheduled_speed_mph"])
+            for ei in range(max(0, ei_from), min(n_edges, ei_to + 1)):
+                speed_accum[ei].append(spd)
+        for ei, speeds in speed_accum.items():
+            if speeds:
+                sched_speed_arr[ei] = float(np.mean(speeds))
+
+    return pd.DataFrame(
+        {"n_stops": n_stops_arr, "scheduled_speed_mph": sched_speed_arr},
+        index=pd.RangeIndex(n_edges, name="edge_idx"),
+    )
+
+
 def get_link_speeds_for_trip(
     trip_id: str,
     rt_df: pd.DataFrame,
     trips_df: pd.DataFrame,
     app: CompassApp,
     edge_attr_df: pd.DataFrame | None = None,
+    stop_times_df: pd.DataFrame | None = None,
+    stops_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Compute per-link speed estimates for a single trip.
 
@@ -505,6 +762,16 @@ def get_link_speeds_for_trip(
         GTFS trips.txt indexed by trip_id.
     app : CompassApp
         Initialized CompassApp for map matching.
+    edge_attr_df : pd.DataFrame | None, optional
+        OSM edge attributes indexed by Compass edge_id (from
+        :func:`build_compass_app`).
+    stop_times_df : pd.DataFrame | None, optional
+        stop_times.txt with a ``trip_id`` column (not set as index).  When
+        provided alongside *stops_df*, GTFS features ``n_stops`` and
+        ``scheduled_speed_mph`` are computed and added to each link row.
+    stops_df : pd.DataFrame | None, optional
+        stops.txt **indexed by stop_id** with columns ``stop_lat`` /
+        ``stop_lon`` (WGS84).
 
     Returns
     -------
@@ -547,6 +814,25 @@ def get_link_speeds_for_trip(
             obs_df.dropna(subset=["speed"]).groupby("edge_idx")["speed"].median()
         )
         link_summary["rt_speed_mps"] = link_summary["edge_idx"].map(rt_speed_by_edge)
+
+    # Attach GTFS stop features: n_stops and scheduled speed per edge.
+    if stop_times_df is not None and stops_df is not None:
+        trip_stop_times = stop_times_df[stop_times_df["trip_id"] == trip_id]
+        if not trip_stop_times.empty and not edges_df.empty:
+            try:
+                stops_on_route = project_stops_to_route(
+                    trip_stop_times, stops_df, edges_df
+                )
+                sched_speeds = compute_scheduled_speeds_between_stops(stops_on_route)
+                gtfs_feats = aggregate_gtfs_features_by_edge(
+                    stops_on_route, sched_speeds, len(edges_df)
+                )
+                link_summary["n_stops"] = gtfs_feats["n_stops"].values
+                link_summary["scheduled_speed_mph"] = gtfs_feats["scheduled_speed_mph"].values
+            except Exception as exc:
+                logging.debug(
+                    "Trip %s: GTFS feature computation failed: %s", trip_id, exc
+                )
 
     return link_summary
 
@@ -639,6 +925,25 @@ def get_speeds_for_one_day(
             "Please ensure 'trips.txt' and 'shapes.txt' exist."
         ) from e
 
+    # Load stop data for GTFS features (optional — graceful fallback when absent).
+    stop_times_df: pd.DataFrame | None = None
+    stops_df: pd.DataFrame | None = None
+    try:
+        stop_times_df = pd.read_csv(
+            gtfs_root / "static/stop_times.txt",
+            dtype={"trip_id": str, "stop_id": str},
+        )
+        stops_df = pd.read_csv(
+            gtfs_root / "static/stops.txt",
+            dtype={"stop_id": str},
+        ).set_index("stop_id")
+        print(
+            f"Loaded stop data: {len(stop_times_df):,} stop_times rows, "
+            f"{len(stops_df):,} stops"
+        )
+    except FileNotFoundError:
+        print("stop_times.txt or stops.txt not found — GTFS stop features will be NaN")
+
     # Read in realtime data
     rt_df = read_realtime_records(path_to_json)
     print(f"{rt_df.trip_id.nunique()} trips on this day")
@@ -659,7 +964,8 @@ def get_speeds_for_one_day(
         route_start = time.time()
         raw_results = [
             get_link_speeds_for_trip(
-                tid, rt_df=rt_df, trips_df=trips_df, app=app, edge_attr_df=edge_attr_df
+                tid, rt_df=rt_df, trips_df=trips_df, app=app, edge_attr_df=edge_attr_df,
+                stop_times_df=stop_times_df, stops_df=stops_df,
             )
             for tid in trip_ids
         ]
