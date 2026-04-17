@@ -320,8 +320,7 @@ def match_realtime_trip(
         frac = max(0.0, min(1.0, frac))
 
         dist_along_route = (
-            cumul_start[matched_idx]
-            + frac * gdf.iloc[matched_idx]["link_length_m"]
+            cumul_start[matched_idx] + frac * gdf.iloc[matched_idx]["link_length_m"]
         )
 
         obs_edge_idx.append(matched_idx)
@@ -337,9 +336,7 @@ def match_realtime_trip(
     # Map edge attributes to observations
     valid["road_id"] = [str(edge_ids[ei]) for ei in obs_edge_idx]
     valid["geom"] = [gdf.geometry.iloc[ei] for ei in obs_edge_idx]
-    valid["link_length_km"] = [
-        gdf.iloc[ei]["link_length_km"] for ei in obs_edge_idx
-    ]
+    valid["link_length_km"] = [gdf.iloc[ei]["link_length_km"] for ei in obs_edge_idx]
 
     # Join OSM road attributes (highway type, speed limit, grade, lanes) onto
     # each matched edge using Compass edge_id as the join key.
@@ -396,9 +393,7 @@ def detect_dwell_time(
     return pd.Series(dwell_by_edge, name="dwell_time_sec")
 
 
-def estimate_link_speeds(
-    obs_df: pd.DataFrame, edges_df: pd.DataFrame
-) -> pd.DataFrame:
+def estimate_link_speeds(obs_df: pd.DataFrame, edges_df: pd.DataFrame) -> pd.DataFrame:
     """Estimate average speed for each link in the matched route.
 
     Interpolates timestamps at link boundaries using cumulative distance along the
@@ -441,9 +436,7 @@ def estimate_link_speeds(
     transit_sec = exit_sec - entry_sec
 
     # Speed in mph (NaN when transit time is zero or negative)
-    mph = np.where(
-        transit_sec > 0, link_length_mi / (transit_sec / 3600), np.nan
-    )
+    mph = np.where(transit_sec > 0, link_length_mi / (transit_sec / 3600), np.nan)
 
     # Observation count per edge
     obs_counts = obs_df.groupby("edge_idx").size()
@@ -455,9 +448,7 @@ def estimate_link_speeds(
 
     # Speed excluding dwell time
     moving_sec = transit_sec - dwell_sec
-    mph_moving = np.where(
-        moving_sec > 0, link_length_mi / (moving_sec / 3600), np.nan
-    )
+    mph_moving = np.where(moving_sec > 0, link_length_mi / (moving_sec / 3600), np.nan)
 
     # Convert boundary times back to timestamps for the output
     entry_timestamps = t0 + pd.to_timedelta(entry_sec, unit="s")
@@ -524,6 +515,7 @@ def project_stops_to_route(
     stop_times_trip: pd.DataFrame,
     stops_df: pd.DataFrame,
     edges_df: pd.DataFrame,
+    max_snap_dist_deg: float = 0.05,
 ) -> pd.DataFrame:
     """Project GTFS stops onto the matched OSM edge sequence for a single trip.
 
@@ -550,6 +542,12 @@ def project_stops_to_route(
         Matched edges GeoDataFrame from :func:`match_realtime_trip`, with
         columns ``edge_id``, ``geometry`` (LineString, WGS84),
         ``link_length_m``, and ``cumul_start_m``.
+    max_snap_dist_deg : float, default 0.05
+        Maximum WGS84 Euclidean distance (degrees) between a stop coordinate
+        and the nearest matched edge for the stop to be included.  Stops
+        farther than this threshold are silently dropped.  At mid-latitudes
+        0.05° ≈ 4-5 km, which accepts any plausible GTFS stop while
+        rejecting clearly erroneous coordinates.
 
     Returns
     -------
@@ -557,12 +555,18 @@ def project_stops_to_route(
         One row per successfully matched stop, columns: ``stop_id``,
         ``stop_sequence``, ``edge_idx``, ``road_id``, ``cumul_dist_m``,
         ``departure_sec``, ``arrival_sec``.  Stops whose ``stop_id`` is absent
-        from *stops_df* are silently dropped.
+        from *stops_df*, or whose nearest edge exceeds *max_snap_dist_deg*,
+        are silently dropped.
     """
     _EMPTY = pd.DataFrame(
         columns=[
-            "stop_id", "stop_sequence", "edge_idx", "road_id",
-            "cumul_dist_m", "departure_sec", "arrival_sec",
+            "stop_id",
+            "stop_sequence",
+            "edge_idx",
+            "road_id",
+            "cumul_dist_m",
+            "departure_sec",
+            "arrival_sec",
         ]
     )
     if edges_df.empty or stop_times_trip.empty:
@@ -600,6 +604,10 @@ def project_stops_to_route(
             if d < best_dist:
                 best_dist = d
                 best_idx = ei
+
+        # Drop stops that are implausibly far from the matched route.
+        if best_dist > max_snap_dist_deg:
+            continue
 
         # Project stop onto the matched edge to get fractional position.
         edge_geom = edges_df.geometry.iloc[best_idx]
@@ -648,8 +656,14 @@ def compute_scheduled_speeds_between_stops(
         ``time_sec`` ≤ 0 or ``dist_m`` ≤ 0.
     """
     _EMPTY_COLS = [
-        "stop_seq_from", "stop_seq_to", "edge_idx_from", "edge_idx_to",
-        "cumul_dist_from", "cumul_dist_to", "dist_m", "time_sec",
+        "stop_seq_from",
+        "stop_seq_to",
+        "edge_idx_from",
+        "edge_idx_to",
+        "cumul_dist_from",
+        "cumul_dist_to",
+        "dist_m",
+        "time_sec",
         "scheduled_speed_mph",
     ]
     if len(stops_on_route) < 2:
@@ -811,7 +825,9 @@ def get_link_speeds_for_trip(
     has_rt_speed = "speed" in trip_df_filt.columns
 
     try:
-        obs_df, edges_df = match_realtime_trip(trip_df_filt, app, edge_attr_df=edge_attr_df)
+        obs_df, edges_df = match_realtime_trip(
+            trip_df_filt, app, edge_attr_df=edge_attr_df
+        )
     except (ValueError, shapely.errors.GEOSException) as exc:
         logging.debug("Trip %s skipped: map match error: %s", trip_id, exc)
         return pd.DataFrame()
@@ -845,7 +861,9 @@ def get_link_speeds_for_trip(
                     stops_on_route, sched_speeds, edges_df
                 )
                 link_summary["n_stops"] = gtfs_feats["n_stops"].values
-                link_summary["scheduled_speed_mph"] = gtfs_feats["scheduled_speed_mph"].values
+                link_summary["scheduled_speed_mph"] = gtfs_feats[
+                    "scheduled_speed_mph"
+                ].values
             except Exception as exc:
                 logging.debug(
                     "Trip %s: GTFS feature computation failed: %s", trip_id, exc
@@ -903,13 +921,16 @@ def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame
             }
         )
 
-    aggregated = valid.groupby("road_id").apply(
-        weighted_mean, include_groups=False
-    ).reset_index()
+    aggregated = (
+        valid.groupby("road_id")
+        .apply(weighted_mean, include_groups=False)
+        .reset_index()
+    )
 
     # Road properties are constant per road_id — attach from first occurrence.
     road_prop_cols = [
-        c for c in valid.columns
+        c
+        for c in valid.columns
         if c in {"highway", "maxspeed_mph", "lanes", "grade", "grade_abs"}
     ]
     if road_prop_cols:
@@ -981,18 +1002,21 @@ def get_speeds_for_one_day(
         route_start = time.time()
         raw_results = [
             get_link_speeds_for_trip(
-                tid, rt_df=rt_df, trips_df=trips_df, app=app, edge_attr_df=edge_attr_df,
-                stop_times_df=stop_times_df, stops_df=stops_df,
+                tid,
+                rt_df=rt_df,
+                trips_df=trips_df,
+                app=app,
+                edge_attr_df=edge_attr_df,
+                stop_times_df=stop_times_df,
+                stops_df=stops_df,
             )
             for tid in trip_ids
         ]
         n_skipped = sum(
-            1 for r in raw_results
-            if r.empty or ("_skip_reason" in r.columns)
+            1 for r in raw_results if r.empty or ("_skip_reason" in r.columns)
         )
         results = [
-            r for r in raw_results
-            if not r.empty and "_skip_reason" not in r.columns
+            r for r in raw_results if not r.empty and "_skip_reason" not in r.columns
         ]
         if n_skipped:
             # Sample a few raw observations to help diagnose sparse/missing data
@@ -1003,7 +1027,11 @@ def get_speeds_for_one_day(
                 f"  ⚠ {n_skipped}/{len(trip_ids)} trips skipped on route {route_id}. "
                 f"Sample trip '{sample_tid}': "
                 f"{len(sample_raw)} raw rows → {len(sample_clean)} after cleaning"
-                + (f" (need ≥10; lat/lon null: {sample_raw[['latitude','longitude']].isna().any(axis=1).sum()})" if not sample_raw.empty else "")
+                + (
+                    f" (need ≥10; lat/lon null: {sample_raw[['latitude', 'longitude']].isna().any(axis=1).sum()})"
+                    if not sample_raw.empty
+                    else ""
+                )
             )
         if results:
             route_df = pd.concat(results, ignore_index=True)
@@ -1020,17 +1048,12 @@ def get_speeds_for_one_day(
     file_date = str(path_to_json).split(".")[0].split("_")[-1]
     all_csvs = list(gtfs_root.glob("realtime_speeds_*.csv"))
     if all_csvs:
-        combined_df = pd.concat(
-            [pd.read_csv(f) for f in all_csvs], ignore_index=True
-        )
+        combined_df = pd.concat([pd.read_csv(f) for f in all_csvs], ignore_index=True)
         all_speeds_file = gtfs_root / f"realtime_link_speeds_{file_date}.csv"
         combined_df.to_csv(all_speeds_file, index=False)
         for f in all_csvs:
             os.remove(f)
-        print(
-            f"Combined all route CSVs into {all_speeds_file}"
-            " and deleted originals."
-        )
+        print(f"Combined all route CSVs into {all_speeds_file} and deleted originals.")
 
     # Aggregate speeds across trips (weighted average per road segment)
     if all_results:

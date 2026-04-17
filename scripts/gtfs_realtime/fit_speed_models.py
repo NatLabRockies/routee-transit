@@ -6,7 +6,7 @@ time-of-day bin x weekday/weekend, and trains regression models using only
 features available from OSM (generalizable to any US transit agency).
 
 0. Baseline  — speed_limit x constant
-1. Linear Regression (OLS)
+1. Linear Regression (OLS)I 
 2. Random Forest
 3. Histogram Gradient Boosting (handles NaN natively)
 
@@ -54,7 +54,15 @@ DEFAULT_DATA_DIRS = [
 ]
 
 # Only features derivable from OSM — no agency- or trip-specific data.
-NUMERIC_FEATURES = ["maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km", "n_stops", "scheduled_speed_mph"]
+NUMERIC_FEATURES = [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "scheduled_speed_mph",
+]
 CATEGORICAL_FEATURES = ["highway"]
 TEMPORAL_FEATURES = ["hour", "is_weekday", "is_peak"]
 TARGET = "mph_moving"
@@ -124,7 +132,9 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     n_removed = n_before - len(df)
     log.info(
         "Outlier removal: %d rows removed (%.1f%%), %d remaining",
-        n_removed, 100 * n_removed / max(n_before, 1), len(df),
+        n_removed,
+        100 * n_removed / max(n_before, 1),
+        len(df),
     )
     return df
 
@@ -159,7 +169,14 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
     if "agency" in df.columns:
         group_cols = ["agency"] + group_cols
     # Carry forward road-level attributes (constant per road_id)
-    road_attrs = ["highway", "maxspeed_mph", "lanes", "grade", "grade_abs", "link_length_km"]
+    road_attrs = [
+        "highway",
+        "maxspeed_mph",
+        "lanes",
+        "grade",
+        "grade_abs",
+        "link_length_km",
+    ]
     first_cols = {c: "first" for c in road_attrs if c in df.columns}
 
     def _weighted_mean(g: pd.DataFrame) -> pd.Series:
@@ -168,14 +185,18 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
         if total_w == 0:
             w = np.ones(len(g))
             total_w = float(len(g))
-        return pd.Series({
-            "mph_moving_mean": np.average(g[TARGET].values, weights=w),
-            "mph_moving_std": g[TARGET].std(),
-            "n_trips": len(g),
-            "total_observations": int(total_w),
-        })
+        return pd.Series(
+            {
+                "mph_moving_mean": np.average(g[TARGET].values, weights=w),
+                "mph_moving_std": g[TARGET].std(),
+                "n_trips": len(g),
+                "total_observations": int(total_w),
+            }
+        )
 
-    agg = df.groupby(group_cols).apply(_weighted_mean, include_groups=False).reset_index()
+    agg = (
+        df.groupby(group_cols).apply(_weighted_mean, include_groups=False).reset_index()
+    )
 
     # Attach road attributes from first occurrence
     road_props = df.groupby("road_id")[list(first_cols.keys())].first().reset_index()
@@ -188,7 +209,8 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
 
     log.info(
         "Aggregated to %d (road x hour x weekday/weekend) groups from %d trips",
-        len(agg), df["trip_id"].nunique() if "trip_id" in df.columns else -1,
+        len(agg),
+        df["trip_id"].nunique() if "trip_id" in df.columns else -1,
     )
     return agg
 
@@ -215,7 +237,10 @@ def build_feature_matrix(
 
 
 def evaluate_model(
-    name: str, y_true: np.ndarray, y_pred: np.ndarray, weights: np.ndarray | None = None,
+    name: str,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    weights: np.ndarray | None = None,
 ) -> dict:
     """Compute regression metrics (optionally observation-weighted)."""
     r2 = r2_score(y_true, y_pred, sample_weight=weights)
@@ -246,7 +271,9 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     df = pd.concat(all_dfs, ignore_index=True)
     log.info(
         "Combined data from %d agencies (%s): %d rows",
-        len(data_dirs), ", ".join(agency_names), len(df),
+        len(data_dirs),
+        ", ".join(agency_names),
+        len(df),
     )
 
     # --- Aggregate to (road x hour x weekday/weekend) -------------------------
@@ -273,7 +300,9 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
 
     log.info(
         "Feature matrix: %d samples x %d features  (target: %s)",
-        X_full.shape[0], X_full.shape[1], agg_target,
+        X_full.shape[0],
+        X_full.shape[1],
+        agg_target,
     )
 
     # --- Spatial train/test split (by road_id) --------------------------------
@@ -291,7 +320,10 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     n_roads_test = len(set(groups[test_idx]))
     log.info(
         "Spatial split: %d train (%d roads)  /  %d test (%d roads, held-out)",
-        len(y_train), n_roads_train, len(y_test), n_roads_test,
+        len(y_train),
+        n_roads_train,
+        len(y_test),
+        n_roads_test,
     )
 
     # Per-agency test breakdown
@@ -317,18 +349,23 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     sl_known_mask = sl_train > 0
     if sl_known_mask.sum() > 0:
         w_known = w_train[sl_known_mask]
-        k_opt = (
-            np.sum(w_known * y_train[sl_known_mask] * sl_train[sl_known_mask])
-            / np.sum(w_known * sl_train[sl_known_mask] ** 2)
-        )
+        k_opt = np.sum(
+            w_known * y_train[sl_known_mask] * sl_train[sl_known_mask]
+        ) / np.sum(w_known * sl_train[sl_known_mask] ** 2)
     else:
         k_opt = 0.6
 
     fallback_speed = np.average(y_train, weights=w_train)
-    log.info("  Optimal k = %.4f   (fallback for missing speed limit = %.1f mph)", k_opt, fallback_speed)
+    log.info(
+        "  Optimal k = %.4f   (fallback for missing speed limit = %.1f mph)",
+        k_opt,
+        fallback_speed,
+    )
 
     y_pred_baseline = np.where(sl_test > 0, sl_test * k_opt, fallback_speed)
-    results.append(evaluate_model("Baseline (speed_limit x k)", y_test, y_pred_baseline, w_test))
+    results.append(
+        evaluate_model("Baseline (speed_limit x k)", y_test, y_pred_baseline, w_test)
+    )
 
     # --- 1. Linear Regression -------------------------------------------------
     log.info("Fitting Linear Regression …")
@@ -373,7 +410,9 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     )
     hgb.fit(X_train, y_train, sample_weight=w_train)
     y_pred_hgb = hgb.predict(X_test)
-    results.append(evaluate_model("Histogram Gradient Boosting", y_test, y_pred_hgb, w_test))
+    results.append(
+        evaluate_model("Histogram Gradient Boosting", y_test, y_pred_hgb, w_test)
+    )
 
     # --- Results summary table ------------------------------------------------
     results_df = pd.DataFrame(results)
@@ -419,7 +458,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     | Category | Features |
     |----------|----------|
     | Road attributes | `maxspeed_mph`, `lanes`, `grade`, `grade_abs`, `link_length_km` |
-    | Road type | `highway` (one-hot: {', '.join(cat_names)}) |
+    | Road type | `highway` (one-hot: {", ".join(cat_names)}) |
     | Temporal | `hour`, `is_weekday`, `is_peak` |
 
     ## Model Performance
@@ -434,8 +473,8 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     summary += textwrap.dedent(f"""
     ## Key Findings
 
-    - **Best model**: {best['model']} (R² = {best['r2']:.4f}, RMSE = {best['rmse_mph']:.2f} mph)
-    - **Worst model**: {worst['model']} (R² = {worst['r2']:.4f}, RMSE = {worst['rmse_mph']:.2f} mph)
+    - **Best model**: {best["model"]} (R² = {best["r2"]:.4f}, RMSE = {best["rmse_mph"]:.2f} mph)
+    - **Worst model**: {worst["model"]} (R² = {worst["r2"]:.4f}, RMSE = {worst["rmse_mph"]:.2f} mph)
     - The spatial hold-out split (entire roads held out) is deliberately harder
       than random splitting and better reflects real generalization to new
       agencies/cities where no realtime data exists.
