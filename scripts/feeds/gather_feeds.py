@@ -170,6 +170,7 @@ def compute_agency_metrics(
         - ``dataset_id``
         - ``agency_id``
         - ``agency_name``
+        - ``n_routes``
         - ``trips_per_day``
         - ``avg_trip_duration_minutes``
         - ``avg_trip_distance_miles``
@@ -261,7 +262,20 @@ def compute_agency_metrics(
             )
 
     records: list[dict[str, Any]] = []
+
+    # Calculate number of routes per agency
+    n_routes_by_agency = (
+        routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS]
+        .groupby(
+            "agency_id"
+            if "agency_id" in routes.columns
+            else lambda x: SINGLE_AGENCY_PLACEHOLDER
+        )
+        .size()
+    )
+
     for lookup_key in trips_per_day.index:
+        n_routes = n_routes_by_agency.get(lookup_key, 0)
         tpd = trips_per_day.get(lookup_key)
         if tpd is None:
             continue
@@ -282,6 +296,7 @@ def compute_agency_metrics(
                 "dataset_id": dataset_id,
                 "agency_id": real_id,
                 "agency_name": agency_name,
+                "n_routes": n_routes,
                 "trips_per_day": round(float(tpd), 1),
                 "avg_trip_duration_minutes": (
                     round(float(adur), 1)
