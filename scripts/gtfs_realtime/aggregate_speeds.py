@@ -629,8 +629,8 @@ def compute_scheduled_speeds_between_stops(
 ) -> pd.DataFrame:
     """Compute GTFS-scheduled moving speed for each consecutive stop pair.
 
-    Uses departure-to-departure timing, which excludes dwell time at
-    intermediate stops.  This matches the semantics of ``mph_moving`` in
+    Uses arrival-at-B minus departure-from-A timing, which excludes dwell
+    time at both endpoints.  This matches the semantics of ``mph_moving`` in
     :func:`estimate_link_speeds`.
 
     Parameters
@@ -642,13 +642,15 @@ def compute_scheduled_speeds_between_stops(
     -------
     pd.DataFrame
         One row per consecutive stop pair, columns: ``stop_seq_from``,
-        ``stop_seq_to``, ``edge_idx_from``, ``edge_idx_to``, ``dist_m``,
-        ``time_sec``, ``scheduled_speed_mph``.  ``scheduled_speed_mph`` is NaN
-        when ``time_sec`` ≤ 0 or ``dist_m`` ≤ 0.
+        ``stop_seq_to``, ``edge_idx_from``, ``edge_idx_to``,
+        ``cumul_dist_from``, ``cumul_dist_to``, ``dist_m``, ``time_sec``,
+        ``scheduled_speed_mph``.  ``scheduled_speed_mph`` is NaN when
+        ``time_sec`` ≤ 0 or ``dist_m`` ≤ 0.
     """
     _EMPTY_COLS = [
         "stop_seq_from", "stop_seq_to", "edge_idx_from", "edge_idx_to",
-        "dist_m", "time_sec", "scheduled_speed_mph",
+        "cumul_dist_from", "cumul_dist_to", "dist_m", "time_sec",
+        "scheduled_speed_mph",
     ]
     if len(stops_on_route) < 2:
         return pd.DataFrame(columns=_EMPTY_COLS)
@@ -661,9 +663,9 @@ def compute_scheduled_speeds_between_stops(
         b = rows.iloc[i + 1]
 
         dist_m = b["cumul_dist_m"] - a["cumul_dist_m"]
-        # Departure-to-departure: time the bus is moving between stops,
-        # excluding dwell at stop A.
-        time_sec = b["departure_sec"] - a["departure_sec"]
+        # Arrival-at-B minus departure-from-A: pure travel time excluding
+        # dwell at both endpoints.
+        time_sec = b["arrival_sec"] - a["departure_sec"]
 
         if time_sec > 0 and dist_m > 0:
             speed_mph = (dist_m / 1609.344) / (time_sec / 3600.0)
@@ -676,6 +678,8 @@ def compute_scheduled_speeds_between_stops(
                 "stop_seq_to": int(b["stop_sequence"]),
                 "edge_idx_from": int(a["edge_idx"]),
                 "edge_idx_to": int(b["edge_idx"]),
+                "cumul_dist_from": float(a["cumul_dist_m"]),
+                "cumul_dist_to": float(b["cumul_dist_m"]),
                 "dist_m": dist_m,
                 "time_sec": time_sec,
                 "scheduled_speed_mph": speed_mph,
@@ -688,7 +692,7 @@ def compute_scheduled_speeds_between_stops(
 def aggregate_gtfs_features_by_edge(
     stops_on_route: pd.DataFrame,
     sched_speeds: pd.DataFrame,
-    n_edges: int,
+    edges_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """Aggregate GTFS stop and scheduled-speed features to the OSM edge level.
 
@@ -698,8 +702,9 @@ def aggregate_gtfs_features_by_edge(
         Output of :func:`project_stops_to_route`.
     sched_speeds : pd.DataFrame
         Output of :func:`compute_scheduled_speeds_between_stops`.
-    n_edges : int
-        Total number of matched edges in the route.
+    edges_df : pd.DataFrame
+        Matched edges GeoDataFrame from :func:`match_realtime_trip`, with
+        columns ``cumul_start_m`` and ``link_length_m``.
 
     Returns
     -------
@@ -709,10 +714,11 @@ def aggregate_gtfs_features_by_edge(
         ``n_stops``
             Integer count of scheduled stops projected onto this edge.
         ``scheduled_speed_mph``
-            Mean GTFS-scheduled speed (mph) across all stop-to-stop segments
-            whose projected range spans this edge.  NaN when no segment covers
-            the edge.
+            Distance-weighted mean GTFS-scheduled speed (mph) across all
+            stop-to-stop segments whose projected range overlaps this edge.
+            NaN when no segment covers the edge.
     """
+    n_edges = len(edges_df)
     n_stops_arr = np.zeros(n_edges, dtype=int)
     sched_speed_arr = np.full(n_edges, float("nan"))
 
@@ -722,18 +728,29 @@ def aggregate_gtfs_features_by_edge(
                 n_stops_arr[int(ei)] = int(count)
 
     if not sched_speeds.empty:
-        speed_accum: dict[int, list[float]] = {i: [] for i in range(n_edges)}
+        cumul_start = edges_df["cumul_start_m"].values
+        link_lengths = edges_df["link_length_m"].values
+        weighted_speed_sum = np.zeros(n_edges)
+        weight_sum = np.zeros(n_edges)
+
         for _, seg in sched_speeds.iterrows():
             if pd.isna(seg["scheduled_speed_mph"]):
                 continue
             ei_from = int(seg["edge_idx_from"])
             ei_to = int(seg["edge_idx_to"])
+            seg_start = float(seg["cumul_dist_from"])
+            seg_end = float(seg["cumul_dist_to"])
             spd = float(seg["scheduled_speed_mph"])
             for ei in range(max(0, ei_from), min(n_edges, ei_to + 1)):
-                speed_accum[ei].append(spd)
-        for ei, speeds in speed_accum.items():
-            if speeds:
-                sched_speed_arr[ei] = float(np.mean(speeds))
+                edge_start = cumul_start[ei]
+                edge_end = edge_start + link_lengths[ei]
+                overlap = min(seg_end, edge_end) - max(seg_start, edge_start)
+                if overlap > 0:
+                    weighted_speed_sum[ei] += overlap * spd
+                    weight_sum[ei] += overlap
+
+        nonzero = weight_sum > 0
+        sched_speed_arr[nonzero] = weighted_speed_sum[nonzero] / weight_sum[nonzero]
 
     return pd.DataFrame(
         {"n_stops": n_stops_arr, "scheduled_speed_mph": sched_speed_arr},
@@ -825,7 +842,7 @@ def get_link_speeds_for_trip(
                 )
                 sched_speeds = compute_scheduled_speeds_between_stops(stops_on_route)
                 gtfs_feats = aggregate_gtfs_features_by_edge(
-                    stops_on_route, sched_speeds, len(edges_df)
+                    stops_on_route, sched_speeds, edges_df
                 )
                 link_summary["n_stops"] = gtfs_feats["n_stops"].values
                 link_summary["scheduled_speed_mph"] = gtfs_feats["scheduled_speed_mph"].values
