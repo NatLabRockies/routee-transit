@@ -1,4 +1,5 @@
 import unittest
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -279,7 +280,7 @@ class TestGetAgencyOverview(unittest.TestCase):
 
     def _make_predictor_with_predictions(
         self,
-        trip_rows: list[dict],  # type: ignore[type-arg]
+        trip_rows: list[dict[str, Any]],
         agency_df: pd.DataFrame | None = None,
         total_service_days: int = 5,
     ) -> GTFSEnergyPredictor:
