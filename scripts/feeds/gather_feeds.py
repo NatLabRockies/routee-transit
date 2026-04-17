@@ -188,11 +188,11 @@ def compute_agency_metrics(
 
     # For single-agency feeds the agency_id column may be entirely NaN.
     # In that case, treat all trips as belonging to the sole agency and
-    # use a sentinel value so groupby works correctly.
-    SINGLE_AGENCY_SENTINEL = "__single__"
+    # use a placeholder value so groupby works correctly.
+    SINGLE_AGENCY_PLACEHOLDER = "_single_agency_"
     all_null = trip_info["agency_id"].isna().all()
     if all_null:
-        trip_info["agency_id"] = SINGLE_AGENCY_SENTINEL
+        trip_info["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
 
     # --- trips_per_day -------------------------------------------------------
     date_sids = dataset.get_service_ids_all_dates()
@@ -239,37 +239,42 @@ def compute_agency_metrics(
             avg_distance = trip_shapes.groupby("agency_id")["service_dist"].mean()
 
     # --- Build per-agency records --------------------------------------------
-    # Build a lookup from sentinel/real agency_id -> agency_name
+    # Build a lookup from placeholder/real agency_id -> (real_id, agency_name)
     agency_df = dataset.agency.copy()
     if all_null:
-        # Map sentinel to the sole agency
+        # Map placeholder to the sole agency
         sole_name = agency_df["agency_name"].iloc[0]
         sole_id = (
             agency_df["agency_id"].iloc[0] if "agency_id" in agency_df.columns else None
         )
         agency_lookup: dict[str, tuple[Any, Any]] = {
-            SINGLE_AGENCY_SENTINEL: (sole_id, sole_name)
+            SINGLE_AGENCY_PLACEHOLDER: (sole_id, sole_name)
         }
     else:
         has_id_col = "agency_id" in agency_df.columns
         agency_lookup = {}
         for _, row in agency_df.iterrows():
-            key = str(row["agency_id"]) if has_id_col else SINGLE_AGENCY_SENTINEL
+            key = str(row["agency_id"]) if has_id_col else SINGLE_AGENCY_PLACEHOLDER
             agency_lookup[key] = (
                 row["agency_id"] if has_id_col else None,
                 row["agency_name"],
             )
 
     records: list[dict[str, Any]] = []
-    for sentinel_id in trips_per_day.index:
-        tpd = trips_per_day.get(sentinel_id)
+    for lookup_key in trips_per_day.index:
+        tpd = trips_per_day.get(lookup_key)
         if tpd is None:
             continue
 
-        real_id, agency_name = agency_lookup.get(sentinel_id, (sentinel_id, None))
-        adur = avg_duration.get(sentinel_id)
+        lookup_result = agency_lookup.get(lookup_key)
+        if lookup_result is None:
+            # Unexpected key — skip rather than leaking the placeholder value
+            continue
+        real_id, agency_name = lookup_result
+
+        adur = avg_duration.get(lookup_key)
         adist = (
-            avg_distance.get(sentinel_id) if sentinel_id in avg_distance.index else None
+            avg_distance.get(lookup_key) if lookup_key in avg_distance.index else None
         )
 
         records.append(
