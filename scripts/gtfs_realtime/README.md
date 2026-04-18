@@ -30,5 +30,5 @@ Portland, ME: `uv run scraper.py --interval 10 --log-dir greater_portland_me htt
 ### Processing scraped data to estimate speeds
 The current (clunky) process for processing results to estimate and analyze speeds is:
 
-1) Run `aggregate_speeds.py` for a particular feed on a particular day. This can be very time consuming (multiple hours) for a large feed as of now.
+1) Run `aggregate_agency_records.py` for a particular feed. Use `--single-day` for one JSONL file or `--data-dir` to process all days in a directory (skipping already-processed days). This can be very time consuming (multiple hours) for a large feed.
 2) To plot the calculated speeds, use `build_speeds_map.py`

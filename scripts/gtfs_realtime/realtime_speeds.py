@@ -1,9 +1,17 @@
+"""Library of reusable functions for processing GTFS-Realtime vehicle position data.
+
+This module contains all the core computation logic:
+- Reading and cleaning GTFS-RT records
+- Building a CompassApp from GTFS shapes
+- Map-matching trips to the OSM network
+- Estimating per-link speeds from observation timestamps
+- Projecting GTFS stops onto matched routes
+- Aggregating speed estimates across multiple trips
+"""
+
 import json
 import logging
-import os
 import re
-import time
-from pathlib import Path
 
 import numpy as np
 import osmnx as ox
@@ -938,139 +946,3 @@ def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame
         aggregated = aggregated.merge(road_props, on="road_id", how="left")
 
     return aggregated
-
-
-def get_speeds_for_one_day(
-    path_to_json: Path | os.PathLike,
-):
-    if not isinstance(path_to_json, Path):
-        path_to_json = Path(path_to_json)
-
-    gtfs_root = path_to_json.parent
-
-    # Read relevant static files
-    try:
-        trips_df = pd.read_csv(
-            gtfs_root / "static/trips.txt",
-            dtype={"trip_id": str, "shape_id": str},
-        ).set_index("trip_id")
-        shapes_df = pd.read_csv(
-            gtfs_root / "static/shapes.txt", dtype={"shape_id": str}
-        )
-    except FileNotFoundError as e:
-        raise FileNotFoundError(
-            f"GTFS static files not found in expected location: {gtfs_root}/static. "
-            "Please ensure 'trips.txt' and 'shapes.txt' exist."
-        ) from e
-
-    # Load stop data for GTFS features (optional — graceful fallback when absent).
-    stop_times_df: pd.DataFrame | None = None
-    stops_df: pd.DataFrame | None = None
-    try:
-        stop_times_df = pd.read_csv(
-            gtfs_root / "static/stop_times.txt",
-            dtype={"trip_id": str, "stop_id": str},
-        )
-        stops_df = pd.read_csv(
-            gtfs_root / "static/stops.txt",
-            dtype={"stop_id": str},
-        ).set_index("stop_id")
-        print(
-            f"Loaded stop data: {len(stop_times_df):,} stop_times rows, "
-            f"{len(stops_df):,} stops"
-        )
-    except FileNotFoundError:
-        print("stop_times.txt or stops.txt not found — GTFS stop features will be NaN")
-
-    # Read in realtime data
-    rt_df = read_realtime_records(path_to_json)
-    print(f"{rt_df.trip_id.nunique()} trips on this day")
-
-    # If route IDs aren't included in realtime data, merge them in from trips.txt.
-    if "route_id" not in rt_df.columns:
-        rt_df = rt_df.merge(trips_df[["route_id"]], left_on="trip_id", right_index=True)
-
-    # Build the CompassApp once using the GTFS shapes bounding box (clean, authoritative)
-    app, edge_attr_df = build_compass_app(shapes_df)
-
-    first_trip_start = time.time()
-    all_results = []
-
-    for ix, (route_id, route_rt) in enumerate(rt_df.groupby("route_id")):
-        trip_ids = list(route_rt["trip_id"].unique())
-        print(f"Analyzing {len(trip_ids)} trips on route {route_id}")
-        route_start = time.time()
-        raw_results = [
-            get_link_speeds_for_trip(
-                tid,
-                rt_df=rt_df,
-                trips_df=trips_df,
-                app=app,
-                edge_attr_df=edge_attr_df,
-                stop_times_df=stop_times_df,
-                stops_df=stops_df,
-            )
-            for tid in trip_ids
-        ]
-        n_skipped = sum(
-            1 for r in raw_results if r.empty or ("_skip_reason" in r.columns)
-        )
-        results = [
-            r for r in raw_results if not r.empty and "_skip_reason" not in r.columns
-        ]
-        if n_skipped:
-            # Sample a few raw observations to help diagnose sparse/missing data
-            sample_tid = trip_ids[0]
-            sample_raw = rt_df[rt_df["trip_id"] == sample_tid]
-            sample_clean = clean_trip_df(sample_raw.copy())
-            print(
-                f"  ⚠ {n_skipped}/{len(trip_ids)} trips skipped on route {route_id}. "
-                f"Sample trip '{sample_tid}': "
-                f"{len(sample_raw)} raw rows → {len(sample_clean)} after cleaning"
-                + (
-                    f" (need ≥10; lat/lon null: {sample_raw[['latitude', 'longitude']].isna().any(axis=1).sum()})"
-                    if not sample_raw.empty
-                    else ""
-                )
-            )
-        if results:
-            route_df = pd.concat(results, ignore_index=True)
-            route_df.to_csv(gtfs_root / f"realtime_speeds_{route_id}.csv")
-            all_results.append(route_df)
-        print(
-            f"Analyzing {route_rt.trip_id.nunique()} trips on route {route_id} "
-            f"took {time.time() - route_start:.2f} s"
-        )
-        print(f"Finished analyzing {ix + 1} of {rt_df.route_id.nunique()} routes")
-
-    # Concatenate all the files previously written for each route. Save them as a new
-    # file and delete the smaller files.
-    file_date = str(path_to_json).split(".")[0].split("_")[-1]
-    all_csvs = list(gtfs_root.glob("realtime_speeds_*.csv"))
-    if all_csvs:
-        combined_df = pd.concat([pd.read_csv(f) for f in all_csvs], ignore_index=True)
-        all_speeds_file = gtfs_root / f"realtime_link_speeds_{file_date}.csv"
-        combined_df.to_csv(all_speeds_file, index=False)
-        for f in all_csvs:
-            os.remove(f)
-        print(f"Combined all route CSVs into {all_speeds_file} and deleted originals.")
-
-    # Aggregate speeds across trips (weighted average per road segment)
-    if all_results:
-        all_trips_df = pd.concat(all_results, ignore_index=True)
-        aggregated = aggregate_speeds_across_trips(all_trips_df)
-        if not aggregated.empty:
-            agg_file = gtfs_root / f"realtime_link_speeds_aggregated_{file_date}.csv"
-            aggregated.to_csv(agg_file, index=False)
-            print(f"Aggregated link speeds saved to {agg_file}")
-
-    print(
-        f"Analyzing all {rt_df.trip_id.nunique()} trips "
-        f"took {time.time() - first_trip_start:.2f} s"
-    )
-
-
-if __name__ == "__main__":
-    # json_path = "reports/realtime/greater_portland_me/gtfs_realtime_records_20251023.jsonl"
-    json_path = "reports/realtime/kingcounty/gtfs_realtime_records_20251029.jsonl"
-    get_speeds_for_one_day(json_path)
