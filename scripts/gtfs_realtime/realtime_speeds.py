@@ -147,9 +147,13 @@ def clean_trip_df(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
         Cleaned DataFrame sorted by timestamp with duplicates removed.
     """
     trip_rt_df = trip_rt_df.dropna(subset=["timestamp"]).copy()
-    trip_rt_df["timestamp"] = pd.to_datetime(
-        trip_rt_df["timestamp"].astype(int), unit="s"
-    )
+    # Coerce to numeric first — some feeds produce corrupted or non-integer
+    # timestamp values that overflow C long when cast with astype(int).
+    ts = pd.to_numeric(trip_rt_df["timestamp"], errors="coerce")
+    # Keep only plausible Unix-seconds values: 2001-01-01 to 2100-01-01
+    valid = ts.notna() & (ts > 9.78e8) & (ts < 4.10e9)
+    trip_rt_df = trip_rt_df[valid].copy()
+    trip_rt_df["timestamp"] = pd.to_datetime(ts[valid].astype("int64"), unit="s")
     keep_cols = [
         "timestamp",
         "latitude",
