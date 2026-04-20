@@ -12,6 +12,7 @@ from gtfsblocks import Feed
 from scripts.feeds.extract_static_gtfs import GtfsExtractor
 
 GTFS_ROUTE_TYPE_BUS = 3
+SINGLE_AGENCY_PLACEHOLDER = "_single_agency_"
 
 
 def collect_active_feeds(
@@ -143,11 +144,174 @@ def build_feeds_summary(
     return pd.DataFrame(feed_info)
 
 
+def compute_agency_metrics(
+    dataset: Feed,
+    dataset_id: str,
+    bus_trips: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """Compute per-agency overview metrics from a GTFS feed for bus trips only.
+
+    Agencies with no bus trips are excluded entirely from the result.
+
+    Parameters
+    ----------
+    dataset:
+        Loaded GTFS feed.
+    dataset_id:
+        MDB dataset ID, included in every returned record for joining back to
+        ``datasets.csv``.
+    bus_trips:
+        DataFrame of bus trips (already filtered to ``route_type == 3``).
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        One record per agency that operates bus service, containing:
+
+        - ``dataset_id``
+        - ``agency_id``
+        - ``agency_name``
+        - ``n_routes``
+        - ``median_trips_per_day``
+        - ``avg_trip_duration_minutes``
+        - ``avg_trip_distance_miles``
+    """
+    if bus_trips.empty:
+        return []
+
+    routes = dataset.routes  # indexed by route_id
+
+    # Attach agency_id to each bus trip via its route
+    trip_info = bus_trips[["trip_id", "route_id", "service_id"]].copy()
+    if "agency_id" in routes.columns:
+        trip_info = trip_info.join(routes[["agency_id"]], on="route_id")
+    else:
+        trip_info["agency_id"] = None
+
+    # For single-agency feeds the agency_id column may be entirely NaN.
+    # Use a placeholder so groupby works correctly.
+    all_null = trip_info["agency_id"].isna().all()
+    if all_null:
+        trip_info["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
+
+    # --- median_trips_per_day ------------------------------------------------
+    sid_trip_counts = (
+        trip_info.groupby(["service_id", "agency_id"])["trip_id"]
+        .nunique()
+        .reset_index(name="n_trips")
+    )
+    daily_trips = (
+        dataset.get_service_ids_all_dates()
+        .merge(sid_trip_counts, on="service_id", how="inner")
+        .groupby(["date", "agency_id"])["n_trips"]
+        .sum()
+        .reset_index()
+    )
+    median_trips_per_day: pd.Series = daily_trips.groupby("agency_id")[
+        "n_trips"
+    ].median()
+
+    # --- avg_trip_duration_minutes -------------------------------------------
+    trip_durations = (
+        dataset.stop_times[dataset.stop_times["trip_id"].isin(bus_trips["trip_id"])]
+        .groupby("trip_id")["arrival_time"]
+        .agg(lambda x: (x.max() - x.min()).total_seconds() / 60)
+    )
+    avg_duration: pd.Series = (
+        trip_info.join(trip_durations.rename("duration_min"), on="trip_id")
+        .groupby("agency_id")["duration_min"]
+        .mean()
+    )
+
+    # --- avg_trip_distance_miles ---------------------------------------------
+    avg_distance: pd.Series = pd.Series(dtype=float)
+    shape_ids = (
+        bus_trips["shape_id"].dropna().unique().tolist()
+        if "shape_id" in bus_trips.columns
+        else []
+    )
+    if shape_ids and dataset.shapes is not None and not dataset.shapes.empty:
+        dataset.summarize_shapes(shape_ids)
+        if (
+            dataset.shapes_summary is not None
+            and "service_dist" in dataset.shapes_summary.columns
+        ):
+            avg_distance = (
+                trip_info.merge(
+                    bus_trips[["trip_id", "shape_id"]].dropna(subset=["shape_id"]),
+                    on="trip_id",
+                    how="left",
+                )
+                .join(dataset.shapes_summary["service_dist"], on="shape_id")
+                .groupby("agency_id")["service_dist"]
+                .mean()
+            )
+
+    # --- agency lookup: placeholder/real key -> (real_id, agency_name) -------
+    agency_df = dataset.agency
+    if all_null:
+        agency_lookup: dict[str, tuple[Any, Any]] = {
+            SINGLE_AGENCY_PLACEHOLDER: (
+                agency_df["agency_id"].iloc[0]
+                if "agency_id" in agency_df.columns
+                else None,
+                agency_df["agency_name"].iloc[0],
+            )
+        }
+    else:
+        agency_lookup = {
+            str(aid): (aid, name)
+            for aid, name in zip(agency_df["agency_id"], agency_df["agency_name"])
+        }
+
+    # --- n_routes per agency -------------------------------------------------
+    bus_routes = routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS].copy()
+    if "agency_id" not in bus_routes.columns:
+        bus_routes["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
+    n_routes_by_agency = bus_routes.groupby("agency_id").size()
+
+    # --- Build per-agency records --------------------------------------------
+    records: list[dict[str, Any]] = []
+    for lookup_key in median_trips_per_day.index:
+        lookup_result = agency_lookup.get(lookup_key)
+        if lookup_result is None:
+            # Unexpected key — skip rather than leaking the placeholder value
+            continue
+        real_id, agency_name = lookup_result
+
+        adur = avg_duration.get(lookup_key)
+        adist = avg_distance.get(lookup_key)
+
+        records.append(
+            {
+                "dataset_id": dataset_id,
+                "agency_id": real_id,
+                "agency_name": agency_name,
+                "n_routes": n_routes_by_agency.get(lookup_key, 0),
+                "median_trips_per_day": round(
+                    float(median_trips_per_day[lookup_key]), 1
+                ),
+                "avg_trip_duration_minutes": (
+                    round(float(adur), 1)
+                    if adur is not None and not pd.isna(adur)
+                    else None
+                ),
+                "avg_trip_distance_miles": (
+                    round(float(adist), 1)
+                    if adist is not None and not pd.isna(adist)
+                    else None
+                ),
+            }
+        )
+
+    return records
+
+
 def process_dataset(
     extractor: GtfsExtractor,
     db_root: Path,
     dataset_id: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Fetch metadata for one dataset and, if valid, download and inspect it.
 
     A dataset is downloaded only when it has shapes and no validation errors.
@@ -164,9 +328,12 @@ def process_dataset(
 
     Returns
     -------
-    dict[str, Any]
-        Summary record for the dataset, including optional ``includes_bus_trips``
-        and ``includes_all_bus_shapes`` keys when the dataset was downloaded.
+    tuple[dict[str, Any], list[dict[str, Any]]]
+        A ``(dataset_summary, agency_metrics)`` tuple where:
+
+        - ``dataset_summary`` is a record for ``datasets.csv``
+        - ``agency_metrics`` is a list of per-agency records for ``agencies.csv``
+          (empty when the dataset was not downloaded or has no bus trips)
     """
     dataset_response = extractor.query_mdb_dataset(dataset_id=dataset_id)
     val_report = dataset_response["validation_report"]
@@ -188,6 +355,7 @@ def process_dataset(
         "service_date_range_end": dataset_response["service_date_range_end"],
         "hosted_url": dataset_response["hosted_url"],
     }
+    agency_metrics: list[dict[str, Any]] = []
 
     try:
         download_zip = requests.get(summary["hosted_url"], timeout=60)
@@ -257,10 +425,15 @@ def process_dataset(
                 )
                 summary["agency_names"] = agency_names_bus
 
+        # Compute per-agency metrics (bus trips only, excludes agencies with
+        # no bus service)
+        if summary.get("includes_bus_trips"):
+            agency_metrics = compute_agency_metrics(dataset, dataset_id, bus_trips)
+
     except (ValueError, FileNotFoundError):
         pass  # return summary as-is
 
-    return summary
+    return summary, agency_metrics
 
 
 def main() -> None:
@@ -311,17 +484,25 @@ def main() -> None:
 
     feeds_df = build_feeds_summary(active_feeds)
 
-    dataset_info = [
-        process_dataset(extractor, db_root, d_id)
-        for d_id in feeds_df["latest_dataset_id"].tolist()
-    ]
-    datasets_df = pd.DataFrame(dataset_info)
+    all_dataset_summaries: list[dict[str, Any]] = []
+    all_agency_metrics: list[dict[str, Any]] = []
+    for d_id in feeds_df["latest_dataset_id"].tolist():
+        dataset_summary, agency_metrics = process_dataset(extractor, db_root, d_id)
+        all_dataset_summaries.append(dataset_summary)
+        all_agency_metrics.extend(agency_metrics)
+
+    datasets_df = pd.DataFrame(all_dataset_summaries)
+    agencies_df = pd.DataFrame(all_agency_metrics)
 
     # Write results summary tables
     os.makedirs(db_root, exist_ok=True)
     feeds_df.to_csv(db_root / "feeds.csv", index=False)
     datasets_df.to_csv(db_root / "datasets.csv", index=False)
-    print(f"Results written to {db_root}/feeds.csv and {db_root}/datasets.csv")
+    if not agencies_df.empty:
+        agencies_df.to_csv(db_root / "agencies.csv", index=False)
+    print(
+        f"Results written to {db_root}/feeds.csv, {db_root}/datasets.csv, and {db_root}/agencies.csv"
+    )
 
 
 if __name__ == "__main__":
