@@ -403,28 +403,6 @@ def process_dataset(
         del feed_overview_dict["end_date"]
         summary.update(feed_overview_dict)
 
-        # Add list of agencies
-        summary["agency_names"] = list(dataset.agency["agency_name"].unique())
-
-        # If there's more than one agency, only include agencies that have bus
-        # service included. We treat this as a separate check because agency_id
-        # is allowed to be NA if there is only one agency in the feed.
-        if len(summary["agency_names"]) > 1:
-            agency_ids = list(dataset.agency["agency_id"].dropna().unique())
-            if agency_ids:
-                # Double check these IDs are represented in bus routes
-                agency_ids_bus = list(
-                    dataset.routes[dataset.routes["route_type"] == GTFS_ROUTE_TYPE_BUS][
-                        "agency_id"
-                    ].unique()
-                )
-                agency_names_bus = (
-                    dataset.agency.set_index("agency_id")
-                    .loc[agency_ids_bus]["agency_name"]
-                    .tolist()
-                )
-                summary["agency_names"] = agency_names_bus
-
         # Compute per-agency metrics (bus trips only, excludes agencies with
         # no bus service)
         if summary.get("includes_bus_trips"):
