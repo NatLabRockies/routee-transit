@@ -99,9 +99,7 @@ class GtfsExtractor:
 
     def query_mdb_feed_datasets(self, feed_id: str) -> List[Dict[str, Any]]:
         """Query all datasets for a GTFS feed, sorted newest to oldest."""
-        result = self.query_mobility_db(
-            path=f"gtfs_feeds/{feed_id}/datasets", query=""
-        )
+        result = self.query_mobility_db(path=f"gtfs_feeds/{feed_id}/datasets", query="")
         if not isinstance(result, list):
             raise TypeError(
                 f"Expected list from feed datasets endpoint, got {type(result)}"

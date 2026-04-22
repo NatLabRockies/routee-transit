@@ -133,10 +133,7 @@ def build_feeds_summary(
                         f"using {dataset_id} instead."
                     )
                 else:
-                    print(
-                        f"Feed {f['id']}: no validated datasets found. "
-                        "Using latest."
-                    )
+                    print(f"Feed {f['id']}: no validated datasets found. Using latest.")
 
             feed_info.append(
                 {
@@ -263,8 +260,7 @@ def compute_agency_metrics(
             and "service_dist" in dataset.shapes_summary.columns
         ):
             avg_distance = (
-                trip_info
-                .join(dataset.shapes_summary["service_dist"], on="shape_id")
+                trip_info.join(dataset.shapes_summary["service_dist"], on="shape_id")
                 .groupby("agency_id")["service_dist"]
                 .mean()
             )
@@ -408,6 +404,8 @@ def process_dataset(
 
     summary: dict[str, Any] = {
         "id": dataset_id,
+        "feed_id": dataset_response["feed_id"],
+        "downloaded_at": dataset_response["downloaded_at"],
         "has_shapes": has_shapes,
         "has_errors": has_errors,
         "service_date_range_start": dataset_response["service_date_range_start"],
