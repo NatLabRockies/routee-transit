@@ -79,6 +79,7 @@ def collect_active_feeds(
 
 def build_feeds_summary(
     active_feeds: list[dict[str, Any]],
+    extractor: GtfsExtractor,
 ) -> pd.DataFrame:
     """Build a summary DataFrame from raw feed records.
 
@@ -86,6 +87,9 @@ def build_feeds_summary(
     ----------
     active_feeds:
         Raw feed records as returned by :func:`collect_active_feeds`.
+    extractor:
+        Authenticated GtfsExtractor instance, used to look up the most recent
+        validated dataset when ``latest_dataset`` has no validation report.
 
     Returns
     -------
@@ -114,6 +118,26 @@ def build_feeds_summary(
         try:
             # Compile the list of states covered by this feed
             states = list(set(loc["subdivision_name"] for loc in f["locations"]))
+            # Determine which dataset to use: prefer the latest validated one.
+            dataset_id = f["latest_dataset"]["id"]
+            if f["latest_dataset"].get("validation_report") is None:
+                datasets = extractor.query_mdb_feed_datasets(f["id"])
+                validated = next(
+                    (d for d in datasets if d.get("validation_report") is not None),
+                    None,
+                )
+                if validated is not None:
+                    dataset_id = validated["id"]
+                    print(
+                        f"Feed {f['id']}: latest dataset unvalidated; "
+                        f"using {dataset_id} instead."
+                    )
+                else:
+                    print(
+                        f"Feed {f['id']}: no validated datasets found. "
+                        "Using latest."
+                    )
+
             feed_info.append(
                 {
                     "id": f["id"],
@@ -121,7 +145,7 @@ def build_feeds_summary(
                     "provider": f["provider"],
                     "status": f["status"],
                     "official": f["official"],
-                    "latest_dataset_id": f["latest_dataset"]["id"],
+                    "latest_dataset_id": dataset_id,
                     "center_latitude": 0.5
                     * (
                         f["bounding_box"]["minimum_latitude"]
@@ -495,7 +519,7 @@ def main() -> None:
         print("Warning: No active feeds found. Exiting.")
         return
 
-    feeds_df = build_feeds_summary(active_feeds)
+    feeds_df = build_feeds_summary(active_feeds, extractor)
 
     all_dataset_summaries: list[dict[str, Any]] = []
     all_agency_metrics: list[dict[str, Any]] = []
