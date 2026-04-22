@@ -168,7 +168,7 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ["road_id", "hour", "is_weekday"]
     if "agency" in df.columns:
         group_cols = ["agency"] + group_cols
-    # Carry forward road-level attributes (constant per road_id)
+    # Road-level attributes (constant per road_id) — carried forward via first()
     road_attrs = [
         "highway",
         "maxspeed_mph",
@@ -176,8 +176,12 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
         "grade",
         "grade_abs",
         "link_length_km",
+        "n_stops",
     ]
-    first_cols = {c: "first" for c in road_attrs if c in df.columns}
+    road_attrs = [c for c in road_attrs if c in df.columns]
+
+    # scheduled_speed_mph varies by time-of-day — aggregate as weighted mean
+    has_sched_speed = "scheduled_speed_mph" in df.columns
 
     def _weighted_mean(g: pd.DataFrame) -> pd.Series:
         w = g["n_observations"].values.astype(float)
@@ -185,21 +189,29 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
         if total_w == 0:
             w = np.ones(len(g))
             total_w = float(len(g))
-        return pd.Series(
-            {
-                "mph_moving_mean": np.average(g[TARGET].values, weights=w),
-                "mph_moving_std": g[TARGET].std(),
-                "n_trips": len(g),
-                "total_observations": int(total_w),
-            }
-        )
+        result = {
+            "mph_moving_mean": np.average(g[TARGET].values, weights=w),
+            "mph_moving_std": g[TARGET].std(),
+            "n_trips": len(g),
+            "total_observations": int(total_w),
+        }
+        if has_sched_speed:
+            valid = g["scheduled_speed_mph"].notna()
+            if valid.any():
+                result["scheduled_speed_mph"] = np.average(
+                    g.loc[valid, "scheduled_speed_mph"].values,
+                    weights=w[valid.values],
+                )
+            else:
+                result["scheduled_speed_mph"] = np.nan
+        return pd.Series(result)
 
     agg = (
         df.groupby(group_cols).apply(_weighted_mean, include_groups=False).reset_index()
     )
 
-    # Attach road attributes from first occurrence
-    road_props = df.groupby("road_id")[list(first_cols.keys())].first().reset_index()
+    # Attach road-level attributes from first occurrence
+    road_props = df.groupby("road_id")[road_attrs].first().reset_index()
     agg = agg.merge(road_props, on="road_id", how="left")
 
     # is_peak is derivable from hour
@@ -431,6 +443,53 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     agg_path = output_dir / "aggregated_training_data.csv"
     agg.to_csv(agg_path, index=False)
     log.info("Aggregated training data saved → %s", agg_path)
+
+    # --- Save test-set predictions (used by visualize_speed_models.py) --------
+    test_meta_cols = ["road_id", "hour", "is_weekday", "highway", "maxspeed_mph",
+                      "lanes", "grade", "grade_abs", "link_length_km", "n_trips"]
+    if "agency" in agg.columns:
+        test_meta_cols = ["agency"] + test_meta_cols
+    for col in ["n_stops", "scheduled_speed_mph"]:
+        if col in agg.columns:
+            test_meta_cols.append(col)
+    test_df = agg.iloc[test_idx][test_meta_cols].copy().reset_index(drop=True)
+    test_df["actual_mph"] = y_test
+    test_df["pred_baseline"] = y_pred_baseline
+    test_df["pred_lr"] = y_pred_lr
+    test_df["pred_rf"] = y_pred_rf
+    test_df["pred_hgb"] = y_pred_hgb
+    test_preds_path = output_dir / "test_predictions.csv"
+    test_df.to_csv(test_preds_path, index=False)
+    log.info("Test predictions saved → %s", test_preds_path)
+
+    # --- Save predictions for ALL rows (train + test) for full-network map ---
+    # Compute HGB predictions on training rows so every road can be visualized.
+    y_pred_hgb_train = hgb.predict(X_train)
+    y_pred_baseline_train = np.where(
+        sl_train > 0, sl_train * k_opt, fallback_speed
+    )
+    y_pred_lr_train = lr.predict(X_train_imp)
+    y_pred_rf_train = rf.predict(X_train_imp)
+
+    train_df = agg.iloc[train_idx][test_meta_cols].copy().reset_index(drop=True)
+    train_df["actual_mph"] = y_train
+    train_df["pred_baseline"] = y_pred_baseline_train
+    train_df["pred_lr"] = y_pred_lr_train
+    train_df["pred_rf"] = y_pred_rf_train
+    train_df["pred_hgb"] = y_pred_hgb_train
+
+    test_df["split"] = "test"
+    train_df["split"] = "train"
+    all_preds_path = output_dir / "all_predictions.csv"
+    pd.concat([train_df, test_df], ignore_index=True).to_csv(all_preds_path, index=False)
+    log.info("All predictions saved → %s", all_preds_path)
+
+    # Also record train-set road IDs (for backward-compat context layer on the folium map)
+    train_roads_path = output_dir / "train_road_ids.csv"
+    pd.Series(sorted(set(groups[train_idx])), name="road_id").to_csv(
+        train_roads_path, index=False
+    )
+    log.info("Train road IDs saved  → %s", train_roads_path)
 
     # --- Detailed summary report ----------------------------------------------
     best = max(results, key=lambda r: r["r2"])
