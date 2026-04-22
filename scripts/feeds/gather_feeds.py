@@ -175,6 +175,8 @@ def compute_agency_metrics(
         - ``median_trips_per_day``
         - ``avg_trip_duration_minutes``
         - ``avg_trip_distance_miles``
+        - ``center_latitude``
+        - ``center_longitude``
     """
     if bus_trips.empty:
         return []
@@ -182,7 +184,7 @@ def compute_agency_metrics(
     routes = dataset.routes  # indexed by route_id
 
     # Attach agency_id to each bus trip via its route
-    trip_info = bus_trips[["trip_id", "route_id", "service_id"]].copy()
+    trip_info = bus_trips[["trip_id", "route_id", "shape_id", "service_id"]].copy()
     if "agency_id" in routes.columns:
         trip_info = trip_info.join(routes[["agency_id"]], on="route_id")
     else:
@@ -237,14 +239,44 @@ def compute_agency_metrics(
             and "service_dist" in dataset.shapes_summary.columns
         ):
             avg_distance = (
-                trip_info.merge(
-                    bus_trips[["trip_id", "shape_id"]].dropna(subset=["shape_id"]),
-                    on="trip_id",
-                    how="left",
-                )
+                trip_info
                 .join(dataset.shapes_summary["service_dist"], on="shape_id")
                 .groupby("agency_id")["service_dist"]
                 .mean()
+            )
+
+    # --- center_latitude / center_longitude per agency -----------------------
+    agency_location: dict[Any, tuple[float, float] | None] = {}
+    if (
+        "shape_id" in bus_trips.columns
+        and dataset.shapes is not None
+        and not dataset.shapes.empty
+        and "shape_pt_lat" in dataset.shapes.columns
+        and "shape_pt_lon" in dataset.shapes.columns
+    ):
+        shapes_df = dataset.shapes
+        # shape_id may be a column or the index depending on gtfsblocks version
+        shape_id_series = (
+            shapes_df["shape_id"]
+            if "shape_id" in shapes_df.columns
+            else shapes_df.index.to_series()
+        )
+        for agency_key, group in trip_info.groupby("agency_id"):
+            agency_shape_ids = set(group["shape_id"].dropna())
+            if not agency_shape_ids:
+                agency_location[agency_key] = None
+                continue
+            pts = shapes_df[shape_id_series.isin(agency_shape_ids).values]
+            if pts.empty:
+                agency_location[agency_key] = None
+                continue
+            min_lat = float(pts["shape_pt_lat"].min())
+            max_lat = float(pts["shape_pt_lat"].max())
+            min_lon = float(pts["shape_pt_lon"].min())
+            max_lon = float(pts["shape_pt_lon"].max())
+            agency_location[agency_key] = (
+                round(0.5 * (min_lat + max_lat), 6),
+                round(0.5 * (min_lon + max_lon), 6),
             )
 
     # --- agency lookup: placeholder/real key -> (real_id, agency_name) -------
@@ -281,6 +313,7 @@ def compute_agency_metrics(
 
         adur = avg_duration.get(lookup_key)
         adist = avg_distance.get(lookup_key)
+        loc = agency_location.get(lookup_key)
 
         records.append(
             {
@@ -301,6 +334,8 @@ def compute_agency_metrics(
                     if adist is not None and not pd.isna(adist)
                     else None
                 ),
+                "center_latitude": loc[0] if loc is not None else None,
+                "center_longitude": loc[1] if loc is not None else None,
             }
         )
 
