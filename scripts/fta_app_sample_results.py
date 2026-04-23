@@ -81,22 +81,22 @@ if __name__ == "__main__":
     ]
 
     # TODO: aggregate feeds in this script as well
-    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --feed_ids mdb-292 mdb-2432 mdb-2303 --db_root frontend_example
-    db_root = package_root().parents[1] / "frontend_example"
+    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432 
+    db_root = package_root().parents[1] / "reports" / "results_example_2026_04_22"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
     feeds = pd.read_csv(feeds_path)
-    # datasets = pd.read_csv(datasets_path)
+    datasets = pd.read_csv(datasets_path)
 
     feeds_incl = feeds["id"].tolist()
-    datasets_incl = feeds["latest_dataset_id"].tolist()  # assumes no validation errors
+    datasets_incl = datasets["id"].tolist()  # assumes no validation errors
 
     for ix, d_id in enumerate(datasets_incl):
-        # TODO: export routes geojson
         input_directory = db_root / d_id / "gtfs"
         output_directory = db_root / d_id / "results"
 
+        logger.info(f"Starting predictions for {d_id}")
         start_time = time.time()
 
         predictor = GTFSEnergyPredictor(
@@ -117,7 +117,7 @@ if __name__ == "__main__":
             add_hvac=True,
             save_results=True,
         )
-        logger.info(f"Predicted energy for {len(results)} trips in {d_id}")
+        logger.info(f"Finished {len(results)} energy predictions for trips in {d_id}")
 
         # Export routes to GeoJSON
         routes_gdf = build_routes_gdf(predictor.feed)
