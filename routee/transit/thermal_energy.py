@@ -213,7 +213,7 @@ def add_HVAC_energy(
         Trips on selected date and route, including deadhead trips.
     output_dir : Path or None
         Directory used to store downloaded TMY weather files (in a ``TMY/``
-        subdirectory). If None, defaults to ``~/.cache/routee-transit/TMY``.
+        subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
 
     Returns
     -------
@@ -225,7 +225,7 @@ def add_HVAC_energy(
     if output_dir is not None:
         tmy_dir = output_dir / "TMY"
     else:
-        tmy_dir = Path.home() / ".cache" / "routee-transit" / "TMY"
+        tmy_dir = Path.home() / "cache" / "routee-transit" / "TMY"
 
     # Based on gtfs stops data, get counties served
     df_stops = feed.stops
