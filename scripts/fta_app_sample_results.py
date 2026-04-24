@@ -81,7 +81,7 @@ if __name__ == "__main__":
     ]
 
     # TODO: aggregate feeds in this script as well
-    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432 
+    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432
     db_root = package_root().parents[1] / "reports" / "results_example_2026_04_22"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
