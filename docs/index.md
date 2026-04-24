@@ -34,6 +34,17 @@ predictor.run(
 )
 ```
 
+By default, route filtering works at the **trip level**, so individual trips on the requested routes are always included even if their block also serves other routes. If you enable deadhead trip estimation, filtering automatically switches to **block level** to ensure complete blocks (see [](prediction) for details):
+
+```python
+predictor.run(
+    date="2023/08/02",
+    routes=["806", "807"],
+    add_mid_block_deadhead=True,
+    add_depot_deadhead=True,
+)
+```
+
 For a full example, see [](examples/Utah_Transit_Agency_example).
 
 ## Available Models
