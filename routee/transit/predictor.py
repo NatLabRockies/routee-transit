@@ -621,6 +621,7 @@ class GTFSEnergyPredictor:
         # Filter by routes
         if routes is not None:
             if use_block_filter:
+                pre_filter_trips = self.trips
                 self.trips = filter_blocks_by_route(
                     trips=self.trips,
                     routes=routes,
@@ -628,17 +629,25 @@ class GTFSEnergyPredictor:
                     route_method="exclusive",
                 )
                 if len(self.trips) == 0:
-                    # Check if trips exist at the trip level to provide a
-                    # helpful diagnostic when block-level filtering is the
-                    # reason all trips were removed.
-                    raise ValueError(
-                        "No trips remain after block-level route filtering. "
-                        "This can happen when blocks contain trips from "
-                        "routes not in the requested set (e.g. interlined "
-                        "routes). Consider running without deadhead trips "
-                        "to use trip-level filtering, or add the additional "
-                        "routes to the 'routes' parameter."
+                    # Check whether trip-level filtering would have kept any
+                    # trips.  This tells the user whether the issue is that
+                    # no trips match the routes at all, or that block-level
+                    # filtering is too restrictive.
+                    trip_level_count = int(
+                        pre_filter_trips["route_short_name"].isin(routes).sum()
                     )
+                    if trip_level_count > 0:
+                        raise ValueError(
+                            f"No trips remain after block-level route filtering, "
+                            f"but {trip_level_count} trip(s) match at the trip "
+                            f"level. This can happen when blocks contain trips "
+                            f"from routes not in the requested set (e.g. "
+                            f"interlined routes). Consider running without "
+                            f"deadhead trips to use trip-level filtering, or "
+                            f"add the additional routes to the 'routes' "
+                            f"parameter."
+                        )
+                    raise ValueError("No trips found for the selected routes and date.")
             else:
                 self.trips = self.trips[
                     self.trips["route_short_name"].isin(routes)

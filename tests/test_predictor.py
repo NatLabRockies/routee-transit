@@ -125,6 +125,28 @@ class TestPredictor(unittest.TestCase):
 
         self.assertIn("block-level", str(ctx.exception))
         self.assertIn("interlined", str(ctx.exception))
+        # Should mention the count of trip-level matches
+        self.assertIn("1 trip(s) match at the trip level", str(ctx.exception))
+
+    def test_filter_trips_block_level_no_trips_at_all(self) -> None:
+        """Block-level filtering with no matching trips gives a generic error."""
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2"],
+                "block_id": ["B1", "B1"],
+                "route_short_name": ["R1", "R2"],
+                "service_id": ["S1", "S1"],
+                "shape_id": ["SH1", "SH2"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1", "SH2"]})
+
+        with self.assertRaises(ValueError) as ctx:
+            self.predictor.filter_trips(routes=["R99"], use_block_filter=True)
+
+        # No trip-level matches either, so the generic error should be used
+        self.assertIn("No trips found", str(ctx.exception))
 
     def test_add_trip_times(self) -> None:
         # Setup pre-loaded state
