@@ -52,7 +52,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -566,7 +566,7 @@
 <span class="sd">        Trips on selected date and route, including deadhead trips.</span>
 <span class="sd">    output_dir : Path or None</span>
 <span class="sd">        Directory used to store downloaded TMY weather files (in a ``TMY/``</span>
-<span class="sd">        subdirectory). Must not be None.</span>
+<span class="sd">        subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -578,7 +578,7 @@
     <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">tmy_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;TMY&quot;</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Must specify output_dir if downloading TMY data&quot;</span><span class="p">)</span>
+        <span class="n">tmy_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;cache&quot;</span> <span class="o">/</span> <span class="s2">&quot;routee-transit&quot;</span> <span class="o">/</span> <span class="s2">&quot;TMY&quot;</span>
 
     <span class="c1"># Based on gtfs stops data, get counties served</span>
     <span class="n">df_stops</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">stops</span>

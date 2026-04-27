@@ -52,7 +52,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -574,8 +574,8 @@
         <span class="n">date</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="c1"># Processing options</span>
-        <span class="n">add_mid_block_deadhead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">add_depot_deadhead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">add_mid_block_deadhead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_depot_deadhead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="c1"># Energy prediction options</span>
         <span class="n">add_hvac</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">save_results</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -600,11 +600,16 @@
 <span class="sd">            If None, all trips across all service dates are included.</span>
 <span class="sd">        routes : list[str], optional</span>
 <span class="sd">            Filter trips to specific route IDs. If None, all routes are included.</span>
-<span class="sd">        add_mid_block_deadhead : bool, default=True</span>
+<span class="sd">        add_mid_block_deadhead : bool, default=False</span>
 <span class="sd">            Whether to add deadhead trips between consecutive revenue trips.</span>
-<span class="sd">        add_depot_deadhead : bool, default=True</span>
+<span class="sd">            When True and ``routes`` is specified, block-level filtering is used</span>
+<span class="sd">            to ensure only blocks that exclusively serve the selected routes are</span>
+<span class="sd">            included (required for correct deadhead estimation).</span>
+<span class="sd">        add_depot_deadhead : bool, default=False</span>
 <span class="sd">            Whether to add deadhead trips from/to depots at start/end of blocks.</span>
 <span class="sd">            Requires depot_path to be set during initialization.</span>
+<span class="sd">            When True and ``routes`` is specified, block-level filtering is used</span>
+<span class="sd">            (see ``add_mid_block_deadhead``).</span>
 <span class="sd">        add_hvac : bool, default=True</span>
 <span class="sd">            Whether to add HVAC energy consumption based on ambient temperature.</span>
 <span class="sd">        save_results : bool, default=True</span>
@@ -652,8 +657,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
 
         <span class="c1"># Step 2: Filter trips if requested</span>
+        <span class="c1"># Use block-level filtering when deadhead trips are requested, because</span>
+        <span class="c1"># deadhead estimation requires complete blocks.  Otherwise, use the</span>
+        <span class="c1"># more intuitive trip-level filtering.</span>
+        <span class="n">needs_deadhead</span> <span class="o">=</span> <span class="n">add_mid_block_deadhead</span> <span class="ow">or</span> <span class="n">add_depot_deadhead</span>
         <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="n">date</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="n">routes</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span>
+                <span class="n">date</span><span class="o">=</span><span class="n">date</span><span class="p">,</span>
+                <span class="n">routes</span><span class="o">=</span><span class="n">routes</span><span class="p">,</span>
+                <span class="n">use_block_filter</span><span class="o">=</span><span class="n">needs_deadhead</span> <span class="ow">and</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="c1"># Add start time, end time, and duration of each trip</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_trip_times</span><span class="p">()</span>
@@ -908,6 +921,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">date</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_block_filter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;GTFSEnergyPredictor&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Filter trips by date and/or routes.</span>
@@ -915,18 +929,36 @@
 <span class="sd">        This method can be called after load_gtfs_data() to restrict the analysis</span>
 <span class="sd">        to specific dates or routes. Can be called multiple times to refine filters.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            date: Date to filter trips (format: &quot;YYYY-MM-DD&quot; or datetime object).</span>
-<span class="sd">                If None, keeps all currently loaded trips.</span>
-<span class="sd">            routes: List of route_short_name values to filter by.</span>
-<span class="sd">                If None, keeps all currently loaded routes.</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        date : str, optional</span>
+<span class="sd">            Date to filter trips (format: &quot;YYYY-MM-DD&quot; or datetime object).</span>
+<span class="sd">            If None, keeps all currently loaded trips.</span>
+<span class="sd">        routes : list[str], optional</span>
+<span class="sd">            List of route_short_name values to filter by.</span>
+<span class="sd">            If None, keeps all currently loaded routes.</span>
+<span class="sd">        use_block_filter : bool, default=False</span>
+<span class="sd">            When True, uses block-level filtering via</span>
+<span class="sd">            ``filter_blocks_by_route`` with ``route_method=&quot;exclusive&quot;``.</span>
+<span class="sd">            This means entire blocks are excluded if any trip in the block</span>
+<span class="sd">            belongs to a route not in ``routes``. This is appropriate when</span>
+<span class="sd">            deadhead trips are being estimated, because we need complete</span>
+<span class="sd">            blocks.  When False (the default), trips are filtered purely</span>
+<span class="sd">            at the trip level so that individual trips on the requested</span>
+<span class="sd">            routes are always included regardless of what other routes</span>
+<span class="sd">            share the same block.</span>
 
-<span class="sd">        Returns:</span>
-<span class="sd">            Self for method chaining</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        GTFSEnergyPredictor</span>
+<span class="sd">            Self for method chaining.</span>
 
-<span class="sd">        Raises:</span>
-<span class="sd">            RuntimeError: If GTFS data hasn&#39;t been loaded yet</span>
-<span class="sd">            ValueError: If no trips match the specified filters</span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            If GTFS data hasn&#39;t been loaded yet.</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If no trips match the specified filters.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Must call load_gtfs_data() before filtering trips&quot;</span><span class="p">)</span>
@@ -943,14 +975,40 @@
 
         <span class="c1"># Filter by routes</span>
         <span class="k">if</span> <span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">trips</span> <span class="o">=</span> <span class="n">filter_blocks_by_route</span><span class="p">(</span>
-                <span class="n">trips</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">,</span>
-                <span class="n">routes</span><span class="o">=</span><span class="n">routes</span><span class="p">,</span>
-                <span class="n">route_column</span><span class="o">=</span><span class="s2">&quot;route_short_name&quot;</span><span class="p">,</span>
-                <span class="n">route_method</span><span class="o">=</span><span class="s2">&quot;exclusive&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No trips found for the selected routes and date.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">use_block_filter</span><span class="p">:</span>
+                <span class="n">pre_filter_trips</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">trips</span> <span class="o">=</span> <span class="n">filter_blocks_by_route</span><span class="p">(</span>
+                    <span class="n">trips</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">,</span>
+                    <span class="n">routes</span><span class="o">=</span><span class="n">routes</span><span class="p">,</span>
+                    <span class="n">route_column</span><span class="o">=</span><span class="s2">&quot;route_short_name&quot;</span><span class="p">,</span>
+                    <span class="n">route_method</span><span class="o">=</span><span class="s2">&quot;exclusive&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># Check whether trip-level filtering would have kept any</span>
+                    <span class="c1"># trips.  This tells the user whether the issue is that</span>
+                    <span class="c1"># no trips match the routes at all, or that block-level</span>
+                    <span class="c1"># filtering is too restrictive.</span>
+                    <span class="n">trip_level_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                        <span class="n">pre_filter_trips</span><span class="p">[</span><span class="s2">&quot;route_short_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">trip_level_count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;No trips remain after block-level route filtering, &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;but </span><span class="si">{</span><span class="n">trip_level_count</span><span class="si">}</span><span class="s2"> trip(s) match at the trip &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;level. This can happen when blocks contain trips &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;from routes not in the requested set (e.g. &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;interlined routes). Consider running without &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;deadhead trips to use trip-level filtering, or &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;add the additional routes to the &#39;routes&#39; &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;parameter.&quot;</span>
+                        <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No trips found for the selected routes and date.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">trips</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">[</span><span class="s2">&quot;route_short_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No trips found for the selected routes and date.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Update shapes to match filtered trips</span>
         <span class="n">shape_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>

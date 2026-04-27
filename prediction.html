@@ -53,7 +53,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -381,7 +381,10 @@
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#route-filtering">Route filtering</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trip-inference">2) Deadhead Trip Inference</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mid-block-deadhead">Mid-block deadhead</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#depot-deadhead-pull-out-pull-in">Depot deadhead (pull-out / pull-in)</a></li>
@@ -422,7 +425,23 @@
 <section id="load-and-filter-gtfs-trips">
 <h2>1) Load and Filter GTFS Trips<a class="headerlink" href="#load-and-filter-gtfs-trips" title="Link to this heading">#</a></h2>
 <p>RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.</p>
+<section id="route-filtering">
+<h3>Route filtering<a class="headerlink" href="#route-filtering" title="Link to this heading">#</a></h3>
+<p>By default, route filtering is <strong>trip-level</strong>: only trips whose <code class="docutils literal notranslate"><span class="pre">route_short_name</span></code> appears in the <code class="docutils literal notranslate"><span class="pre">routes</span></code> list are included, regardless of what other routes share the same GTFS block. This gives the most intuitive results, especially for agencies where interlining is common (e.g., a bus block might serve both route 5 and route 21).</p>
+<p>When deadhead trips are requested (<code class="docutils literal notranslate"><span class="pre">add_mid_block_deadhead=True</span></code> or <code class="docutils literal notranslate"><span class="pre">add_depot_deadhead=True</span></code>), filtering automatically switches to <strong>block-level</strong> mode. In block-level mode, entire blocks are excluded if <em>any</em> trip in the block belongs to a route not in the requested set. This is necessary because deadhead estimation requires complete blocks. If block-level filtering removes all trips but trip-level filtering would have kept some, the error message will explain this and suggest alternatives (either disabling deadhead or adding the additional interlined routes to the <code class="docutils literal notranslate"><span class="pre">routes</span></code> list).</p>
+<p>When using <code class="docutils literal notranslate"><span class="pre">filter_trips()</span></code> directly, you can control this behavior with the <code class="docutils literal notranslate"><span class="pre">use_block_filter</span></code> parameter:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
+
+<span class="c1"># Trip-level filtering (default) — individual trips on route &quot;5&quot; are</span>
+<span class="c1"># always kept, even if their block also serves route &quot;21&quot;</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;5&quot;</span><span class="p">])</span>
+
+<span class="c1"># Block-level filtering — only blocks that exclusively serve route &quot;5&quot;</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;5&quot;</span><span class="p">],</span> <span class="n">use_block_filter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
 <p>See [](data:gtfs-reqs) for the full list of required GTFS files and fields.</p>
+</section>
 </section>
 <section id="deadhead-trip-inference">
 <h2>2) Deadhead Trip Inference<a class="headerlink" href="#deadhead-trip-inference" title="Link to this heading">#</a></h2>
@@ -496,6 +515,15 @@
 <span class="p">)</span>
 
 <span class="c1"># Option 1: Use the convenience method (recommended)</span>
+<span class="c1"># By default, only revenue trips are included (no deadhead).</span>
+<span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
+    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Option 2: Include deadhead trips and HVAC impacts</span>
+<span class="c1"># When deadhead is enabled with route filtering, block-level filtering</span>
+<span class="c1"># is used automatically to ensure complete blocks.</span>
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
     <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
     <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">],</span>
@@ -504,7 +532,7 @@
     <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># Option 2: Step-by-step processing for more control</span>
+<span class="c1"># Option 3: Step-by-step processing for more control</span>
 <span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
 <span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">])</span>
 <span class="n">predictor</span><span class="o">.</span><span class="n">add_mid_block_deadhead</span><span class="p">()</span>  <span class="c1"># Between-trip deadhead</span>
@@ -591,7 +619,10 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#route-filtering">Route filtering</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deadhead-trip-inference">2) Deadhead Trip Inference</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mid-block-deadhead">Mid-block deadhead</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#depot-deadhead-pull-out-pull-in">Depot deadhead (pull-out / pull-in)</a></li>

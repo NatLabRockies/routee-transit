@@ -53,7 +53,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -425,6 +425,15 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
     <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
     <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;806&quot;</span><span class="p">,</span> <span class="s2">&quot;807&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>By default, route filtering works at the <strong>trip level</strong>, so individual trips on the requested routes are always included even if their block also serves other routes. If you enable deadhead trip estimation, filtering automatically switches to <strong>block level</strong> to ensure complete blocks (see <a class="reference internal" href="prediction.html"><span class="doc std std-doc">RouteE-Transit Prediction Pipeline</span></a> for details):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
+    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;806&quot;</span><span class="p">,</span> <span class="s2">&quot;807&quot;</span><span class="p">],</span>
+    <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>

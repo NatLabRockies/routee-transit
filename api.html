@@ -53,7 +53,7 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -633,26 +633,38 @@ even if cached outputs already exist in <code class="docutils literal notranslat
 
 <dl class="py method">
 <dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.filter_trips">
-<span class="sig-name descname"><span class="pre">filter_trips</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.predictor.GTFSEnergyPredictor"><span class="pre">GTFSEnergyPredictor</span></a></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.filter_trips"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.filter_trips" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">filter_trips</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_block_filter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.predictor.GTFSEnergyPredictor"><span class="pre">GTFSEnergyPredictor</span></a></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.filter_trips"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.filter_trips" title="Link to this definition">#</a></dt>
 <dd><p>Filter trips by date and/or routes.</p>
 <p>This method can be called after load_gtfs_data() to restrict the analysis
 to specific dates or routes. Can be called multiple times to refine filters.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>date</strong> -- Date to filter trips (format: &quot;YYYY-MM-DD&quot; or datetime object).
+<li><p><strong>date</strong> (<em>str</em><em>, </em><em>optional</em>) -- Date to filter trips (format: &quot;YYYY-MM-DD&quot; or datetime object).
 If None, keeps all currently loaded trips.</p></li>
-<li><p><strong>routes</strong> -- List of route_short_name values to filter by.
+<li><p><strong>routes</strong> (<em>list</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) -- List of route_short_name values to filter by.
 If None, keeps all currently loaded routes.</p></li>
+<li><p><strong>use_block_filter</strong> (<em>bool</em><em>, </em><em>default=False</em>) -- When True, uses block-level filtering via
+<code class="docutils literal notranslate"><span class="pre">filter_blocks_by_route</span></code> with <code class="docutils literal notranslate"><span class="pre">route_method=&quot;exclusive&quot;</span></code>.
+This means entire blocks are excluded if any trip in the block
+belongs to a route not in <code class="docutils literal notranslate"><span class="pre">routes</span></code>. This is appropriate when
+deadhead trips are being estimated, because we need complete
+blocks.  When False (the default), trips are filtered purely
+at the trip level so that individual trips on the requested
+routes are always included regardless of what other routes
+share the same block.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Self for method chaining</p>
+<dd class="field-even"><p>Self for method chaining.</p>
 </dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>RuntimeError</strong> -- If GTFS data hasn't been loaded yet</p></li>
-<li><p><strong>ValueError</strong> -- If no trips match the specified filters</p></li>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#routee.transit.GTFSEnergyPredictor" title="routee.transit.GTFSEnergyPredictor">GTFSEnergyPredictor</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>RuntimeError</strong> -- If GTFS data hasn't been loaded yet.</p></li>
+<li><p><strong>ValueError</strong> -- If no trips match the specified filters.</p></li>
 </ul>
 </dd>
 </dl>
@@ -778,7 +790,7 @@ traversal models, eliminating the need for the nrel.routee.powertrain package.</
 
 <dl class="py method">
 <dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.run">
-<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_mid_block_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_depot_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_hvac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.run" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_mid_block_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_depot_deadhead</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_hvac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.run" title="Link to this definition">#</a></dt>
 <dd><p>Run the complete energy prediction pipeline with a single method call.</p>
 <p>This is a convenience method that chains together all processing steps:
 1. Load GTFS data
@@ -794,9 +806,14 @@ traversal models, eliminating the need for the nrel.routee.powertrain package.</
 <li><p><strong>date</strong> (<em>str</em><em>, </em><em>optional</em>) -- Filter trips to a specific service date (format: &quot;YYYY-MM-DD&quot; or &quot;YYYY/MM/DD&quot;).
 If None, all trips across all service dates are included.</p></li>
 <li><p><strong>routes</strong> (<em>list</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) -- Filter trips to specific route IDs. If None, all routes are included.</p></li>
-<li><p><strong>add_mid_block_deadhead</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add deadhead trips between consecutive revenue trips.</p></li>
-<li><p><strong>add_depot_deadhead</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add deadhead trips from/to depots at start/end of blocks.
-Requires depot_path to be set during initialization.</p></li>
+<li><p><strong>add_mid_block_deadhead</strong> (<em>bool</em><em>, </em><em>default=False</em>) -- Whether to add deadhead trips between consecutive revenue trips.
+When True and <code class="docutils literal notranslate"><span class="pre">routes</span></code> is specified, block-level filtering is used
+to ensure only blocks that exclusively serve the selected routes are
+included (required for correct deadhead estimation).</p></li>
+<li><p><strong>add_depot_deadhead</strong> (<em>bool</em><em>, </em><em>default=False</em>) -- Whether to add deadhead trips from/to depots at start/end of blocks.
+Requires depot_path to be set during initialization.
+When True and <code class="docutils literal notranslate"><span class="pre">routes</span></code> is specified, block-level filtering is used
+(see <code class="docutils literal notranslate"><span class="pre">add_mid_block_deadhead</span></code>).</p></li>
 <li><p><strong>add_hvac</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add HVAC energy consumption based on ambient temperature.</p></li>
 <li><p><strong>save_results</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to save results to files.</p></li>
 </ul>
@@ -913,7 +930,7 @@ mapping each input block_id to its assigned shape</p></li>
 <li><p><strong>feed</strong> (<em>gtfsblocks.Feed</em>) -- GTFS feed object containing blocks DataFrame.</p></li>
 <li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- Trips on selected date and route, including deadhead trips.</p></li>
 <li><p><strong>output_dir</strong> (<em>Path</em><em> or </em><em>None</em>) -- Directory used to store downloaded TMY weather files (in a <code class="docutils literal notranslate"><span class="pre">TMY/</span></code>
-subdirectory). Must not be None.</p></li>
+subdirectory). If None, defaults to <code class="docutils literal notranslate"><span class="pre">~/cache/routee-transit/TMY</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
