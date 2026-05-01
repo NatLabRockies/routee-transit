@@ -171,6 +171,7 @@ def compute_agency_metrics(
         - ``dataset_id``
         - ``agency_id``
         - ``agency_name``
+        - ``agency_url``
         - ``n_routes``
         - ``median_trips_per_day``
         - ``avg_trip_duration_minutes``
@@ -247,21 +248,27 @@ def compute_agency_metrics(
                 .mean()
             )
 
-    # --- agency lookup: placeholder/real key -> (real_id, agency_name) -------
+    # --- agency lookup: placeholder/real key -> (real_id, agency_name, agency_url)
     agency_df = dataset.agency
+    has_agency_url = "agency_url" in agency_df.columns
     if all_null:
-        agency_lookup: dict[str, tuple[Any, Any]] = {
+        agency_lookup: dict[str, tuple[Any, Any, Any]] = {
             SINGLE_AGENCY_PLACEHOLDER: (
                 agency_df["agency_id"].iloc[0]
                 if "agency_id" in agency_df.columns
                 else None,
                 agency_df["agency_name"].iloc[0],
+                agency_df["agency_url"].iloc[0] if has_agency_url else None,
             )
         }
     else:
         agency_lookup = {
-            str(aid): (aid, name)
-            for aid, name in zip(agency_df["agency_id"], agency_df["agency_name"])
+            str(aid): (aid, name, url)
+            for aid, name, url in zip(
+                agency_df["agency_id"],
+                agency_df["agency_name"],
+                agency_df["agency_url"] if has_agency_url else [None] * len(agency_df),
+            )
         }
 
     # --- n_routes per agency -------------------------------------------------
@@ -277,7 +284,7 @@ def compute_agency_metrics(
         if lookup_result is None:
             # Unexpected key — skip rather than leaking the placeholder value
             continue
-        real_id, agency_name = lookup_result
+        real_id, agency_name, agency_url = lookup_result
 
         adur = avg_duration.get(lookup_key)
         adist = avg_distance.get(lookup_key)
@@ -287,6 +294,7 @@ def compute_agency_metrics(
                 "dataset_id": dataset_id,
                 "agency_id": real_id,
                 "agency_name": agency_name,
+                "agency_url": agency_url,
                 "n_routes": n_routes_by_agency.get(lookup_key, 0),
                 "median_trips_per_day": round(
                     float(median_trips_per_day[lookup_key]), 1
