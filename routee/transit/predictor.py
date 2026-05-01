@@ -228,8 +228,8 @@ class GTFSEnergyPredictor:
         date: str | None = None,
         routes: list[str] | None = None,
         # Processing options
-        add_mid_block_deadhead: bool = True,
-        add_depot_deadhead: bool = True,
+        add_mid_block_deadhead: bool = False,
+        add_depot_deadhead: bool = False,
         # Energy prediction options
         add_hvac: bool = True,
         save_results: bool = True,
@@ -254,11 +254,16 @@ class GTFSEnergyPredictor:
             If None, all trips across all service dates are included.
         routes : list[str], optional
             Filter trips to specific route IDs. If None, all routes are included.
-        add_mid_block_deadhead : bool, default=True
+        add_mid_block_deadhead : bool, default=False
             Whether to add deadhead trips between consecutive revenue trips.
-        add_depot_deadhead : bool, default=True
+            When True and ``routes`` is specified, block-level filtering is used
+            to ensure only blocks that exclusively serve the selected routes are
+            included (required for correct deadhead estimation).
+        add_depot_deadhead : bool, default=False
             Whether to add deadhead trips from/to depots at start/end of blocks.
             Requires depot_path to be set during initialization.
+            When True and ``routes`` is specified, block-level filtering is used
+            (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
         save_results : bool, default=True
@@ -306,8 +311,16 @@ class GTFSEnergyPredictor:
         self.load_gtfs_data()
 
         # Step 2: Filter trips if requested
+        # Use block-level filtering when deadhead trips are requested, because
+        # deadhead estimation requires complete blocks.  Otherwise, use the
+        # more intuitive trip-level filtering.
+        needs_deadhead = add_mid_block_deadhead or add_depot_deadhead
         if date is not None or routes is not None:
-            self.filter_trips(date=date, routes=routes)
+            self.filter_trips(
+                date=date,
+                routes=routes,
+                use_block_filter=needs_deadhead and routes is not None,
+            )
 
         # Add start time, end time, and duration of each trip
         self.add_trip_times()
@@ -553,6 +566,7 @@ class GTFSEnergyPredictor:
         self,
         date: str | None = None,
         routes: list[str] | None = None,
+        use_block_filter: bool = False,
     ) -> "GTFSEnergyPredictor":
         """
         Filter trips by date and/or routes.
@@ -560,18 +574,36 @@ class GTFSEnergyPredictor:
         This method can be called after load_gtfs_data() to restrict the analysis
         to specific dates or routes. Can be called multiple times to refine filters.
 
-        Args:
-            date: Date to filter trips (format: "YYYY-MM-DD" or datetime object).
-                If None, keeps all currently loaded trips.
-            routes: List of route_short_name values to filter by.
-                If None, keeps all currently loaded routes.
+        Parameters
+        ----------
+        date : str, optional
+            Date to filter trips (format: "YYYY-MM-DD" or datetime object).
+            If None, keeps all currently loaded trips.
+        routes : list[str], optional
+            List of route_short_name values to filter by.
+            If None, keeps all currently loaded routes.
+        use_block_filter : bool, default=False
+            When True, uses block-level filtering via
+            ``filter_blocks_by_route`` with ``route_method="exclusive"``.
+            This means entire blocks are excluded if any trip in the block
+            belongs to a route not in ``routes``. This is appropriate when
+            deadhead trips are being estimated, because we need complete
+            blocks.  When False (the default), trips are filtered purely
+            at the trip level so that individual trips on the requested
+            routes are always included regardless of what other routes
+            share the same block.
 
-        Returns:
-            Self for method chaining
+        Returns
+        -------
+        GTFSEnergyPredictor
+            Self for method chaining.
 
-        Raises:
-            RuntimeError: If GTFS data hasn't been loaded yet
-            ValueError: If no trips match the specified filters
+        Raises
+        ------
+        RuntimeError
+            If GTFS data hasn't been loaded yet.
+        ValueError
+            If no trips match the specified filters.
         """
         if self.feed is None or self.trips.empty:
             raise RuntimeError("Must call load_gtfs_data() before filtering trips")
@@ -588,14 +620,40 @@ class GTFSEnergyPredictor:
 
         # Filter by routes
         if routes is not None:
-            self.trips = filter_blocks_by_route(
-                trips=self.trips,
-                routes=routes,
-                route_column="route_short_name",
-                route_method="exclusive",
-            )
-            if len(self.trips) == 0:
-                raise ValueError("No trips found for the selected routes and date.")
+            if use_block_filter:
+                pre_filter_trips = self.trips
+                self.trips = filter_blocks_by_route(
+                    trips=self.trips,
+                    routes=routes,
+                    route_column="route_short_name",
+                    route_method="exclusive",
+                )
+                if len(self.trips) == 0:
+                    # Check whether trip-level filtering would have kept any
+                    # trips.  This tells the user whether the issue is that
+                    # no trips match the routes at all, or that block-level
+                    # filtering is too restrictive.
+                    trip_level_count = int(
+                        pre_filter_trips["route_short_name"].isin(routes).sum()
+                    )
+                    if trip_level_count > 0:
+                        raise ValueError(
+                            f"No trips remain after block-level route filtering, "
+                            f"but {trip_level_count} trip(s) match at the trip "
+                            f"level. This can happen when blocks contain trips "
+                            f"from routes not in the requested set (e.g. "
+                            f"interlined routes). Consider running without "
+                            f"deadhead trips to use trip-level filtering, or "
+                            f"add the additional routes to the 'routes' "
+                            f"parameter."
+                        )
+                    raise ValueError("No trips found for the selected routes and date.")
+            else:
+                self.trips = self.trips[
+                    self.trips["route_short_name"].isin(routes)
+                ].copy()
+                if len(self.trips) == 0:
+                    raise ValueError("No trips found for the selected routes and date.")
 
         # Update shapes to match filtered trips
         shape_ids = self.trips.shape_id.unique()

@@ -79,6 +79,7 @@ def collect_active_feeds(
 
 def build_feeds_summary(
     active_feeds: list[dict[str, Any]],
+    extractor: GtfsExtractor,
 ) -> pd.DataFrame:
     """Build a summary DataFrame from raw feed records.
 
@@ -86,6 +87,9 @@ def build_feeds_summary(
     ----------
     active_feeds:
         Raw feed records as returned by :func:`collect_active_feeds`.
+    extractor:
+        Authenticated GtfsExtractor instance, used to look up the most recent
+        validated dataset when ``latest_dataset`` has no validation report.
 
     Returns
     -------
@@ -114,6 +118,23 @@ def build_feeds_summary(
         try:
             # Compile the list of states covered by this feed
             states = list(set(loc["subdivision_name"] for loc in f["locations"]))
+            # Determine which dataset to use: prefer the latest validated one.
+            dataset_id = f["latest_dataset"]["id"]
+            if f["latest_dataset"].get("validation_report") is None:
+                datasets = extractor.query_mdb_feed_datasets(f["id"])
+                validated = next(
+                    (d for d in datasets if d.get("validation_report") is not None),
+                    None,
+                )
+                if validated is not None:
+                    dataset_id = validated["id"]
+                    print(
+                        f"Feed {f['id']}: latest dataset unvalidated; "
+                        f"using {dataset_id} instead."
+                    )
+                else:
+                    print(f"Feed {f['id']}: no validated datasets found. Using latest.")
+
             feed_info.append(
                 {
                     "id": f["id"],
@@ -121,7 +142,7 @@ def build_feeds_summary(
                     "provider": f["provider"],
                     "status": f["status"],
                     "official": f["official"],
-                    "latest_dataset_id": f["latest_dataset"]["id"],
+                    "latest_dataset_id": dataset_id,
                     "center_latitude": 0.5
                     * (
                         f["bounding_box"]["minimum_latitude"]
@@ -176,6 +197,8 @@ def compute_agency_metrics(
         - ``median_trips_per_day``
         - ``avg_trip_duration_minutes``
         - ``avg_trip_distance_miles``
+        - ``center_latitude``
+        - ``center_longitude``
     """
     if bus_trips.empty:
         return []
@@ -183,7 +206,7 @@ def compute_agency_metrics(
     routes = dataset.routes  # indexed by route_id
 
     # Attach agency_id to each bus trip via its route
-    trip_info = bus_trips[["trip_id", "route_id", "service_id"]].copy()
+    trip_info = bus_trips[["trip_id", "route_id", "shape_id", "service_id"]].copy()
     if "agency_id" in routes.columns:
         trip_info = trip_info.join(routes[["agency_id"]], on="route_id")
     else:
@@ -238,17 +261,46 @@ def compute_agency_metrics(
             and "service_dist" in dataset.shapes_summary.columns
         ):
             avg_distance = (
-                trip_info.merge(
-                    bus_trips[["trip_id", "shape_id"]].dropna(subset=["shape_id"]),
-                    on="trip_id",
-                    how="left",
-                )
-                .join(dataset.shapes_summary["service_dist"], on="shape_id")
+                trip_info.join(dataset.shapes_summary["service_dist"], on="shape_id")
                 .groupby("agency_id")["service_dist"]
                 .mean()
             )
 
-    # --- agency lookup: placeholder/real key -> (real_id, agency_name, agency_url)
+    # --- center_latitude / center_longitude per agency -----------------------
+    agency_location: dict[Any, tuple[float, float] | None] = {}
+    if (
+        "shape_id" in bus_trips.columns
+        and dataset.shapes is not None
+        and not dataset.shapes.empty
+        and "shape_pt_lat" in dataset.shapes.columns
+        and "shape_pt_lon" in dataset.shapes.columns
+    ):
+        shapes_df = dataset.shapes
+        # shape_id may be a column or the index depending on gtfsblocks version
+        shape_id_series = (
+            shapes_df["shape_id"]
+            if "shape_id" in shapes_df.columns
+            else shapes_df.index.to_series()
+        )
+        for agency_key, group in trip_info.groupby("agency_id"):
+            agency_shape_ids = set(group["shape_id"].dropna())
+            if not agency_shape_ids:
+                agency_location[agency_key] = None
+                continue
+            pts = shapes_df[shape_id_series.isin(agency_shape_ids).values]
+            if pts.empty:
+                agency_location[agency_key] = None
+                continue
+            min_lat = float(pts["shape_pt_lat"].min())
+            max_lat = float(pts["shape_pt_lat"].max())
+            min_lon = float(pts["shape_pt_lon"].min())
+            max_lon = float(pts["shape_pt_lon"].max())
+            agency_location[agency_key] = (
+                round(0.5 * (min_lat + max_lat), 6),
+                round(0.5 * (min_lon + max_lon), 6),
+            )
+
+    # --- agency lookup: placeholder/real key -> (real_id, agency_name, agency_url) ----
     agency_df = dataset.agency
     has_agency_url = "agency_url" in agency_df.columns
     if all_null:
@@ -288,6 +340,7 @@ def compute_agency_metrics(
 
         adur = avg_duration.get(lookup_key)
         adist = avg_distance.get(lookup_key)
+        loc = agency_location.get(lookup_key)
 
         records.append(
             {
@@ -309,6 +362,8 @@ def compute_agency_metrics(
                     if adist is not None and not pd.isna(adist)
                     else None
                 ),
+                "center_latitude": loc[0] if loc is not None else None,
+                "center_longitude": loc[1] if loc is not None else None,
             }
         )
 
@@ -357,6 +412,8 @@ def process_dataset(
 
     summary: dict[str, Any] = {
         "id": dataset_id,
+        "feed_id": dataset_response["feed_id"],
+        "downloaded_at": dataset_response["downloaded_at"],
         "has_shapes": has_shapes,
         "has_errors": has_errors,
         "service_date_range_start": dataset_response["service_date_range_start"],
@@ -410,28 +467,6 @@ def process_dataset(
         del feed_overview_dict["start_date"]
         del feed_overview_dict["end_date"]
         summary.update(feed_overview_dict)
-
-        # Add list of agencies
-        summary["agency_names"] = list(dataset.agency["agency_name"].unique())
-
-        # If there's more than one agency, only include agencies that have bus
-        # service included. We treat this as a separate check because agency_id
-        # is allowed to be NA if there is only one agency in the feed.
-        if len(summary["agency_names"]) > 1:
-            agency_ids = list(dataset.agency["agency_id"].dropna().unique())
-            if agency_ids:
-                # Double check these IDs are represented in bus routes
-                agency_ids_bus = list(
-                    dataset.routes[dataset.routes["route_type"] == GTFS_ROUTE_TYPE_BUS][
-                        "agency_id"
-                    ].unique()
-                )
-                agency_names_bus = (
-                    dataset.agency.set_index("agency_id")
-                    .loc[agency_ids_bus]["agency_name"]
-                    .tolist()
-                )
-                summary["agency_names"] = agency_names_bus
 
         # Compute per-agency metrics (bus trips only, excludes agencies with
         # no bus service)
@@ -490,7 +525,7 @@ def main() -> None:
         print("Warning: No active feeds found. Exiting.")
         return
 
-    feeds_df = build_feeds_summary(active_feeds)
+    feeds_df = build_feeds_summary(active_feeds, extractor)
 
     all_dataset_summaries: list[dict[str, Any]] = []
     all_agency_metrics: list[dict[str, Any]] = []
