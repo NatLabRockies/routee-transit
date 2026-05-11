@@ -44,6 +44,12 @@ def create_mid_block_deadhead_trips(
         trip_start, on="trip_id", how="left"
     )  # only look at trips on selected date and route
     trips_df = trips_df.sort_values(by=["block_id", "arrival_time"])
+
+    # Precompute last/first stop per trip to build origin-destination route IDs
+    stop_times_sorted = stop_times_df.sort_values("stop_sequence")
+    last_stop_per_trip = stop_times_sorted.groupby("trip_id")["stop_id"].last().to_dict()
+    first_stop_per_trip = stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
+
     block_gb = trips_df.groupby("block_id")
     dh_dfs = list()
     for _, block_df in block_gb:
@@ -54,6 +60,10 @@ def create_mid_block_deadhead_trips(
         block_df["deadhead_trip"] = (
             block_df["trip_id"].astype(str) + "_to_" + block_df["to_trip"]
         )
+        # Route ID encodes origin/destination stops, not the inherited revenue route
+        from_stop = block_df["trip_id"].map(last_stop_per_trip).astype(str)
+        to_stop = block_df["to_trip"].map(first_stop_per_trip).astype(str)
+        block_df["route_id"] = "deadhead_" + from_stop + "_to_" + to_stop
 
         block_df = block_df[
             ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]

@@ -33,7 +33,7 @@ class TestWriteTodsDeadhead(unittest.TestCase):
                 "route_id": [
                     "from_depot_BLK1",
                     "to_depot_BLK1",
-                    "mid_BLK2",
+                    "deadhead_stop_A_to_stop_B",
                 ],
                 "service_id": ["svc1", "svc1", "svc2"],
                 "block_id": ["BLK1", "BLK1", "BLK2"],

@@ -58,10 +58,7 @@ if __name__ == "__main__":
 
     # Run entire pipeline with one method call
     results = predictor.run(
-        # date=None,
-        # routes=None,
         date="2023/08/02",
-        routes=["806", "807"],
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
         add_hvac=True,
