@@ -4,6 +4,7 @@ __all__ = [
     "GTFSEnergyPredictor",
     "create_deadhead_shapes",
     "add_HVAC_energy",
+    "write_tods_deadhead",
     "sample_inputs_path",
     "depot_path",
 ]
@@ -11,6 +12,7 @@ __all__ = [
 from .deadhead_router import create_deadhead_shapes
 from .predictor import GTFSEnergyPredictor
 from .thermal_energy import add_HVAC_energy
+from .tods_export import write_tods_deadhead
 
 
 def package_root() -> Path:

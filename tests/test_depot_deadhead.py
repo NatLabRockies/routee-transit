@@ -202,6 +202,8 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         self.first_stops_gdf = gpd.GeoDataFrame(
             {
                 "block_id": ["block1"],
+                "stop_id": ["stop_gtfs_1"],  # existing GTFS stop at first revenue stop
+                "nearest_depot_idx": [42],
                 "arrival_time": [pd.Timedelta(hours=8)],
                 "geometry_origin": [Point(-105.0, 39.0)],
                 "geometry_destination": [Point(-105.1, 39.1)],
@@ -213,6 +215,8 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         self.last_stops_gdf = gpd.GeoDataFrame(
             {
                 "block_id": ["block1"],
+                "stop_id": ["stop_gtfs_2"],  # existing GTFS stop at last revenue stop
+                "nearest_depot_idx": [42],
                 "departure_time": [pd.Timedelta(hours=17)],
                 "geometry_origin": [Point(-105.2, 39.2)],
                 "geometry_destination": [Point(-105.3, 39.3)],
@@ -264,10 +268,12 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
 
-        # Each deadhead trip should have 2 stops (origin and destination)
+        # Each deadhead trip should have 2 stop_times rows (origin and destination)
         # 2 trips * 2 stops = 4 total
         self.assertEqual(len(stop_times), 4)
-        self.assertEqual(len(stops), 4)
+        # Only the depot stop is new; revenue endpoints already exist in GTFS.
+        # Both pull-out and pull-in share the same depot_block1 stop -> 1 unique row.
+        self.assertEqual(len(stops), 1)
 
     def test_create_depot_deadhead_stops_sequences(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(
@@ -285,9 +291,15 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             self.first_stops_gdf, self.last_stops_gdf, self.deadhead_trips
         )
 
-        # All stop IDs should start with "depot_deadhead_"
-        for stop_id in stops["stop_id"]:
-            self.assertTrue(stop_id.startswith("depot_deadhead_"))
+        # The only new stop is the depot, keyed as "depot_{nearest_depot_idx}".
+        self.assertEqual(list(stops["stop_id"]), ["depot_42"])
+
+        # stop_times should reference depot_42 for depot endpoints and
+        # real GTFS stop IDs for revenue endpoints.
+        all_stop_ids = set(stop_times["stop_id"].tolist())
+        self.assertIn("depot_42", all_stop_ids)
+        self.assertIn("stop_gtfs_1", all_stop_ids)  # first revenue stop
+        self.assertIn("stop_gtfs_2", all_stop_ids)  # last revenue stop
 
     def test_create_depot_deadhead_stops_coordinates(self) -> None:
         stop_times, stops = create_depot_deadhead_stops(

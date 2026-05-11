@@ -42,6 +42,7 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_trips,
 )
 from routee.transit.thermal_energy import add_HVAC_energy
+from routee.transit.tods_export import write_tods_deadhead
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,14 @@ class GTFSEnergyPredictor:
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
+
+        # Deadhead data accumulated during routing — used for TODS export
+        self._deadhead_trips: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stop_times: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stops: pd.DataFrame = pd.DataFrame()
+        # Snapshot of GTFS stops before any deadhead stops are added — used to
+        # filter stops_supplement.txt to only genuinely new stops.
+        self._gtfs_stops: pd.DataFrame = pd.DataFrame()
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
@@ -408,6 +417,9 @@ class GTFSEnergyPredictor:
 
         shape_ids = self.trips.shape_id.unique()
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
+
+        # Snapshot of original stops before deadhead routing adds new ones
+        self._gtfs_stops = self.feed.stops.copy()
 
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
@@ -790,6 +802,17 @@ class GTFSEnergyPredictor:
         deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
         deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
 
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
+
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
@@ -975,6 +998,17 @@ class GTFSEnergyPredictor:
             trip_counts
         )
         deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
+
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
 
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
@@ -1430,6 +1464,7 @@ class GTFSEnergyPredictor:
         output_dir: str | Path | None = None,
         save_geometry: bool = True,
         save_inputs: bool = False,
+        save_tods: bool = True,
     ) -> None:
         """
         Save prediction results to CSV files.
@@ -1439,6 +1474,9 @@ class GTFSEnergyPredictor:
                 defaulting to the current working directory if that is also None.
             save_geometry: Whether to save link geometry separately
             save_inputs: Whether to save RouteE input features
+            save_tods: Whether to write TODS supplement files for deadhead trips.
+                Files are written to a ``tods/`` subdirectory. Has no effect if
+                no deadhead trips were added.
 
         Raises:
             RuntimeError: If no predictions have been generated yet
@@ -1496,3 +1534,17 @@ class GTFSEnergyPredictor:
             inputs_path = output_path / "routee_inputs.csv"
             inputs_df.to_csv(inputs_path, index=False)
             logger.info(f"Saved RouteE inputs to {inputs_path}")
+
+        # Save TODS supplement files for inferred deadhead trips
+        if save_tods and not self._deadhead_trips.empty:
+            assert self.feed is not None, "GTFS feed must be loaded"
+            tods_dir = output_path / "tods"
+            write_tods_deadhead(
+                deadhead_trips=self._deadhead_trips,
+                deadhead_stop_times=self._deadhead_stop_times,
+                deadhead_stops=self._deadhead_stops,
+                shapes=self.shapes,
+                gtfs_stops=self._gtfs_stops,
+                output_dir=tods_dir,
+            )
+            logger.info(f"Saved TODS supplement files to {tods_dir}")

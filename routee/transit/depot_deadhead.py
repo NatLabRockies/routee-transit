@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
 from shapely.geometry import Point
@@ -144,8 +143,8 @@ def infer_depot_trip_endpoints(
     first_stops = blocks_trips_stops.groupby("block_id").first().reset_index()
     last_stops = blocks_trips_stops.groupby("block_id").last().reset_index()
 
-    first_stops = first_stops[["block_id", "arrival_time", "stop_lat", "stop_lon"]]
-    last_stops = last_stops[["block_id", "arrival_time", "stop_lat", "stop_lon"]]
+    first_stops = first_stops[["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]]
+    last_stops = last_stops[["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]]
 
     first_stops["geometry"] = first_stops.apply(
         lambda row: Point(row["stop_lon"], row["stop_lat"]), axis=1
@@ -293,14 +292,14 @@ def create_depot_deadhead_stops(
         deadhead_trips_df.trip_type == "pull-out"
     ].copy()
     deadhead_trips_df_from_depot = deadhead_trips_df_from_depot.merge(
-        from_depot[["block_id", "departure_time", "arrival_time"]], on="block_id"
+        from_depot[["block_id", "stop_id", "nearest_depot_idx", "departure_time", "arrival_time"]], on="block_id"
     )
 
     deadhead_trips_df_to_depot = deadhead_trips_df[
         deadhead_trips_df.trip_type == "pull-in"
     ].copy()
     deadhead_trips_df_to_depot = deadhead_trips_df_to_depot.merge(
-        to_depot[["block_id", "departure_time", "arrival_time"]], on="block_id"
+        to_depot[["block_id", "stop_id", "nearest_depot_idx", "departure_time", "arrival_time"]], on="block_id"
     )
     deadhead_trips_df = pd.concat(
         [deadhead_trips_df_from_depot, deadhead_trips_df_to_depot], ignore_index=True
@@ -326,36 +325,51 @@ def create_depot_deadhead_stops(
         )
         for x in pair
     ]
-    stop_times_df["stop_id"] = range(1, len(stop_times_df) + 1)
-    stop_times_df["stop_id"] = stop_times_df["stop_id"].apply(
-        lambda x: f"depot_deadhead_{x}"
-    )
+    # For pull-out trips: stop_sequence 1 = depot stop (new), stop_sequence 2 = first
+    # revenue stop (existing GTFS stop).  For pull-in trips the order is reversed.
+    # Depot stops are keyed as "depot_{nearest_depot_idx}" where nearest_depot_idx is
+    # the row index in the FTA shapefile.  This means all blocks that share the same
+    # physical depot get the same stop_id.
+    from_depot_stop_ids = [
+        x
+        for pair in zip(
+            ("depot_" + deadhead_trips_df_from_depot["nearest_depot_idx"].astype(str)).tolist(),
+            deadhead_trips_df_from_depot["stop_id"].tolist(),
+        )
+        for x in pair
+    ]
+    to_depot_stop_ids = [
+        x
+        for pair in zip(
+            deadhead_trips_df_to_depot["stop_id"].tolist(),
+            ("depot_" + deadhead_trips_df_to_depot["nearest_depot_idx"].astype(str)).tolist(),
+        )
+        for x in pair
+    ]
+    stop_times_df["stop_id"] = from_depot_stop_ids + to_depot_stop_ids
     stop_times_df["departure_time"] = stop_times_df["arrival_time"]
     stop_times_df["shape_dist_traveled"] = 0.0
 
-    # Create stops df for deadhead trips
-    stops_df = pd.DataFrame(columns=["stop_id", "stop_lat", "stop_lon"])
-    stops_df["stop_id"] = stop_times_df["stop_id"]
-
-    x_start_from_depot = from_depot.geometry_origin.apply(lambda p: p.x).to_numpy()
-    x_end_from_depot = from_depot.geometry_destination.apply(lambda p: p.x).to_numpy()
-    x_start_to_depot = to_depot.geometry_origin.apply(lambda p: p.x).to_numpy()
-    x_end_to_depot = to_depot.geometry_destination.apply(lambda p: p.x).to_numpy()
-    stop_lon_from_depot = np.ravel(
-        np.column_stack((x_start_from_depot, x_end_from_depot))
+    # Create stops df — one row per unique physical depot (keyed by nearest_depot_idx).
+    # Revenue stop endpoints are already in the GTFS feed and must not be duplicated.
+    from_depot_stops = pd.DataFrame(
+        {
+            "stop_id": "depot_" + from_depot["nearest_depot_idx"].astype(str),
+            "stop_lat": from_depot.geometry_origin.apply(lambda p: p.y).values,
+            "stop_lon": from_depot.geometry_origin.apply(lambda p: p.x).values,
+        }
     )
-    stop_lon_to_depot = np.ravel(np.column_stack((x_start_to_depot, x_end_to_depot)))
-
-    y_start_from_depot = from_depot.geometry_origin.apply(lambda p: p.y).to_numpy()
-    y_end_from_depot = from_depot.geometry_destination.apply(lambda p: p.y).to_numpy()
-    y_start_to_depot = to_depot.geometry_origin.apply(lambda p: p.y).to_numpy()
-    y_end_to_depot = to_depot.geometry_destination.apply(lambda p: p.y).to_numpy()
-    stop_lat_from_depot = np.ravel(
-        np.column_stack((y_start_from_depot, y_end_from_depot))
+    to_depot_stops = pd.DataFrame(
+        {
+            "stop_id": "depot_" + to_depot["nearest_depot_idx"].astype(str),
+            "stop_lat": to_depot.geometry_destination.apply(lambda p: p.y).values,
+            "stop_lon": to_depot.geometry_destination.apply(lambda p: p.x).values,
+        }
     )
-    stop_lat_to_depot = np.ravel(np.column_stack((y_start_to_depot, y_end_to_depot)))
-
-    stops_df["stop_lat"] = list(stop_lat_from_depot) + list(stop_lat_to_depot)
-    stops_df["stop_lon"] = list(stop_lon_from_depot) + list(stop_lon_to_depot)
+    stops_df = (
+        pd.concat([from_depot_stops, to_depot_stops])
+        .drop_duplicates(subset="stop_id")
+        .reset_index(drop=True)
+    )
 
     return stop_times_df, stops_df

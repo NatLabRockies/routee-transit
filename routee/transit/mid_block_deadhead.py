@@ -1,7 +1,6 @@
 from typing import Any
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
 
@@ -197,24 +196,22 @@ def create_mid_block_deadhead_stops(
         )
         for x in pair
     ]
-    stop_times_df["stop_id"] = range(1, len(stop_times_df) + 1)
-    stop_times_df["stop_id"] = stop_times_df["stop_id"].apply(
-        lambda x: f"mid_block_deadhead_{x}"
-    )
+    # Reference the real GTFS stop IDs for origin and destination — no new stops
+    # need to be added because mid-block deadhead trips start and end at existing
+    # revenue stops.
+    stop_times_df["stop_id"] = [
+        x
+        for pair in zip(
+            deadhead_trips["from_stop_id"].tolist(),
+            deadhead_trips["to_stop_id"].tolist(),
+        )
+        for x in pair
+    ]
     stop_times_df["departure_time"] = stop_times_df["arrival_time"]
     stop_times_df["shape_dist_traveled"] = 0.0
 
-    # Create stops df for deadhead trips
+    # Mid-block deadhead endpoints are existing GTFS stops; no new stops to add.
     stops_df = pd.DataFrame(columns=["stop_id", "stop_lat", "stop_lon"])
-    stops_df["stop_id"] = stop_times_df["stop_id"]
-    x_start = deadhead_trips.geometry_origin.apply(lambda p: p.x).to_numpy()
-    x_end = deadhead_trips.geometry_destination.apply(lambda p: p.x).to_numpy()
-    stop_lon = np.ravel(np.column_stack((x_start, x_end)))
-    y_start = deadhead_trips.geometry_origin.apply(lambda p: p.y).to_numpy()
-    y_end = deadhead_trips.geometry_destination.apply(lambda p: p.y).to_numpy()
-    stop_lat = np.ravel(np.column_stack((y_start, y_end)))
-    stops_df["stop_lat"] = stop_lat
-    stops_df["stop_lon"] = stop_lon
 
     deadhead_trips["block_id"] = deadhead_trips[
         "trip_id"
