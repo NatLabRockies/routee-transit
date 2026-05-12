@@ -179,6 +179,9 @@ class GTFSEnergyPredictor:
         # Snapshot of GTFS stops before any deadhead stops are added — used to
         # filter stops_supplement.txt to only genuinely new stops.
         self._gtfs_stops: pd.DataFrame = pd.DataFrame()
+        # FTA depot GeoDataFrame captured during depot deadhead preparation —
+        # used to write depot_metadata.csv alongside the TODS files.
+        self._fta_depots: pd.DataFrame = pd.DataFrame()
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
@@ -864,7 +867,7 @@ class GTFSEnergyPredictor:
 
         # Infer depot locations for each block's first and last stops
         depot_shapefile = self.depot_path / "Transit_Depot.shp"
-        first_stops_gdf, last_stops_gdf = infer_depot_trip_endpoints(
+        first_stops_gdf, last_stops_gdf, depots_df = infer_depot_trip_endpoints(
             self.trips, self.feed, depot_shapefile
         )
 
@@ -879,6 +882,7 @@ class GTFSEnergyPredictor:
             "deadhead_stops": deadhead_stops,
             "first_stops_gdf": first_stops_gdf,
             "last_stops_gdf": last_stops_gdf,
+            "fta_depots": depots_df,
         }
 
     def _route_depot_deadhead(self, metadata: dict[str, Any]) -> None:
@@ -895,6 +899,7 @@ class GTFSEnergyPredictor:
         deadhead_stops = metadata["deadhead_stops"]
         first_stops_gdf = metadata["first_stops_gdf"]
         last_stops_gdf = metadata["last_stops_gdf"]
+        fta_depots = metadata.get("fta_depots")
 
         logger.info("Routing depot deadhead trips...")
 
@@ -1009,6 +1014,8 @@ class GTFSEnergyPredictor:
         self._deadhead_stops = pd.concat(
             [self._deadhead_stops, deadhead_stops], ignore_index=True
         )
+        if fta_depots is not None and self._fta_depots.empty:
+            self._fta_depots = fta_depots
 
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
@@ -1546,5 +1553,6 @@ class GTFSEnergyPredictor:
                 shapes=self.shapes,
                 gtfs_stops=self._gtfs_stops,
                 output_dir=tods_dir,
+                fta_depots=self._fta_depots if not self._fta_depots.empty else None,
             )
             logger.info(f"Saved TODS supplement files to {tods_dir}")

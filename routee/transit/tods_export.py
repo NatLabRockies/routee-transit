@@ -49,6 +49,7 @@ def write_tods_deadhead(
     shapes: pd.DataFrame,
     gtfs_stops: pd.DataFrame,
     output_dir: Path,
+    fta_depots: pd.DataFrame | None = None,
 ) -> None:
     """Write inferred deadhead trips as TODS v2.1 supplement files.
 
@@ -72,6 +73,11 @@ def write_tods_deadhead(
         excluded from ``stops_supplement.txt`` to avoid duplication.
     output_dir : Path
         Directory to write TODS files into.  Created if it does not exist.
+    fta_depots : pd.DataFrame | None, optional
+        Full FTA depot GeoDataFrame (from ``Transit_Depot.shp``) indexed by the
+        row integer that was used to derive depot stop_ids.  When provided, a
+        ``depot_metadata.csv`` file is written containing one row per depot that
+        appears in ``stops_supplement.txt``.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -132,3 +138,27 @@ def write_tods_deadhead(
     deadhead_shapes[present_cols].to_csv(
         output_dir / "shapes_supplement.txt", index=False
     )
+
+    # --- depot_metadata.csv ---
+    # Rows from the FTA Transit_Depot shapefile for each depot referenced in
+    # stops_supplement.txt, keyed by the row index embedded in the stop_id.
+    if fta_depots is not None and not new_stops.empty:
+        depot_stop_ids = new_stops.loc[
+            new_stops["stop_id"].astype(str).str.startswith("depot_"), "stop_id"
+        ]
+        depot_indices = (
+            depot_stop_ids.astype(str)
+            .str.removeprefix("depot_")
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+        valid_indices = [i for i in depot_indices if i in fta_depots.index]
+        if valid_indices:
+            depot_meta = fta_depots.loc[valid_indices].copy()
+            # Add the stop_id column so the CSV is self-contained
+            depot_meta["stop_id"] = "depot_" + depot_meta.index.astype(str)
+            # Drop geometry column if present (not useful in a plain CSV)
+            if "geometry" in depot_meta.columns:
+                depot_meta = depot_meta.drop(columns=["geometry"])
+            depot_meta.to_csv(output_dir / "depot_metadata.csv", index=False)

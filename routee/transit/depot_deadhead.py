@@ -110,7 +110,7 @@ def create_depot_deadhead_trips(
 
 def infer_depot_trip_endpoints(
     trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path
-) -> tuple[Any, Any]:
+) -> tuple[Any, Any, Any]:
     """Add origin/destination depot geometry for each block.
 
     Parameters
@@ -124,10 +124,10 @@ def infer_depot_trip_endpoints(
 
     Returns
     -------
-    tuple[GeoDataFrame, GeoDataFrame]
-        (first_stops_gdf, last_stops_gdf). Each GeoDataFrame contains the stop
-        geometry (column 'stop_geometry') and the matched depot geometry
-        (column 'depot_geometry').
+    tuple[GeoDataFrame, GeoDataFrame, GeoDataFrame]
+        (first_stops_gdf, last_stops_gdf, depots_df). The first two contain stop
+        geometry and matched depot geometry.  ``depots_df`` is the full FTA depot
+        GeoDataFrame (EPSG:4326) so callers can look up metadata by row index.
     """
 
     # Process trips and stops dataframes in feed to get first and last stops of each block id
@@ -221,7 +221,7 @@ def infer_depot_trip_endpoints(
         last_stops_gdf, geometry="geometry_origin", crs="EPSG:4326"
     )
 
-    return first_stops_gdf, last_stops_gdf
+    return first_stops_gdf, last_stops_gdf, depots_df
 
 
 def create_depot_deadhead_stops(

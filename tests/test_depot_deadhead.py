@@ -150,7 +150,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_infer_depot_trip_endpoints_returns_geodataframes(self) -> None:
-        first_stops, last_stops = infer_depot_trip_endpoints(
+        first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
 
@@ -158,7 +158,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
         self.assertIsInstance(last_stops, gpd.GeoDataFrame)
 
     def test_infer_depot_trip_endpoints_columns(self) -> None:
-        first_stops, last_stops = infer_depot_trip_endpoints(
+        first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
 
@@ -169,7 +169,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             self.assertIn("geometry_destination", gdf.columns)
 
     def test_infer_depot_trip_endpoints_geometry_types(self) -> None:
-        first_stops, last_stops = infer_depot_trip_endpoints(
+        first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
 
@@ -187,7 +187,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             )
 
     def test_infer_depot_trip_endpoints_crs(self) -> None:
-        first_stops, last_stops = infer_depot_trip_endpoints(
+        first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
             self.trips_df, self.feed, self.depot_path
         )
 
