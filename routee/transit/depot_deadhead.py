@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
-from typing import Any
-
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import geodesic
+from gtfsblocks import Feed
 from shapely.geometry import Point
 
 
@@ -109,15 +108,15 @@ def create_depot_deadhead_trips(
 
 
 def infer_depot_trip_endpoints(
-    trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path
-) -> tuple[Any, Any, Any]:
+    trips_df: pd.DataFrame, feed: Feed, path_to_depots: str | Path
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Add origin/destination depot geometry for each block.
 
     Parameters
     ----------
     trips_df: pd.DataFrame
         trips_df of selected date and route (result from read_in_gtfs).
-    feed : Any
+    feed : Feed
         GTFS feed object (e.g. result from read_in_gtfs).
     path_to_depots : str | Path
         Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.

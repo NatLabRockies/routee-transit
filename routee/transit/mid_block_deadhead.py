@@ -1,8 +1,7 @@
-from typing import Any
-
 import geopandas as gpd
 import pandas as pd
 from geopy.distance import geodesic
+from gtfsblocks import Feed
 
 
 def create_mid_block_deadhead_trips(
@@ -83,13 +82,13 @@ def create_mid_block_deadhead_trips(
 
 
 def create_mid_block_deadhead_stops(
-    feed: Any, deadhead_trips: pd.DataFrame
+    feed: Feed, deadhead_trips: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Create stop_times and stops for mid-block deadhead trips.
 
     Parameters
     ----------
-    feed: Any
+    feed: Feed
         GTFS feed object (e.g. result from read_in_gtfs).
     deadhead_trips: pd.DataFrame
         Deadhead trip records from :func:`create_mid_block_deadhead_trips`.
