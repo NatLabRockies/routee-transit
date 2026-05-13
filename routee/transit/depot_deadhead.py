@@ -1,10 +1,247 @@
 import os
+import re
 from pathlib import Path
+from typing import TypedDict
+
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
 from gtfsblocks import Feed
+from rapidfuzz.fuzz import WRatio
 from shapely.geometry import Point
+
+class NTDAgencyMatch(TypedDict):
+    """Row from the NTD agency table returned by :func:`match_agency_to_ntd`."""
+
+    OBJECTID: int
+    NTD_ID: str
+    NTAD_NTD_ID: str
+    Agency_Name: str
+    Common_Name: str
+    City: str
+    State: str
+    Lon: float
+    Lat: float
+    In_Latest_NTAD_Upload: str
+    License: str
+    x: float
+    y: float
+    _name_score: int
+    _distance_km: float
+
+
+# NTD agency table columns used for matching
+_NTD_ID_COL = "NTD_ID"
+_OFFICIAL_NAME_COL = "Agency_Name"
+_COMMON_NAME_COL = "Common_Name"
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# Matching thresholds
+_NAME_SCORE_THRESHOLD = 40  # minimum rapidfuzz score (0-100) to consider a candidate
+_MAX_DISTANCE_KM = 400  # maximum allowed distance between agency centroid and query location
+_WRATIO_WEIGHT = 0.7
+_IDF_WEIGHT = 0.3
+
+
+def _ntd_agencies_path() -> Path:
+    from routee.transit import ntd_path
+
+    return ntd_path() / "NTAD_National_Transit_Map_Agencies.csv"
+
+
+def _load_ntd_agencies() -> pd.DataFrame:
+    """Load the bundled NTD agency table."""
+    return pd.read_csv(_ntd_agencies_path(), dtype={_NTD_ID_COL: str})
+
+
+def _tokenize_name(name: str) -> set[str]:
+    """Tokenize a name into lowercase alphanumeric tokens."""
+    return set(_TOKEN_RE.findall(name.casefold()))
+
+
+def _compute_token_idf(agencies: pd.DataFrame) -> dict[str, float]:
+    """Compute IDF-like token weights from official/common agency names."""
+    token_document_counts: dict[str, int] = {}
+
+    for _, row in agencies.iterrows():
+        official_name = str(row.get(_OFFICIAL_NAME_COL, ""))
+        common_name = str(row.get(_COMMON_NAME_COL, ""))
+        document_tokens = _tokenize_name(official_name) | _tokenize_name(common_name)
+        for token in document_tokens:
+            token_document_counts[token] = token_document_counts.get(token, 0) + 1
+
+    n_documents = len(agencies)
+    return {
+        token: float(np.log((n_documents + 1) / (count + 1)) + 1.0)
+        for token, count in token_document_counts.items()
+    }
+
+
+def _idf_query_coverage_score(
+    query_tokens: set[str], candidate_name: str, token_idf: dict[str, float]
+) -> float:
+    """Score candidate by weighted coverage of query tokens (0-100)."""
+    if not query_tokens:
+        return 0.0
+
+    candidate_tokens = _tokenize_name(candidate_name)
+    if not candidate_tokens:
+        return 0.0
+
+    denominator = sum(token_idf.get(token, 1.0) for token in query_tokens)
+    if denominator == 0:
+        return 0.0
+
+    numerator = sum(token_idf.get(token, 1.0) for token in query_tokens & candidate_tokens)
+    return 100.0 * numerator / denominator
+
+
+def match_agency_to_ntd(
+    agency_name: str,
+    lat: float,
+    lon: float,
+    name_threshold: int = _NAME_SCORE_THRESHOLD,
+    max_distance_km: float = _MAX_DISTANCE_KM,
+) -> NTDAgencyMatch:
+    """Fuzzy-match an agency name and location to a row in the NTD agency table.
+
+     Candidates are scored by a weighted combination of name similarity and
+     geographic distance. Name scoring blends:
+
+     1. Rapidfuzz ``WRatio``
+     2. IDF-weighted query-token coverage, where common tokens across NTD
+         agencies (e.g. "transit", "city") have less influence than rare tokens.
+
+     Both the official legal name (``Agency_Name``) and common name
+     (``Common_Name``) are considered; the higher of the two scores is used.
+
+    Parameters
+    ----------
+    agency_name : str
+        Agency name to match (e.g. from GTFS ``agency.txt`` or Mobility Database).
+    lat : float
+        Approximate latitude of the agency's service area (WGS84).
+    lon : float
+        Approximate longitude of the agency's service area (WGS84).
+    name_threshold : int
+        Minimum rapidfuzz ``WRatio`` score (0–100) for a candidate to
+        be considered. Candidates below this threshold are discarded before
+        distance scoring.
+    max_distance_km : float
+        If the best candidate's centroid is farther than this from ``(lat, lon)``,
+        a ``ValueError`` is raised even if the name score is high.
+
+    Returns
+    -------
+    NTDAgencyMatch
+        Row from the NTD agency table for the best match.
+        Includes all original columns plus ``_name_score`` and
+        ``_distance_km``.
+
+    Raises
+    ------
+    ValueError
+        If no candidate passes the name threshold, or if the best candidate
+        exceeds ``max_distance_km``.
+    """
+    agencies = _load_ntd_agencies()
+
+    query_tokens = _tokenize_name(agency_name)
+    token_idf = _compute_token_idf(agencies)
+
+    # Score both name columns; take the higher of the two for each row.
+    # WRatio handles partial/abbreviated matches robustly.
+    official_scores = np.array(
+        [
+            WRatio(agency_name, name)
+            for name in agencies[_OFFICIAL_NAME_COL].fillna("")
+        ]
+    )
+    common_scores = np.array(
+        [
+            WRatio(agency_name, name)
+            for name in agencies[_COMMON_NAME_COL].fillna("")
+        ]
+    )
+    wratio_scores = np.maximum(official_scores, common_scores)
+
+    # IDF coverage downweights generic words that appear in many agencies.
+    official_idf_scores = np.array(
+        [
+            _idf_query_coverage_score(query_tokens, name, token_idf)
+            for name in agencies[_OFFICIAL_NAME_COL].fillna("")
+        ]
+    )
+    common_idf_scores = np.array(
+        [
+            _idf_query_coverage_score(query_tokens, name, token_idf)
+            for name in agencies[_COMMON_NAME_COL].fillna("")
+        ]
+    )
+    idf_scores = np.maximum(official_idf_scores, common_idf_scores)
+
+    name_scores = (_WRATIO_WEIGHT * wratio_scores) + (_IDF_WEIGHT * idf_scores)
+
+    # Pre-filter by name threshold to avoid unnecessary distance calculations
+    mask = name_scores >= name_threshold
+    if not mask.any():
+        best_name = agencies.loc[name_scores.argmax(), _OFFICIAL_NAME_COL]
+        best_score = int(name_scores.max())
+        raise ValueError(
+            f"No NTD agency matched '{agency_name}' above the name threshold "
+            f"of {name_threshold}. Best candidate was '{best_name}' "
+            f"(score={best_score}). Try lowering name_threshold or check the "
+            f"agency name spelling."
+        )
+
+    candidates = agencies[mask].copy()
+    candidate_name_scores = name_scores[mask]
+
+    # Compute great-circle distance from query point to each candidate centroid
+    query_point = (lat, lon)
+    distances_km = np.array(
+        [
+            geodesic(query_point, (row["Lat"], row["Lon"])).km
+            for _, row in candidates.iterrows()
+        ]
+    )
+
+    # Combined score: name similarity (weighted 0.7) + proximity bonus (0.3).
+    # Proximity is normalised: 0 km → 1.0, max_distance_km → 0.0, clamped beyond that.
+    proximity = np.clip(1.0 - distances_km / max_distance_km, 0.0, 1.0)
+    combined = 0.7 * (candidate_name_scores / 100.0) + 0.3 * proximity
+
+    best_pos = int(combined.argmax())
+    best_distance_km = float(distances_km[best_pos])
+
+    if best_distance_km > max_distance_km:
+        best_row = candidates.iloc[best_pos]
+        raise ValueError(
+            f"Best NTD match for '{agency_name}' is '{best_row[_OFFICIAL_NAME_COL]}' "
+            f"({best_row[_COMMON_NAME_COL]}), but its centroid is "
+            f"{best_distance_km:.1f} km away — exceeds max_distance_km={max_distance_km}. "
+            f"Verify the lat/lon or increase max_distance_km."
+        )
+
+    row = candidates.iloc[best_pos]
+    return NTDAgencyMatch(
+        OBJECTID=int(row["OBJECTID"]),
+        NTD_ID=str(row["NTD_ID"]),
+        NTAD_NTD_ID=str(row["NTAD_NTD_ID"]),
+        Agency_Name=str(row["Agency_Name"]),
+        Common_Name=str(row["Common_Name"]),
+        City=str(row["City"]),
+        State=str(row["State"]),
+        Lon=float(row["Lon"]),
+        Lat=float(row["Lat"]),
+        In_Latest_NTAD_Upload=str(row["In_Latest_NTAD_Upload"]),
+        License=str(row["License"]),
+        x=float(row["x"]),
+        y=float(row["y"]),
+        _name_score=int(candidate_name_scores[best_pos]),
+        _distance_km=round(best_distance_km, 2),
+    )
 
 
 # Default path to FTA depot shapefile, relative to repository root

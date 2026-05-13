@@ -136,7 +136,7 @@ Uses RouteE-Compass to predict energy consumption based on:
 
 - Use strict type hints (mypy strict mode is enabled)
 - Import types from `typing` module
-- Use `Any` sparingly and only when necessary
+- NEVER use `Any` except when ABSOLUTELY necessary.
 - Document complex types in docstrings
 
 ## Testing Guidelines

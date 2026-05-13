@@ -7,6 +7,7 @@ __all__ = [
     "write_tods_deadhead",
     "sample_inputs_path",
     "depot_path",
+    "ntd_path",
 ]
 
 from .deadhead_router import create_deadhead_shapes
@@ -28,3 +29,8 @@ def sample_inputs_path() -> Path:
 def depot_path() -> Path:
     """Return the path to the FTA_Depot directory"""
     return sample_inputs_path() / "FTA_Depot"
+
+
+def ntd_path() -> Path:
+    """Return the path to the bundled NTD resources directory"""
+    return package_root() / "resources" / "ntd"

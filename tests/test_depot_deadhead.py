@@ -10,9 +10,12 @@ from shapely.geometry import Point
 
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
+    _compute_token_idf,
+    _load_ntd_agencies,
     create_depot_deadhead_trips,
     get_default_depot_path,
     infer_depot_trip_endpoints,
+    match_agency_to_ntd,
 )
 
 
@@ -309,6 +312,97 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         # Check that coordinates are valid
         self.assertTrue(all(stops["stop_lat"].between(-90, 90)))
         self.assertTrue(all(stops["stop_lon"].between(-180, 180)))
+
+
+class TestMatchAgencyToNtd(unittest.TestCase):
+    # Seattle city center; used as a proxy location for King County Metro.
+    seattle_lat = 47.527344
+    seattle_lon = -122.146266
+    sound_lat = 47.536243
+    sound_lon = -122.180237
+
+    def test_match_agency_to_ntd_king_county_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="King County",
+            lat=self.seattle_lat,
+            lon=self.seattle_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00001")
+
+    def test_match_agency_to_ntd_metro_transit_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Metro Transit",
+            lat=self.seattle_lat,
+            lon=self.seattle_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00001")
+
+    def test_match_agency_to_ntd_king_county_metro_transit_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="King County Metro Transit",
+            lat=self.seattle_lat,
+            lon=self.seattle_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00001")
+
+    def test_match_agency_to_ntd_king_county_metro_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="King County Metro",
+            lat=self.seattle_lat,
+            lon=self.seattle_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00001")
+
+    def test_match_agency_to_ntd_sound_transit_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Sound Transit",
+            lat=self.sound_lat,
+            lon=self.sound_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00040")
+
+    def test_match_agency_to_ntd_soun_transt_name(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Soun Transt",
+            lat=self.sound_lat,
+            lon=self.sound_lon,
+        )
+        self.assertEqual(result["NTD_ID"], "00040")
+
+    # Frederick MD
+    def test_match_agency_to_ntd_frederick(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Transit Services of Frederick County",
+            lat=39.489822,
+            lon=-77.488062,
+        )
+        self.assertEqual(result["NTD_ID"], "30072")
+
+    # Mountain Line, Missoula, MT
+    def test_match_agency_to_ntd_missoula(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Missoula Urban Transportation District",
+            lat=46.872166,
+            lon=-113.975243,
+        )
+        self.assertEqual(result["NTD_ID"], "80009")
+
+    # RTD, Denver
+    def test_match_agency_to_ntd_denver(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="Regional Transportation District (RTD)",
+            lat=39.82,
+            lon=-105.1,
+        )
+        self.assertEqual(result["NTD_ID"], "80006")
+
+    def test_token_frequency_downweights_common_words(self) -> None:
+        agencies = _load_ntd_agencies()
+        token_idf = _compute_token_idf(agencies)
+
+        # Common tokens should carry less signal than rare identifying tokens.
+        self.assertLess(token_idf["transit"], token_idf["muckleshoot"])
+        self.assertLess(token_idf["transit"], token_idf["king"])
 
 
 if __name__ == "__main__":
