@@ -136,25 +136,22 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             }
         )
 
-        # Create temporary depot file
-        self.temp_dir = tempfile.mkdtemp()
-        self.depot_path = os.path.join(self.temp_dir, "depots.geojson")
-
-        depot_gdf = gpd.GeoDataFrame(
-            {"geometry": [Point(-105.05, 39.05), Point(-105.25, 39.25)]},
+        # Create an in-memory depot GeoDataFrame (replaces old shapefile approach)
+        self.depots_gdf = gpd.GeoDataFrame(
+            {
+                "Facility Type": [
+                    "General Purpose Maintenance Facility/Depot",
+                    "Maintenance Facility (Service and Inspection)",
+                ],
+                "depot_priority": [0, 2],
+                "geometry": [Point(-105.05, 39.05), Point(-105.25, 39.25)],
+            },
             crs="EPSG:4326",
         )
-        depot_gdf.to_file(self.depot_path, driver="GeoJSON")
-
-    def tearDown(self) -> None:
-        # Clean up temporary files
-        import shutil
-
-        shutil.rmtree(self.temp_dir)
 
     def test_infer_depot_trip_endpoints_returns_geodataframes(self) -> None:
         first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
-            self.trips_df, self.feed, self.depot_path
+            self.trips_df, self.feed, self.depots_gdf
         )
 
         self.assertIsInstance(first_stops, gpd.GeoDataFrame)
@@ -162,7 +159,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
 
     def test_infer_depot_trip_endpoints_columns(self) -> None:
         first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
-            self.trips_df, self.feed, self.depot_path
+            self.trips_df, self.feed, self.depots_gdf
         )
 
         # Check required columns
@@ -173,7 +170,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
 
     def test_infer_depot_trip_endpoints_geometry_types(self) -> None:
         first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
-            self.trips_df, self.feed, self.depot_path
+            self.trips_df, self.feed, self.depots_gdf
         )
 
         # All geometries should be Points
@@ -183,20 +180,48 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             for geom in gdf["geometry_destination"]:
                 self.assertEqual(geom.geom_type, "Point")
 
-    def test_infer_depot_trip_endpoints_file_not_found(self) -> None:
-        with self.assertRaises(FileNotFoundError):
-            infer_depot_trip_endpoints(
-                self.trips_df, self.feed, "/nonexistent/path/to/depots.geojson"
-            )
+    def test_infer_depot_trip_endpoints_priority_selects_highest_tier(self) -> None:
+        """When priority-0 depots exist they should be preferred over priority-2."""
+        first_stops, last_stops, _ = infer_depot_trip_endpoints(
+            self.trips_df, self.feed, self.depots_gdf
+        )
+        # The priority-0 depot is at (-105.05, 39.05) — nearest to the first stop
+        # at (-105.0, 39.0).  Confirm its x-coordinate is used.
+        origin_geom = first_stops.iloc[0]["geometry_origin"]
+        self.assertAlmostEqual(origin_geom.x, -105.05, places=4)
 
     def test_infer_depot_trip_endpoints_crs(self) -> None:
         first_stops, last_stops, depots_df = infer_depot_trip_endpoints(
-            self.trips_df, self.feed, self.depot_path
+            self.trips_df, self.feed, self.depots_gdf
         )
 
         # Both should be in EPSG:4326
         self.assertEqual(first_stops.crs.to_string(), "EPSG:4326")
         self.assertEqual(last_stops.crs.to_string(), "EPSG:4326")
+
+    def test_infer_depot_trip_endpoints_ntd_metadata_columns(self) -> None:
+        """NTD metadata columns are propagated to both stop GDFs."""
+        depots_gdf = gpd.GeoDataFrame(
+            {
+                "Facility Type": ["General Purpose Maintenance Facility/Depot"],
+                "Facility Name": ["Central Bus Yard"],
+                "NTD ID": ["00001"],
+                "Agency Name": ["King County"],
+                "depot_priority": [0],
+                "geometry": [Point(-105.05, 39.05)],
+            },
+            crs="EPSG:4326",
+        )
+        first_stops, last_stops, _ = infer_depot_trip_endpoints(
+            self.trips_df, self.feed, depots_gdf
+        )
+        for gdf in [first_stops, last_stops]:
+            self.assertIn("depot_ntd_id", gdf.columns)
+            self.assertIn("depot_agency_name", gdf.columns)
+            self.assertIn("depot_facility_name", gdf.columns)
+            self.assertIn("depot_facility_type", gdf.columns)
+            self.assertEqual(gdf.iloc[0]["depot_ntd_id"], "00001")
+            self.assertEqual(gdf.iloc[0]["depot_facility_name"], "Central Bus Yard")
 
 
 class TestCreateDepotDeadheadStops(unittest.TestCase):
@@ -312,6 +337,18 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         # Check that coordinates are valid
         self.assertTrue(all(stops["stop_lat"].between(-90, 90)))
         self.assertTrue(all(stops["stop_lon"].between(-180, 180)))
+
+    def test_create_depot_deadhead_stops_name_from_facility(self) -> None:
+        """stop_name is set to depot_facility_name when that column is present."""
+        first_stops = self.first_stops_gdf.copy()
+        last_stops = self.last_stops_gdf.copy()
+        first_stops["depot_facility_name"] = "Central Bus Yard"
+        last_stops["depot_facility_name"] = "Central Bus Yard"
+
+        _, stops = create_depot_deadhead_stops(first_stops, last_stops, self.deadhead_trips)
+
+        self.assertIn("stop_name", stops.columns)
+        self.assertEqual(stops.iloc[0]["stop_name"], "Central Bus Yard")
 
 
 class TestMatchAgencyToNtd(unittest.TestCase):

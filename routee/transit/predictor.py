@@ -30,6 +30,7 @@ from routee.transit.depot_deadhead import (
     create_depot_deadhead_trips,
     get_default_depot_path,
     infer_depot_trip_endpoints,
+    load_ntd_facilities,
 )
 from routee.transit.gtfs_processing import (
     copy_transit_config,
@@ -135,11 +136,12 @@ class GTFSEnergyPredictor:
 
         Args:
             gtfs_path: Path to directory containing GTFS feed files
-            depot_path: Path to directory containing depot shapefile (Transit_Depot.shp).
-                If None (default), uses depot locations from the National Transit Database's
-                "Public Transit Facilities and Stations - 2023" dataset. This dataset covers
-                depot/facility locations for transit agencies across the United States.
-                Data source: https://data.transportation.gov/stories/s/gd62-jzra
+            depot_path: Path to directory containing a custom depot shapefile.
+                When ``None`` (default), depot locations are derived from the
+                NTD 2024 Facility Inventory xlsx bundled with this package.
+                Only bus-operating agencies and depot-type facilities
+                (maintenance/depot, combined admin+maintenance, service &
+                inspection) are used; rail-only facilities are excluded.
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
             compass_app: An optional pre-initialized CompassApp instance.
             output_dir: Directory for saving results and caching the CompassApp graph.
@@ -349,19 +351,14 @@ class GTFSEnergyPredictor:
                 extra_geoms.append(mid_block_metadata["deadhead_ods"])
 
         if add_depot_deadhead:
-            if self.depot_path is None:
-                logger.warning(
-                    "Cannot add depot deadhead: depot_path not provided during initialization"
+            depot_metadata = self._prepare_depot_deadhead()
+            if depot_metadata is not None:
+                extra_geoms.extend(
+                    [
+                        depot_metadata["first_stops_gdf"],
+                        depot_metadata["last_stops_gdf"],
+                    ]
                 )
-            else:
-                depot_metadata = self._prepare_depot_deadhead()
-                if depot_metadata is not None:
-                    extra_geoms.extend(
-                        [
-                            depot_metadata["first_stops_gdf"],
-                            depot_metadata["last_stops_gdf"],
-                        ]
-                    )
 
         # Step 4: Load CompassApp once with comprehensive bounding box
         self.load_compass_app(extra_geoms=extra_geoms if extra_geoms else None)
@@ -851,11 +848,6 @@ class GTFSEnergyPredictor:
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
 
-        if self.depot_path is None:
-            raise RuntimeError(
-                "depot_path must be specified in __init__() to add depot deadhead trips"
-            )
-
         logger.info("Preparing depot deadhead trips...")
 
         # Create depot deadhead trip records
@@ -865,10 +857,50 @@ class GTFSEnergyPredictor:
             logger.info("No depot deadhead trips needed")
             return None
 
+        # Load NTD bus depot facilities, optionally filtered to the matched agency.
+        # Use the GTFS agency name (first agency if multiple) for matching.
+        ntd_id: str | None = None
+        gtfs_agency_names = self.feed.agency["agency_name"].dropna().tolist()
+        if gtfs_agency_names:
+            from routee.transit.depot_deadhead import match_agency_to_ntd
+
+            agency_name = gtfs_agency_names[0]
+            # Approximate agency location from the centroid of stop coordinates
+            stops = self.feed.stops
+            agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
+            agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
+            try:
+                ntd_match = match_agency_to_ntd(agency_name, agency_lat, agency_lon)
+                ntd_id = ntd_match["NTD_ID"]
+                logger.info(
+                    "Matched GTFS agency '%s' to NTD ID %s ('%s').",
+                    agency_name,
+                    ntd_id,
+                    ntd_match["Agency_Name"],
+                )
+            except ValueError:
+                logger.warning(
+                    "Could not match GTFS agency '%s' to an NTD record; "
+                    "using all bus facilities.",
+                    agency_name,
+                )
+
+        try:
+            depots_gdf = load_ntd_facilities(ntd_id=ntd_id)
+        except (FileNotFoundError, ValueError):
+            if ntd_id is not None:
+                logger.warning(
+                    "No NTD facilities found for NTD ID '%s'; "
+                    "falling back to all bus facilities.",
+                    ntd_id,
+                )
+                depots_gdf = load_ntd_facilities(ntd_id=None)
+            else:
+                raise
+
         # Infer depot locations for each block's first and last stops
-        depot_shapefile = self.depot_path / "Transit_Depot.shp"
         first_stops_gdf, last_stops_gdf, depots_df = infer_depot_trip_endpoints(
-            self.trips, self.feed, depot_shapefile
+            self.trips, self.feed, depots_gdf
         )
 
         # Create stop_times and stops for depot deadhead trips

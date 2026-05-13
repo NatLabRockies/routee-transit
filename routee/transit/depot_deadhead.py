@@ -11,6 +11,100 @@ from gtfsblocks import Feed
 from rapidfuzz.fuzz import WRatio
 from shapely.geometry import Point
 
+# ---------------------------------------------------------------------------
+# NTD facility inventory constants
+# ---------------------------------------------------------------------------
+
+# Facility types that represent bus depots, in priority order (highest first).
+# Used to pre-filter and rank NTD facility records before distance matching.
+_DEPOT_FACILITY_TYPES: list[str] = [
+    "General Purpose Maintenance Facility/Depot",
+    "Combined Administrative and Maintenance Facility (describe in Notes)",
+    "Maintenance Facility (Service and Inspection)",
+]
+
+# NTD Primary Mode codes considered "bus-operating".
+# DR (demand response) and VP (vanpool) are included because many small bus
+# agencies report exclusively under these modes.
+_BUS_MODES: frozenset[str] = frozenset({"MB", "RB", "CB", "TB", "PB", "DR", "VP"})
+
+
+def _ntd_facilities_path() -> Path:
+    from routee.transit import ntd_path
+
+    candidates = list((ntd_path()).glob("2024 Facility Inventory*.xlsx"))
+    if not candidates:
+        raise FileNotFoundError(
+            "NTD facility inventory xlsx not found in "
+            f"{ntd_path()}. Expected a file matching '2024 Facility Inventory*.xlsx'."
+        )
+    return candidates[0]
+
+
+def load_ntd_facilities(ntd_id: str | None = None) -> gpd.GeoDataFrame:
+    """Load and filter the NTD facility inventory to bus depot locations.
+
+    Reads the bundled NTD "Facility Inventory" xlsx, retains only rows that:
+
+    1. Belong to a bus-operating agency (``Primary Mode Served`` in
+       ``{MB, RB, CB, TB, PB, DR, VP}``).
+    2. Are one of the three depot facility types (general purpose depot,
+       combined admin/maintenance, or service-and-inspection facility).
+    3. Have valid latitude/longitude coordinates.
+
+    If ``ntd_id`` is provided the result is further restricted to that agency.
+
+    Parameters
+    ----------
+    ntd_id : str | None
+        Zero-padded 5-digit NTD ID (e.g. ``"00001"``).  When supplied, only
+        facilities belonging to that agency are returned.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        Point GeoDataFrame in EPSG:4326 with columns including ``NTD ID``,
+        ``Agency Name``, ``Facility Type``, ``Facility Name``, and a
+        ``depot_priority`` column (0 = highest priority depot type).
+    """
+    path = _ntd_facilities_path()
+    df = pd.read_excel(path, dtype={"NTD ID": str})
+
+    # Normalise NTD ID to zero-padded 5-digit string
+    df["NTD ID"] = df["NTD ID"].str.zfill(5)
+
+    # Filter to bus-operating modes
+    df = df[df["Primary Mode Served"].isin(_BUS_MODES)]
+
+    # Filter to depot facility types only
+    df = df[df["Facility Type"].isin(_DEPOT_FACILITY_TYPES)]
+
+    # Filter to valid coordinates
+    df = df[df["Latitude"].notna() & df["Longitude"].notna()]
+
+    # Attach priority rank (lower = better)
+    priority_map = {ft: i for i, ft in enumerate(_DEPOT_FACILITY_TYPES)}
+    df = df.copy()
+    df["depot_priority"] = df["Facility Type"].map(priority_map)
+
+    if ntd_id is not None:
+        df = df[df["NTD ID"] == ntd_id.zfill(5)]
+
+    if df.empty:
+        raise ValueError(
+            f"No bus depot facilities found in NTD inventory"
+            + (f" for NTD ID '{ntd_id}'" if ntd_id else "")
+            + "."
+        )
+
+    gdf = gpd.GeoDataFrame(
+        df.reset_index(drop=True),
+        geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]),
+        crs="EPSG:4326",
+    )
+    return gdf
+
+
 class NTDAgencyMatch(TypedDict):
     """Row from the NTD agency table returned by :func:`match_agency_to_ntd`."""
 
@@ -50,9 +144,28 @@ def _ntd_agencies_path() -> Path:
     return ntd_path() / "NTAD_National_Transit_Map_Agencies.csv"
 
 
-def _load_ntd_agencies() -> pd.DataFrame:
-    """Load the bundled NTD agency table."""
-    return pd.read_csv(_ntd_agencies_path(), dtype={_NTD_ID_COL: str})
+def _load_ntd_agencies(bus_only: bool = True) -> pd.DataFrame:
+    """Load the bundled NTD agency table.
+
+    Parameters
+    ----------
+    bus_only:
+        When ``True`` (default), restrict to agencies that operate at least one
+        bus mode according to the NTD facility inventory.  This prevents
+        rail-only agencies from absorbing fuzzy name matches.
+    """
+    agencies = pd.read_csv(_ntd_agencies_path(), dtype={_NTD_ID_COL: str})
+    if not bus_only:
+        return agencies
+
+    # Derive the set of NTD IDs that operate bus modes from the facility xlsx.
+    fac_path = _ntd_facilities_path()
+    fac = pd.read_excel(fac_path, usecols=["NTD ID", "Primary Mode Served"], dtype={"NTD ID": str})
+    fac["NTD ID"] = fac["NTD ID"].str.zfill(5)
+    bus_ntd_ids: set[str] = set(
+        fac.loc[fac["Primary Mode Served"].isin(_BUS_MODES), "NTD ID"].unique()
+    )
+    return agencies[agencies[_NTD_ID_COL].isin(bus_ntd_ids)].reset_index(drop=True)
 
 
 def _tokenize_name(name: str) -> set[str]:
@@ -345,7 +458,9 @@ def create_depot_deadhead_trips(
 
 
 def infer_depot_trip_endpoints(
-    trips_df: pd.DataFrame, feed: Feed, path_to_depots: str | Path
+    trips_df: pd.DataFrame,
+    feed: Feed,
+    depots_gdf: gpd.GeoDataFrame,
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Add origin/destination depot geometry for each block.
 
@@ -355,15 +470,20 @@ def infer_depot_trip_endpoints(
         trips_df of selected date and route (result from read_in_gtfs).
     feed : Feed
         GTFS feed object (e.g. result from read_in_gtfs).
-    path_to_depots : str | Path
-        Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.
+    depots_gdf : gpd.GeoDataFrame
+        Point GeoDataFrame of candidate depot locations in EPSG:4326.  Typically
+        the result of :func:`load_ntd_facilities`.  If a ``depot_priority``
+        column is present (0 = best), candidate depots are first restricted to
+        the highest-priority type available before distance minimisation; if no
+        higher-priority depot is reachable the next tier is tried.
 
     Returns
     -------
     tuple[GeoDataFrame, GeoDataFrame, GeoDataFrame]
-        (first_stops_gdf, last_stops_gdf, depots_df). The first two contain stop
-        geometry and matched depot geometry.  ``depots_df`` is the full FTA depot
-        GeoDataFrame (EPSG:4326) so callers can look up metadata by row index.
+        (first_stops_gdf, last_stops_gdf, depots_gdf). The first two contain
+        stop geometry and matched depot geometry.  ``depots_gdf`` is the full
+        depot GeoDataFrame (EPSG:4326) so callers can look up metadata by row
+        index.
     """
 
     # Process trips and stops dataframes in feed to get first and last stops of each block id
@@ -393,38 +513,51 @@ def infer_depot_trip_endpoints(
     )
     last_stops_gdf = gpd.GeoDataFrame(last_stops, geometry="geometry", crs="EPSG:4326")
 
-    # Read depot locations; ensure file exists
-    if not os.path.exists(path_to_depots):
-        raise FileNotFoundError(f"Depot file not found: {path_to_depots}")
-    depots_df = gpd.read_file(path_to_depots)
-    # Ensure depot geometries are points and in WGS84
-    if depots_df.crs is None:
-        depots_df = depots_df.set_crs(epsg=4326)
+    # Ensure depot geometries are in WGS84
+    if depots_gdf.crs is None:
+        depots_gdf = depots_gdf.set_crs(epsg=4326)
     else:
-        depots_df = depots_df.to_crs(epsg=4326)
+        depots_gdf = depots_gdf.to_crs(epsg=4326)
+
+    has_priority = "depot_priority" in depots_gdf.columns
+    priority_levels: list[int] = (
+        sorted(depots_gdf["depot_priority"].dropna().unique().tolist())
+        if has_priority
+        else []
+    )
 
     # Create a simple mapping from depot index to geometry for fast lookup
-    depots_geom_map = depots_df["geometry"].to_dict()
+    depots_geom_map = depots_gdf["geometry"].to_dict()
 
     # Project to Web Mercator (EPSG:3857) for distance computations
     proj_crs = "EPSG:3857"
     first_proj = first_stops_gdf.to_crs(proj_crs).reset_index(drop=True)
     last_proj = last_stops_gdf.to_crs(proj_crs).reset_index(drop=True)
-    depots_proj = depots_df.to_crs(proj_crs).copy()
+    depots_proj = depots_gdf.to_crs(proj_crs).copy()
 
-    best_depot_idx = {}
+    best_depot_idx: dict[object, int] = {}
     for block_id, first_row in first_proj.groupby("block_id"):
         first_geom = first_row.iloc[0].geometry
-        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[
-            0
-        ]
+        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[0]
 
-        # Compute pull-out, pull-in, and total distances
-        depots_proj["pullout"] = depots_proj.geometry.distance(first_geom)
-        depots_proj["pullin"] = depots_proj.geometry.distance(last_geom)
-        depots_proj["total"] = depots_proj["pullout"] + depots_proj["pullin"]
+        # Compute pull-out + pull-in distance for every depot candidate
+        working = depots_proj.copy()
+        working["pullout"] = working.geometry.distance(first_geom)
+        working["pullin"] = working.geometry.distance(last_geom)
+        working["total"] = working["pullout"] + working["pullin"]
 
-        best_idx = depots_proj["total"].idxmin()
+        if has_priority:
+            # Pick nearest depot from the highest-priority tier that is
+            # non-empty; fall through to subsequent tiers if needed.
+            best_idx: int = working["total"].idxmin()
+            for level in priority_levels:
+                tier = working[working["depot_priority"] == level]
+                if not tier.empty:
+                    best_idx = int(tier["total"].idxmin())
+                    break
+        else:
+            best_idx = int(working["total"].idxmin())
+
         best_depot_idx[block_id] = best_idx
 
     first_stops_gdf["nearest_depot_idx"] = first_stops_gdf["block_id"].map(
@@ -440,6 +573,21 @@ def infer_depot_trip_endpoints(
         depots_geom_map
     )
     last_stops_gdf["geometry_origin"] = last_stops_gdf.geometry
+
+    # Attach NTD metadata (NTD ID, agency name, facility name/type) to both
+    # stop GDFs so downstream callers and outputs can identify which depot was
+    # matched without having to rejoin on nearest_depot_idx themselves.
+    _ntd_meta_cols: dict[str, str] = {
+        "NTD ID": "depot_ntd_id",
+        "Agency Name": "depot_agency_name",
+        "Facility Name": "depot_facility_name",
+        "Facility Type": "depot_facility_type",
+    }
+    for src_col, dst_col in _ntd_meta_cols.items():
+        if src_col in depots_gdf.columns:
+            col_map = depots_gdf[src_col].to_dict()
+            first_stops_gdf[dst_col] = first_stops_gdf["nearest_depot_idx"].map(col_map)
+            last_stops_gdf[dst_col] = last_stops_gdf["nearest_depot_idx"].map(col_map)
 
     # Set the arrival time as departure time for deadhead trip to depot for the last_stop_gdf
     last_stops_gdf["departure_time"] = last_stops_gdf["arrival_time"]
@@ -457,7 +605,7 @@ def infer_depot_trip_endpoints(
         last_stops_gdf, geometry="geometry_origin", crs="EPSG:4326"
     )
 
-    return first_stops_gdf, last_stops_gdf, depots_df
+    return first_stops_gdf, last_stops_gdf, depots_gdf
 
 
 def create_depot_deadhead_stops(
@@ -588,9 +736,22 @@ def create_depot_deadhead_stops(
 
     # Create stops df — one row per unique physical depot (keyed by nearest_depot_idx).
     # Revenue stop endpoints are already in the GTFS feed and must not be duplicated.
+    # Use depot_facility_name as stop_name when available so stops_supplement.txt
+    # carries a human-readable depot identifier.
+    from_depot_stop_name = (
+        from_depot["depot_facility_name"]
+        if "depot_facility_name" in from_depot.columns
+        else pd.Series([""] * len(from_depot), index=from_depot.index)
+    )
+    to_depot_stop_name = (
+        to_depot["depot_facility_name"]
+        if "depot_facility_name" in to_depot.columns
+        else pd.Series([""] * len(to_depot), index=to_depot.index)
+    )
     from_depot_stops = pd.DataFrame(
         {
             "stop_id": "depot_" + from_depot["nearest_depot_idx"].astype(str),
+            "stop_name": from_depot_stop_name.values,
             "stop_lat": from_depot.geometry_origin.apply(lambda p: p.y).values,
             "stop_lon": from_depot.geometry_origin.apply(lambda p: p.x).values,
         }
@@ -598,6 +759,7 @@ def create_depot_deadhead_stops(
     to_depot_stops = pd.DataFrame(
         {
             "stop_id": "depot_" + to_depot["nearest_depot_idx"].astype(str),
+            "stop_name": to_depot_stop_name.values,
             "stop_lat": to_depot.geometry_destination.apply(lambda p: p.y).values,
             "stop_lon": to_depot.geometry_destination.apply(lambda p: p.x).values,
         }
