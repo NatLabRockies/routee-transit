@@ -46,8 +46,12 @@ def create_mid_block_deadhead_trips(
 
     # Precompute last/first stop per trip to build origin-destination route IDs
     stop_times_sorted = stop_times_df.sort_values("stop_sequence")
-    last_stop_per_trip = stop_times_sorted.groupby("trip_id")["stop_id"].last().to_dict()
-    first_stop_per_trip = stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
+    last_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].last().to_dict()
+    )
+    first_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
+    )
 
     block_gb = trips_df.groupby("block_id")
     dh_dfs = list()

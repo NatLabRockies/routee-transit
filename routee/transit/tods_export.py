@@ -15,6 +15,7 @@ Revenue stop endpoints are already present in the base GTFS feed and are
 referenced by their existing stop_id values; they are NOT written to
 ``stops_supplement.txt``.
 """
+
 from pathlib import Path
 
 import pandas as pd

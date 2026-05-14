@@ -1,5 +1,3 @@
-import os
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -345,7 +343,9 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         first_stops["depot_facility_name"] = "Central Bus Yard"
         last_stops["depot_facility_name"] = "Central Bus Yard"
 
-        _, stops = create_depot_deadhead_stops(first_stops, last_stops, self.deadhead_trips)
+        _, stops = create_depot_deadhead_stops(
+            first_stops, last_stops, self.deadhead_trips
+        )
 
         self.assertIn("stop_name", stops.columns)
         self.assertEqual(stops.iloc[0]["stop_name"], "Central Bus Yard")

@@ -857,21 +857,22 @@ class GTFSEnergyPredictor:
             logger.info("No depot deadhead trips needed")
             return None
 
-        # Load NTD bus depot facilities, optionally filtered to the matched agency.
-        # Use the GTFS agency name (first agency if multiple) for matching.
-        ntd_id: str | None = None
-        gtfs_agency_names = self.feed.agency["agency_name"].dropna().tolist()
-        if gtfs_agency_names:
-            from routee.transit.depot_deadhead import match_agency_to_ntd
+        # Load NTD bus depot facilities for all agencies in this GTFS feed.
+        # Match each agency name to an NTD ID using fuzzy name + location matching
+        # and load the union of all matched agencies' facilities.
+        from routee.transit.depot_deadhead import match_agency_to_ntd
 
-            agency_name = gtfs_agency_names[0]
-            # Approximate agency location from the centroid of stop coordinates
-            stops = self.feed.stops
-            agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
-            agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
+        stops = self.feed.stops
+        agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
+        agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
+
+        matched_ntd_ids: list[str] = []
+        for agency_name in self.feed.agency["agency_name"].dropna().unique().tolist():
             try:
                 ntd_match = match_agency_to_ntd(agency_name, agency_lat, agency_lon)
                 ntd_id = ntd_match["NTD_ID"]
+                if ntd_id not in matched_ntd_ids:
+                    matched_ntd_ids.append(ntd_id)
                 logger.info(
                     "Matched GTFS agency '%s' to NTD ID %s ('%s').",
                     agency_name,
@@ -881,20 +882,22 @@ class GTFSEnergyPredictor:
             except ValueError:
                 logger.warning(
                     "Could not match GTFS agency '%s' to an NTD record; "
-                    "using all bus facilities.",
+                    "its trips will fall back to the nearest available facility.",
                     agency_name,
                 )
 
         try:
-            depots_gdf = load_ntd_facilities(ntd_id=ntd_id)
+            depots_gdf = load_ntd_facilities(
+                ntd_ids=matched_ntd_ids if matched_ntd_ids else None
+            )
         except (FileNotFoundError, ValueError):
-            if ntd_id is not None:
+            if matched_ntd_ids:
                 logger.warning(
-                    "No NTD facilities found for NTD ID '%s'; "
+                    "No NTD facilities found for matched NTD IDs %s; "
                     "falling back to all bus facilities.",
-                    ntd_id,
+                    matched_ntd_ids,
                 )
-                depots_gdf = load_ntd_facilities(ntd_id=None)
+                depots_gdf = load_ntd_facilities()
             else:
                 raise
 

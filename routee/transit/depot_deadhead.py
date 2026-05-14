@@ -1,4 +1,3 @@
-import os
 import re
 from pathlib import Path
 from typing import TypedDict
@@ -41,7 +40,10 @@ def _ntd_facilities_path() -> Path:
     return candidates[0]
 
 
-def load_ntd_facilities(ntd_id: str | None = None) -> gpd.GeoDataFrame:
+def load_ntd_facilities(
+    ntd_id: str | None = None,
+    ntd_ids: list[str] | None = None,
+) -> gpd.GeoDataFrame:
     """Load and filter the NTD facility inventory to bus depot locations.
 
     Reads the bundled NTD "Facility Inventory" xlsx, retains only rows that:
@@ -52,13 +54,18 @@ def load_ntd_facilities(ntd_id: str | None = None) -> gpd.GeoDataFrame:
        combined admin/maintenance, or service-and-inspection facility).
     3. Have valid latitude/longitude coordinates.
 
-    If ``ntd_id`` is provided the result is further restricted to that agency.
+    Pass ``ntd_id`` to restrict to a single agency or ``ntd_ids`` for several.
+    When both are omitted all bus depot facilities across all agencies are
+    returned.  Passing both is an error.
 
     Parameters
     ----------
     ntd_id : str | None
-        Zero-padded 5-digit NTD ID (e.g. ``"00001"``).  When supplied, only
-        facilities belonging to that agency are returned.
+        Zero-padded 5-digit NTD ID (e.g. ``"00001"``).  Mutually exclusive
+        with ``ntd_ids``.
+    ntd_ids : list[str] | None
+        List of zero-padded 5-digit NTD IDs.  Facilities for all listed
+        agencies are returned combined.  Mutually exclusive with ``ntd_id``.
 
     Returns
     -------
@@ -67,6 +74,11 @@ def load_ntd_facilities(ntd_id: str | None = None) -> gpd.GeoDataFrame:
         ``Agency Name``, ``Facility Type``, ``Facility Name``, and a
         ``depot_priority`` column (0 = highest priority depot type).
     """
+    if ntd_id is not None and ntd_ids is not None:
+        raise ValueError("Pass either ntd_id or ntd_ids, not both.")
+    if ntd_id is not None:
+        ntd_ids = [ntd_id]
+
     path = _ntd_facilities_path()
     df = pd.read_excel(path, dtype={"NTD ID": str})
 
@@ -87,15 +99,13 @@ def load_ntd_facilities(ntd_id: str | None = None) -> gpd.GeoDataFrame:
     df = df.copy()
     df["depot_priority"] = df["Facility Type"].map(priority_map)
 
-    if ntd_id is not None:
-        df = df[df["NTD ID"] == ntd_id.zfill(5)]
+    if ntd_ids is not None:
+        normalised = [nid.zfill(5) for nid in ntd_ids]
+        df = df[df["NTD ID"].isin(normalised)]
 
     if df.empty:
-        raise ValueError(
-            f"No bus depot facilities found in NTD inventory"
-            + (f" for NTD ID '{ntd_id}'" if ntd_id else "")
-            + "."
-        )
+        id_desc = f" for NTD ID(s) {ntd_ids!r}" if ntd_ids is not None else ""
+        raise ValueError(f"No bus depot facilities found in NTD inventory{id_desc}.")
 
     gdf = gpd.GeoDataFrame(
         df.reset_index(drop=True),
@@ -133,7 +143,9 @@ _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 # Matching thresholds
 _NAME_SCORE_THRESHOLD = 40  # minimum rapidfuzz score (0-100) to consider a candidate
-_MAX_DISTANCE_KM = 400  # maximum allowed distance between agency centroid and query location
+_MAX_DISTANCE_KM = (
+    400  # maximum allowed distance between agency centroid and query location
+)
 _WRATIO_WEIGHT = 0.7
 _IDF_WEIGHT = 0.3
 
@@ -160,7 +172,9 @@ def _load_ntd_agencies(bus_only: bool = True) -> pd.DataFrame:
 
     # Derive the set of NTD IDs that operate bus modes from the facility xlsx.
     fac_path = _ntd_facilities_path()
-    fac = pd.read_excel(fac_path, usecols=["NTD ID", "Primary Mode Served"], dtype={"NTD ID": str})
+    fac = pd.read_excel(
+        fac_path, usecols=["NTD ID", "Primary Mode Served"], dtype={"NTD ID": str}
+    )
     fac["NTD ID"] = fac["NTD ID"].str.zfill(5)
     bus_ntd_ids: set[str] = set(
         fac.loc[fac["Primary Mode Served"].isin(_BUS_MODES), "NTD ID"].unique()
@@ -206,7 +220,9 @@ def _idf_query_coverage_score(
     if denominator == 0:
         return 0.0
 
-    numerator = sum(token_idf.get(token, 1.0) for token in query_tokens & candidate_tokens)
+    numerator = sum(
+        token_idf.get(token, 1.0) for token in query_tokens & candidate_tokens
+    )
     return 100.0 * numerator / denominator
 
 
@@ -266,16 +282,10 @@ def match_agency_to_ntd(
     # Score both name columns; take the higher of the two for each row.
     # WRatio handles partial/abbreviated matches robustly.
     official_scores = np.array(
-        [
-            WRatio(agency_name, name)
-            for name in agencies[_OFFICIAL_NAME_COL].fillna("")
-        ]
+        [WRatio(agency_name, name) for name in agencies[_OFFICIAL_NAME_COL].fillna("")]
     )
     common_scores = np.array(
-        [
-            WRatio(agency_name, name)
-            for name in agencies[_COMMON_NAME_COL].fillna("")
-        ]
+        [WRatio(agency_name, name) for name in agencies[_COMMON_NAME_COL].fillna("")]
     )
     wratio_scores = np.maximum(official_scores, common_scores)
 
@@ -499,8 +509,12 @@ def infer_depot_trip_endpoints(
     first_stops = blocks_trips_stops.groupby("block_id").first().reset_index()
     last_stops = blocks_trips_stops.groupby("block_id").last().reset_index()
 
-    first_stops = first_stops[["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]]
-    last_stops = last_stops[["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]]
+    first_stops = first_stops[
+        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+    ]
+    last_stops = last_stops[
+        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+    ]
 
     first_stops["geometry"] = first_stops.apply(
         lambda row: Point(row["stop_lon"], row["stop_lat"]), axis=1
@@ -538,7 +552,9 @@ def infer_depot_trip_endpoints(
     best_depot_idx: dict[object, int] = {}
     for block_id, first_row in first_proj.groupby("block_id"):
         first_geom = first_row.iloc[0].geometry
-        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[0]
+        last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[
+            0
+        ]
 
         # Compute pull-out + pull-in distance for every depot candidate
         working = depots_proj.copy()
@@ -676,14 +692,32 @@ def create_depot_deadhead_stops(
         deadhead_trips_df.trip_type == "pull-out"
     ].copy()
     deadhead_trips_df_from_depot = deadhead_trips_df_from_depot.merge(
-        from_depot[["block_id", "stop_id", "nearest_depot_idx", "departure_time", "arrival_time"]], on="block_id"
+        from_depot[
+            [
+                "block_id",
+                "stop_id",
+                "nearest_depot_idx",
+                "departure_time",
+                "arrival_time",
+            ]
+        ],
+        on="block_id",
     )
 
     deadhead_trips_df_to_depot = deadhead_trips_df[
         deadhead_trips_df.trip_type == "pull-in"
     ].copy()
     deadhead_trips_df_to_depot = deadhead_trips_df_to_depot.merge(
-        to_depot[["block_id", "stop_id", "nearest_depot_idx", "departure_time", "arrival_time"]], on="block_id"
+        to_depot[
+            [
+                "block_id",
+                "stop_id",
+                "nearest_depot_idx",
+                "departure_time",
+                "arrival_time",
+            ]
+        ],
+        on="block_id",
     )
     deadhead_trips_df = pd.concat(
         [deadhead_trips_df_from_depot, deadhead_trips_df_to_depot], ignore_index=True
@@ -717,7 +751,9 @@ def create_depot_deadhead_stops(
     from_depot_stop_ids = [
         x
         for pair in zip(
-            ("depot_" + deadhead_trips_df_from_depot["nearest_depot_idx"].astype(str)).tolist(),
+            (
+                "depot_" + deadhead_trips_df_from_depot["nearest_depot_idx"].astype(str)
+            ).tolist(),
             deadhead_trips_df_from_depot["stop_id"].tolist(),
         )
         for x in pair
@@ -726,7 +762,9 @@ def create_depot_deadhead_stops(
         x
         for pair in zip(
             deadhead_trips_df_to_depot["stop_id"].tolist(),
-            ("depot_" + deadhead_trips_df_to_depot["nearest_depot_idx"].astype(str)).tolist(),
+            (
+                "depot_" + deadhead_trips_df_to_depot["nearest_depot_idx"].astype(str)
+            ).tolist(),
         )
         for x in pair
     ]
