@@ -22,7 +22,7 @@ if __name__ == "__main__":
     import warnings
     from pathlib import Path
 
-    from routee.transit import GTFSEnergyPredictor, sample_inputs_path
+    from routee.transit import GTFSEnergyPredictor
 
     # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
@@ -46,8 +46,8 @@ if __name__ == "__main__":
     ]
     # input_directory = sample_inputs_path() / "saltlake/gtfs"
     # output_directory = HERE / "../reports/saltlake"
-    input_directory ="/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117/gtfs"
-    output_directory="/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117"
+    input_directory = "/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117/gtfs"
+    output_directory = "/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117"
 
     start_time = time.time()
 

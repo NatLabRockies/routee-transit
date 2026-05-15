@@ -8,9 +8,13 @@ __all__ = [
     "sample_inputs_path",
     "depot_path",
     "ntd_path",
+    "load_ntd_facilities",
+    "match_agency_to_ntd",
+    "NTDAgencyMatch",
 ]
 
 from .deadhead_router import create_deadhead_shapes
+from .ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
 from .predictor import GTFSEnergyPredictor
 from .thermal_energy import add_HVAC_energy
 from .tods_export import write_tods_deadhead

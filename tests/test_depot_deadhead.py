@@ -1,3 +1,4 @@
+import csv
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -8,11 +9,13 @@ from shapely.geometry import Point
 
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
-    _compute_token_idf,
-    _load_ntd_agencies,
     create_depot_deadhead_trips,
     get_default_depot_path,
     infer_depot_trip_endpoints,
+)
+from routee.transit.ntd import (
+    _compute_token_idf,
+    _load_ntd_agencies,
     match_agency_to_ntd,
 )
 
@@ -371,6 +374,7 @@ class TestMatchAgencyToNtd(unittest.TestCase):
             agency_name="Metro Transit",
             lat=self.seattle_lat,
             lon=self.seattle_lon,
+            agency_id="1",
         )
         self.assertEqual(result["NTD_ID"], "00001")
 
@@ -440,6 +444,43 @@ class TestMatchAgencyToNtd(unittest.TestCase):
         # Common tokens should carry less signal than rare identifying tokens.
         self.assertLess(token_idf["transit"], token_idf["muckleshoot"])
         self.assertLess(token_idf["transit"], token_idf["king"])
+
+
+class TestNTDMatchingFromCSV(unittest.TestCase):
+    """Parametrized test that checks all labelled WA agency matches from CSV."""
+
+    _test_csv = Path(__file__).parent / "ntd-agencies-test.csv"
+
+    def test_all_wa_agencies(self) -> None:
+        failures: list[str] = []
+        with open(self._test_csv, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                expected_id = row["ntd_agency_id"].strip()
+                if not expected_id:
+                    continue
+                expected_id = expected_id.zfill(5)
+                agency_name = row["agency_name"].strip()
+                lat = float(row["center_latitude"])
+                lon = float(row["center_longitude"])
+                agency_id = row["agency_id"].strip() or None
+
+                result = match_agency_to_ntd(
+                    agency_name=agency_name,
+                    lat=lat,
+                    lon=lon,
+                    agency_id=agency_id,
+                )
+                if result["NTD_ID"] != expected_id:
+                    failures.append(
+                        f"{agency_name}: expected {expected_id}, "
+                        f"got {result['NTD_ID']}"
+                    )
+
+        if failures:
+            self.fail(
+                f"{len(failures)} NTD match failures:\n" + "\n".join(failures)
+            )
 
 
 if __name__ == "__main__":

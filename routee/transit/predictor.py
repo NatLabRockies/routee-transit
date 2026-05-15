@@ -30,8 +30,8 @@ from routee.transit.depot_deadhead import (
     create_depot_deadhead_trips,
     get_default_depot_path,
     infer_depot_trip_endpoints,
-    load_ntd_facilities,
 )
+from routee.transit.ntd import load_ntd_facilities
 from routee.transit.gtfs_processing import (
     copy_transit_config,
     extend_trip_traces,
@@ -860,16 +860,27 @@ class GTFSEnergyPredictor:
         # Load NTD bus depot facilities for all agencies in this GTFS feed.
         # Match each agency name to an NTD ID using fuzzy name + location matching
         # and load the union of all matched agencies' facilities.
-        from routee.transit.depot_deadhead import match_agency_to_ntd
+        from routee.transit.ntd import match_agency_to_ntd
 
         stops = self.feed.stops
         agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
         agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
 
         matched_ntd_ids: list[str] = []
-        for agency_name in self.feed.agency["agency_name"].dropna().unique().tolist():
+        agency_df = self.feed.agency
+        has_agency_id = "agency_id" in agency_df.columns
+        for _, agency_row in agency_df.dropna(subset=["agency_name"]).iterrows():
+            agency_name = agency_row["agency_name"]
+            gtfs_agency_id = (
+                str(agency_row["agency_id"]) if has_agency_id else None
+            )
             try:
-                ntd_match = match_agency_to_ntd(agency_name, agency_lat, agency_lon)
+                ntd_match = match_agency_to_ntd(
+                    agency_name,
+                    agency_lat,
+                    agency_lon,
+                    agency_id=gtfs_agency_id,
+                )
                 ntd_id = ntd_match["NTD_ID"]
                 if ntd_id not in matched_ntd_ids:
                     matched_ntd_ids.append(ntd_id)
