@@ -19,6 +19,7 @@ referenced by their existing stop_id values; they are NOT written to
 from pathlib import Path
 
 import pandas as pd
+from pandas.api.typing import NaTType
 
 # Map routee-transit trip_type values to TODS_trip_type field values.
 # TODS uses "pull-back" (not "pull-in") for return-to-depot trips.
@@ -29,7 +30,7 @@ _TRIP_TYPE_MAP: dict[str, str] = {
 }
 
 
-def _timedelta_to_hhmmss(td: pd.Timedelta | None) -> str:
+def _timedelta_to_hhmmss(td: pd.Timedelta | NaTType | None) -> str:
     """Convert a pd.Timedelta (or None/NaT) to a GTFS HH:MM:SS string.
 
     GTFS times may exceed 24:00:00 for service that runs past midnight.

@@ -202,7 +202,7 @@ def _to_seconds(t: str | None) -> float:
 
 
 def _enrich_stop_endpoints(
-    trips: list[dict],
+    trips: list[dict[str, str]],
     tods: dict[str, pd.DataFrame],
     gtfs: dict[str, pd.DataFrame],
 ) -> None:
@@ -271,7 +271,7 @@ def _make_trip(
     shape_id: str = "",
     departure_time: str = "",
     arrival_time: str = "",
-) -> dict:
+) -> dict[str, str]:
     return {
         "trip_id": trip_id,
         "trip_type": trip_type,
@@ -285,10 +285,10 @@ def _make_trip(
 
 def _safe_str(value: object) -> str:
     """Return str(value) unless value is NA/NaN/None, in which case return ''."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None:
         return ""
     try:
-        if pd.isna(value):  # type: ignore[arg-type]
+        if pd.isna(value):  # type: ignore[call-overload]
             return ""
     except (TypeError, ValueError):
         pass
@@ -300,7 +300,7 @@ def build_block_trips(
     tods: dict[str, pd.DataFrame],
     gtfs: dict[str, pd.DataFrame],
     output: dict[str, pd.DataFrame],
-) -> list[dict]:
+) -> list[dict[str, str]]:
     """Return a chronologically-ordered list of trip dicts for *block_id*.
 
     Each dict has keys: ``trip_id``, ``trip_type``, ``shape_id``,
@@ -312,7 +312,7 @@ def build_block_trips(
     back to GTFS ``trips.txt`` (revenue) plus ``trips_supplement.txt``
     (deadhead).
     """
-    trips: list[dict] = []
+    trips: list[dict[str, str]] = []
 
     # Primary path: trip_energy_predictions.csv has all trips with shape_ids
     if "trip_predictions" in output:
@@ -404,7 +404,7 @@ def get_stop_coords(
 
 
 def get_shape_coords(
-    trip: dict,
+    trip: dict[str, str],
     tods: dict[str, pd.DataFrame],
     gtfs: dict[str, pd.DataFrame],
     output: dict[str, pd.DataFrame],
@@ -469,7 +469,7 @@ def get_shape_coords(
 def get_depot_info(
     stop_id: str,
     tods: dict[str, pd.DataFrame],
-) -> dict | None:
+) -> dict[str, object] | None:
     """Return NTD depot metadata for *stop_id* if it is a depot stop."""
     if not stop_id or not str(stop_id).startswith("depot_"):
         return None
@@ -479,7 +479,8 @@ def get_depot_info(
     row = meta[meta["stop_id"].astype(str) == str(stop_id)]
     if row.empty:
         return None
-    return row.iloc[0].to_dict()
+    result: dict[str, object] = row.iloc[0].to_dict()  # type: ignore[assignment]
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -488,7 +489,7 @@ def get_depot_info(
 
 
 def build_folium_map(
-    trip: dict,
+    trip: dict[str, str],
     coords: list[tuple[float, float]],
     tods: dict[str, pd.DataFrame],
     gtfs: dict[str, pd.DataFrame],
@@ -636,7 +637,7 @@ def _pill(text: str, color: str, highlight: bool = False) -> str:
     )
 
 
-def _render_timeline(block_trips: list[dict], current_idx: int) -> None:
+def _render_timeline(block_trips: list[dict[str, str]], current_idx: int) -> None:
     """Render a horizontally-scrollable strip of trip-type pills."""
     short = {
         "pull-out": "Pull-out",
@@ -772,7 +773,7 @@ def main() -> None:
             route_options = [_ALL] + sorted(
                 route_label_map, key=lambda r: route_label_map[r]
             )
-            selected_route: str = st.selectbox(  # type: ignore[assignment]
+            selected_route: str = st.selectbox(
                 "Route",
                 route_options,
                 format_func=lambda r: "All routes" if r == _ALL else route_label_map.get(r, r),
@@ -797,7 +798,7 @@ def main() -> None:
             st.warning("No blocks found for the selected route.")
             return
 
-        selected_block: str = st.selectbox("Block ID", sorted_blocks)  # type: ignore[assignment]
+        selected_block: str = st.selectbox("Block ID", sorted_blocks)
 
         # Reset trip index when the selected block changes
         if selected_block != st.session_state.get("last_block"):

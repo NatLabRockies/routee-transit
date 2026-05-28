@@ -207,7 +207,7 @@ def main() -> None:
 
     # Normalise expected IDs
     expected_ids = [str(eid).zfill(5) for eid in test_df_labelled["ntd_agency_id"]]
-    candidate_ids = agencies["NTD_ID"].values
+    candidate_ids = np.asarray(agencies["NTD_ID"].values)
 
     # Precompute expensive scoring matrices
     print("Precomputing WRatio, IDF, distance, and agency-ID scores...")
@@ -219,7 +219,7 @@ def main() -> None:
     print()
 
     # --- Grid search ---
-    param_grid = {
+    param_grid: dict[str, list[float]] = {
         "wratio_weight": [0.5, 0.7, 0.9],
         "idf_weight": [0.0, 0.1, 0.3, 0.5],
         "name_threshold": [20, 30, 40, 50],

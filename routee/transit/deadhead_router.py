@@ -221,8 +221,8 @@ def create_deadhead_shapes(
                 )
                 continue
 
-            row = far_rows_by_key.get(od_key)
-            if row is None:
+            od_info = far_rows_by_key.get(od_key)
+            if od_info is None:
                 log.warning(
                     f"CompassApp returned an unmatched O-D result for key {od_key}; "
                     "skipping this response."
@@ -284,16 +284,16 @@ def create_deadhead_shapes(
         # a response or returned an unparsable one.
         missing_keys = set(far_rows_by_key) - processed_keys
         for od_key in missing_keys:
-            row = far_rows_by_key[od_key]
+            od_info = far_rows_by_key[od_key]
             log.warning(
                 f"CompassApp returned no usable result for od_key {od_key}. "
                 "Creating a straight-line fallback route."
             )
             rows = route_single_trip_fallback(
-                row["origin_x"],
-                row["origin_y"],
-                row["dest_x"],
-                row["dest_y"],
+                od_info["origin_x"],
+                od_info["origin_y"],
+                od_info["dest_x"],
+                od_info["dest_y"],
                 od_key,
             )
             shape_rows.extend(rows)
