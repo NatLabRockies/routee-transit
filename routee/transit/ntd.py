@@ -59,23 +59,20 @@ _PROXIMITY_SCALE_KM = 75.0  # exponential decay scale for distance scoring
 # Path helpers
 # ---------------------------------------------------------------------------
 
+_FACILITIES_FILENAME = "2024 Facility Inventory_260428_1.xlsx"
+_AGENCIES_FILENAME = "NTAD_National_Transit_Map_Agencies.csv"
+
 
 def _ntd_facilities_path() -> Path:
     from routee.transit import ntd_path
 
-    candidates = list((ntd_path()).glob("2024 Facility Inventory*.xlsx"))
-    if not candidates:
-        raise FileNotFoundError(
-            "NTD facility inventory xlsx not found in "
-            f"{ntd_path()}. Expected a file matching '2024 Facility Inventory*.xlsx'."
-        )
-    return candidates[0]
+    return ntd_path() / _FACILITIES_FILENAME
 
 
 def _ntd_agencies_path() -> Path:
     from routee.transit import ntd_path
 
-    return ntd_path() / "NTAD_National_Transit_Map_Agencies.csv"
+    return ntd_path() / _AGENCIES_FILENAME
 
 
 # ---------------------------------------------------------------------------
