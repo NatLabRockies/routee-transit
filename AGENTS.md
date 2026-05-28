@@ -31,8 +31,8 @@ This document provides guidance for AI coding assistants working on the RouteE-T
 routee-transit/
 ├── routee/transit/                  # Main package code
 │   ├── resources/sample_inputs/     # Bundled resources
-│   │   ├── FTA_Depot/               # Default depot location data (NTD 2023)
 │   │   └── saltlake/                # Sample GTFS feed (Salt Lake City)
+│   ├── resources/ntd/               # Bundled fallback NTD facility/agency tables
 │   └── ...                          # predictor.py, deadhead_router.py, etc.
 ├── rust/                            # Rust extension (routee-transit-py)
 ├── tests/                           # Test suite

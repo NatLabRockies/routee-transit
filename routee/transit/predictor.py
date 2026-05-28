@@ -28,7 +28,6 @@ from routee.transit.deadhead_router import create_deadhead_shapes
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
-    get_default_depot_path,
     infer_depot_trip_endpoints,
 )
 from routee.transit.ntd import load_ntd_facilities
@@ -92,7 +91,6 @@ class GTFSEnergyPredictor:
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     # depot_path is optional - uses NTD depot locations by default
         ... )
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
@@ -109,7 +107,6 @@ class GTFSEnergyPredictor:
 
     Attributes:
         gtfs_path (Path): Path to GTFS feed directory
-        depot_path (Path | None): Path to depot shapefile directory
         n_processes (int): Number of parallel processes to use
         feed (Feed | None): Loaded GTFS feed object
         trips (pd.DataFrame): Trips DataFrame (initially all, can be filtered)
@@ -122,7 +119,6 @@ class GTFSEnergyPredictor:
     def __init__(
         self,
         gtfs_path: str | Path,
-        depot_path: str | Path | None = None,
         n_processes: int | None = None,
         compass_app: TransitCompassApp | None = None,
         output_dir: str | Path | None = None,
@@ -135,13 +131,12 @@ class GTFSEnergyPredictor:
         Initialize the GTFSEnergyPredictor.
 
         Args:
-            gtfs_path: Path to directory containing GTFS feed files
-            depot_path: Path to directory containing a custom depot shapefile.
-                When ``None`` (default), depot locations are derived from the
-                NTD 2024 Facility Inventory xlsx bundled with this package.
-                Only bus-operating agencies and depot-type facilities
-                (maintenance/depot, combined admin+maintenance, service &
-                inspection) are used; rail-only facilities are excluded.
+            gtfs_path: Path to directory containing GTFS feed files.
+                Depot locations are derived from the NTD Facility Inventory
+                bundled with this package.  Only bus-operating agencies and
+                depot-type facilities (maintenance/depot, combined
+                admin+maintenance, service & inspection) are used; rail-only
+                facilities are excluded.
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
             compass_app: An optional pre-initialized CompassApp instance.
             output_dir: Directory for saving results and caching the CompassApp graph.
@@ -153,10 +148,6 @@ class GTFSEnergyPredictor:
                 even if cached outputs already exist in ``output_dir``.
         """
         self.gtfs_path = Path(gtfs_path)
-        if depot_path is None:
-            self.depot_path = get_default_depot_path()
-        else:
-            self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
         self.app = compass_app
         self.output_dir = Path(output_dir) if output_dir else None
@@ -275,7 +266,7 @@ class GTFSEnergyPredictor:
             included (required for correct deadhead estimation).
         add_depot_deadhead : bool, default=False
             Whether to add deadhead trips from/to depots at start/end of blocks.
-            Requires depot_path to be set during initialization.
+            Uses the NTD facility inventory bundled with this package.
             When True and ``routes`` is specified, block-level filtering is used
             (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
@@ -871,9 +862,7 @@ class GTFSEnergyPredictor:
         has_agency_id = "agency_id" in agency_df.columns
         for _, agency_row in agency_df.dropna(subset=["agency_name"]).iterrows():
             agency_name = agency_row["agency_name"]
-            gtfs_agency_id = (
-                str(agency_row["agency_id"]) if has_agency_id else None
-            )
+            gtfs_agency_id = str(agency_row["agency_id"]) if has_agency_id else None
             try:
                 ntd_match = match_agency_to_ntd(
                     agency_name,

@@ -6,7 +6,6 @@ __all__ = [
     "add_HVAC_energy",
     "write_tods_deadhead",
     "sample_inputs_path",
-    "depot_path",
     "ntd_path",
     "load_ntd_facilities",
     "match_agency_to_ntd",
@@ -14,7 +13,11 @@ __all__ = [
 ]
 
 from .deadhead_router import create_deadhead_shapes
-from .ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
+from .ntd import (
+    NTDAgencyMatch,
+    load_ntd_facilities,
+    match_agency_to_ntd,
+)
 from .predictor import GTFSEnergyPredictor
 from .thermal_energy import add_HVAC_energy
 from .tods_export import write_tods_deadhead
@@ -28,11 +31,6 @@ def package_root() -> Path:
 def sample_inputs_path() -> Path:
     """Return the path to the sample inputs directory"""
     return package_root() / "resources" / "sample_inputs"
-
-
-def depot_path() -> Path:
-    """Return the path to the FTA_Depot directory"""
-    return sample_inputs_path() / "FTA_Depot"
 
 
 def ntd_path() -> Path:

@@ -10,7 +10,6 @@ from shapely.geometry import Point
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
-    get_default_depot_path,
     infer_depot_trip_endpoints,
 )
 from routee.transit.ntd import (
@@ -18,13 +17,6 @@ from routee.transit.ntd import (
     _load_ntd_agencies,
     match_agency_to_ntd,
 )
-
-
-class TestGetDefaultDepotPath(unittest.TestCase):
-    def test_get_default_depot_path(self) -> None:
-        path = get_default_depot_path()
-        self.assertIsInstance(path, Path)
-        self.assertTrue(str(path).endswith("FTA_Depot"))
 
 
 class TestCreateDepotDeadheadTrips(unittest.TestCase):
@@ -473,14 +465,11 @@ class TestNTDMatchingFromCSV(unittest.TestCase):
                 )
                 if result["NTD_ID"] != expected_id:
                     failures.append(
-                        f"{agency_name}: expected {expected_id}, "
-                        f"got {result['NTD_ID']}"
+                        f"{agency_name}: expected {expected_id}, got {result['NTD_ID']}"
                     )
 
         if failures:
-            self.fail(
-                f"{len(failures)} NTD match failures:\n" + "\n".join(failures)
-            )
+            self.fail(f"{len(failures)} NTD match failures:\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":
