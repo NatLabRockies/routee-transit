@@ -103,7 +103,13 @@ def write_tods_deadhead(
     new_stops = deadhead_stops[
         ~deadhead_stops["stop_id"].isin(existing_stop_ids)
     ].copy()
-    new_stops["stop_name"] = ""
+    # Preserve any stop_name supplied upstream (typically the NTD
+    # ``Facility Name`` for depot stops); fall back to an empty string for
+    # rows that lack it so the CSV column is always present.
+    if "stop_name" in new_stops.columns:
+        new_stops["stop_name"] = new_stops["stop_name"].fillna("")
+    else:
+        new_stops["stop_name"] = ""
     new_stops["location_type"] = 0  # stop/platform
     new_stops["TODS_location_type"] = new_stops["stop_id"].apply(
         lambda sid: "garage" if str(sid).startswith("depot_") else ""
