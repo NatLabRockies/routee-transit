@@ -22,7 +22,7 @@ if __name__ == "__main__":
     import warnings
     from pathlib import Path
 
-    from routee.transit import GTFSEnergyPredictor
+    from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
     # Suppress GDAL/PROJ warnings
     os.environ["PROJ_DEBUG"] = "0"
@@ -44,10 +44,8 @@ if __name__ == "__main__":
         "Transit_Bus_Battery_Electric",
         "Transit_Bus_Diesel",
     ]
-    # input_directory = sample_inputs_path() / "saltlake/gtfs"
-    # output_directory = HERE / "../reports/saltlake"
-    input_directory = "/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117/gtfs"
-    output_directory = "/Users/dmccabe/repos/public/routee-transit/reports/results_example_2026_04_22/mdb-1330-202604180117"
+    input_directory = sample_inputs_path() / "saltlake/gtfs"
+    output_directory = HERE / "../reports/saltlake"
 
     start_time = time.time()
 
@@ -60,8 +58,7 @@ if __name__ == "__main__":
 
     # Run entire pipeline with one method call
     results = predictor.run(
-        routes=["5", "21", "28", "131", "132", "E Line", "510", "542", "580", "590"],
-        date="2026/05/12",
+        date="2023/05/12",
         add_mid_block_deadhead=True,
         add_depot_deadhead=True,
         add_hvac=True,
