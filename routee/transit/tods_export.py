@@ -76,10 +76,11 @@ def write_tods_deadhead(
     output_dir : Path
         Directory to write TODS files into.  Created if it does not exist.
     fta_depots : pd.DataFrame | None, optional
-        Full FTA depot GeoDataFrame (from ``Transit_Depot.shp``) indexed by the
-        row integer that was used to derive depot stop_ids.  When provided, a
-        ``depot_metadata.csv`` file is written containing one row per depot that
-        appears in ``stops_supplement.txt``.
+        Bundled NTD facility inventory GeoDataFrame used to derive depot
+        stop_ids. Its index should match the integer identifier embedded in
+        those depot stop_ids. When provided, a ``depot_metadata.csv`` file is
+        written containing one row per referenced NTD facility that appears in
+        ``stops_supplement.txt``.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
