@@ -4,17 +4,17 @@ if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
 
 import datetime
+import importlib.resources
 import logging
 import multiprocessing as mp
 from functools import partial
-
 from pathlib import Path
+
 import geopandas as gpd
 import pandas as pd
+import tomlkit
 from geopy.distance import great_circle
 from gtfsblocks import Feed
-import importlib.resources
-import tomlkit
 
 logger = logging.getLogger("gtfs_processing")
 

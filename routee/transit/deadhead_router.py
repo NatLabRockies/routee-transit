@@ -4,9 +4,9 @@ from typing import Any
 import geopandas as gpd
 import pandas as pd
 import shapely
+from nrel.routee.compass.utils.geometry import geometry_from_route
 
 from .compass_app import TransitCompassApp
-from nrel.routee.compass.utils.geometry import geometry_from_route
 
 log = logging.getLogger(__name__)
 

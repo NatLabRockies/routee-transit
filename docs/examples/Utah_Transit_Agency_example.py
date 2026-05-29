@@ -11,6 +11,7 @@ extensible API for transit energy prediction.
 """
 
 from pathlib import Path
+
 from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
 # Specify input data location

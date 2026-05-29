@@ -106,7 +106,10 @@ def precompute_scores(
         # Geodesic distances
         query_point = (lat, lon)
         distance_matrix[i] = np.array(
-            [geodesic(query_point, (cand_lats[j], cand_lons[j])).km for j in range(n_cand)]
+            [
+                geodesic(query_point, (cand_lats[j], cand_lons[j])).km
+                for j in range(n_cand)
+            ]
         )
 
     return wratio_matrix, idf_matrix, distance_matrix, id_match_matrix
@@ -150,7 +153,12 @@ def evaluate_params(
         mask = name_scores[i] >= name_threshold
         if not mask.any():
             details.append(
-                {"idx": str(i), "expected": expected_id, "predicted": None, "correct": "✗"}
+                {
+                    "idx": str(i),
+                    "expected": expected_id,
+                    "predicted": None,
+                    "correct": "✗",
+                }
             )
             continue
 
@@ -182,7 +190,12 @@ def evaluate_params(
             correct += 1
 
         details.append(
-            {"idx": str(i), "expected": expected_id, "predicted": predicted_id, "correct": "✓" if is_correct else "✗"}
+            {
+                "idx": str(i),
+                "expected": expected_id,
+                "predicted": predicted_id,
+                "correct": "✓" if is_correct else "✗",
+            }
         )
 
     return correct, total, details
@@ -269,7 +282,7 @@ def main() -> None:
     # --- Report best results ---
     total = n_labelled
     print("=" * 70)
-    print(f"BEST ACCURACY: {best_correct}/{total} ({100*best_correct/total:.1f}%)")
+    print(f"BEST ACCURACY: {best_correct}/{total} ({100 * best_correct / total:.1f}%)")
     print("=" * 70)
     print()
     print("Best parameters:")
@@ -297,8 +310,12 @@ def main() -> None:
         max_distance_km=200,
         id_bonus=0.3,
     )
-    print(f"  Current accuracy: {current_correct}/{total} ({100*current_correct/total:.1f}%)")
-    print(f"  Best accuracy:    {best_correct}/{total} ({100*best_correct/total:.1f}%)")
+    print(
+        f"  Current accuracy: {current_correct}/{total} ({100 * current_correct / total:.1f}%)"
+    )
+    print(
+        f"  Best accuracy:    {best_correct}/{total} ({100 * best_correct / total:.1f}%)"
+    )
     print()
 
     # --- Per-agency details for best params ---

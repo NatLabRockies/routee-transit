@@ -9,8 +9,10 @@ map matching, and energy estimation using RouteE-Compass.
 import logging
 import os
 import tempfile
-import pandas as pd
+
 import geopandas as gpd
+import pandas as pd
+
 from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
 # Set up logging

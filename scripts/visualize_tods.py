@@ -147,13 +147,24 @@ def load_output(output_dir: str) -> dict[str, pd.DataFrame]:
     pred_p = p / "trip_energy_predictions.csv"
     if pred_p.exists():
         wanted = {
-            "trip_id", "block_id", "shape_id", "trip_type",
-            "start_time", "end_time", "route_id", "route_short_name",
+            "trip_id",
+            "block_id",
+            "shape_id",
+            "trip_type",
+            "start_time",
+            "end_time",
+            "route_id",
+            "route_short_name",
         }
         df = pd.read_csv(
             pred_p,
-            dtype={"trip_id": str, "block_id": str, "shape_id": str,
-                   "route_id": str, "route_short_name": str},
+            dtype={
+                "trip_id": str,
+                "block_id": str,
+                "shape_id": str,
+                "route_id": str,
+                "route_short_name": str,
+            },
             usecols=lambda c: c in wanted,
         )
         out["trip_predictions"] = df
@@ -743,7 +754,9 @@ def main() -> None:
                 break  # stop at the first source that has data
 
         if not block_ids:
-            st.warning("No blocks found. Verify the paths above and click **Load data**.")
+            st.warning(
+                "No blocks found. Verify the paths above and click **Load data**."
+            )
             return
 
         st.divider()
@@ -756,7 +769,11 @@ def main() -> None:
         route_label_map: dict[str, str] = {}  # route_id → display label
         route_block_map: dict[str, set[str]] = {}  # route_id → set of block_ids
         preds = output.get("trip_predictions")
-        if preds is not None and "route_id" in preds.columns and "trip_type" in preds.columns:
+        if (
+            preds is not None
+            and "route_id" in preds.columns
+            and "trip_type" in preds.columns
+        ):
             service = preds[preds["trip_type"] == "service"]
             for route_id, grp in service.groupby("route_id"):
                 rid = str(route_id)
@@ -764,9 +781,9 @@ def main() -> None:
                 short = short[short != "nan"]
                 label = short.iloc[0] if not short.empty else rid
                 route_label_map[rid] = label
-                route_block_map[rid] = set(
-                    grp["block_id"].dropna().astype(str).unique()
-                ) & block_ids
+                route_block_map[rid] = (
+                    set(grp["block_id"].dropna().astype(str).unique()) & block_ids
+                )
 
         _ALL = "__all__"
         if route_label_map:
@@ -776,7 +793,9 @@ def main() -> None:
             selected_route: str = st.selectbox(
                 "Route",
                 route_options,
-                format_func=lambda r: "All routes" if r == _ALL else route_label_map.get(r, r),
+                format_func=lambda r: (
+                    "All routes" if r == _ALL else route_label_map.get(r, r)
+                ),
                 key="route_select",
             )
             # Reset block + trip when route changes
@@ -876,8 +895,7 @@ def main() -> None:
                     f"NTD Location Type: `garage`  \n"
                     f"Facility Type: {ftype}  \n"
                     f"Agency: {agency}  \n"
-                    f"NTD ID: `{ntd_id}`"
-                    + location_line
+                    f"NTD ID: `{ntd_id}`" + location_line
                 )
 
     # ---- Main area --------------------------------------------------------------

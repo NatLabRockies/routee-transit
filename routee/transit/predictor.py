@@ -30,7 +30,6 @@ from routee.transit.depot_deadhead import (
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
-from routee.transit.ntd import load_ntd_facilities
 from routee.transit.gtfs_processing import (
     copy_transit_config,
     extend_trip_traces,
@@ -41,6 +40,7 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_stops,
     create_mid_block_deadhead_trips,
 )
+from routee.transit.ntd import load_ntd_facilities
 from routee.transit.thermal_energy import add_HVAC_energy
 from routee.transit.tods_export import write_tods_deadhead
 

@@ -1,9 +1,11 @@
 import unittest
-import pandas as pd
 from unittest.mock import MagicMock
+
+import pandas as pd
+
 from routee.transit.mid_block_deadhead import (
-    create_mid_block_deadhead_trips,
     create_mid_block_deadhead_stops,
+    create_mid_block_deadhead_trips,
 )
 
 

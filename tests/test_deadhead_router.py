@@ -6,9 +6,9 @@ import pandas as pd
 from shapely.geometry import Point
 
 from routee.transit.deadhead_router import (
+    _haversine_km,
     create_deadhead_shapes,
     route_single_trip_fallback,
-    _haversine_km,
 )
 
 

@@ -4,7 +4,7 @@ from geopy.distance import geodesic
 from gtfsblocks import Feed
 from shapely.geometry import Point
 
-from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd, NTDAgencyMatch
+from routee.transit.ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
 
 # Re-export for backward compatibility
 __all__ = [
