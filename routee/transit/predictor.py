@@ -833,19 +833,41 @@ class GTFSEnergyPredictor:
             logger.info("No depot deadhead trips needed")
             return None
 
-        # Load NTD bus depot facilities for all agencies in this GTFS feed.
         # Match each agency name to an NTD ID using fuzzy name + location matching
         # and load the union of all matched agencies' facilities.
-        stops = self.feed.stops
-        agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
-        agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
+        all_stops = self.feed.stops
+        feed_lat = float(all_stops["stop_lat"].mean()) if not all_stops.empty else 0.0
+        feed_lon = float(all_stops["stop_lon"].mean()) if not all_stops.empty else 0.0
 
         matched_ntd_ids: list[str] = []
         agency_df = self.feed.agency
         has_agency_id = "agency_id" in agency_df.columns
+        routes_has_agency_id = "agency_id" in self.feed.routes.columns
+
         for _, agency_row in agency_df.dropna(subset=["agency_name"]).iterrows():
             agency_name = agency_row["agency_name"]
             gtfs_agency_id = str(agency_row["agency_id"]) if has_agency_id else None
+
+            # Compute the centroid of stops served by this agency's trips.
+            if gtfs_agency_id is not None and routes_has_agency_id:
+                agency_route_ids = self.feed.routes.loc[
+                    self.feed.routes["agency_id"] == gtfs_agency_id, "route_id"
+                ]
+                agency_trip_ids = self.trips.loc[
+                    self.trips["route_id"].isin(agency_route_ids), "trip_id"
+                ]
+                agency_stop_ids = self.feed.stop_times.loc[
+                    self.feed.stop_times["trip_id"].isin(agency_trip_ids), "stop_id"
+                ].unique()
+                agency_stops = all_stops[all_stops["stop_id"].isin(agency_stop_ids)]
+                if not agency_stops.empty:
+                    agency_lat = float(agency_stops["stop_lat"].mean())
+                    agency_lon = float(agency_stops["stop_lon"].mean())
+                else:
+                    agency_lat, agency_lon = feed_lat, feed_lon
+            else:
+                agency_lat, agency_lon = feed_lat, feed_lon
+
             try:
                 ntd_match = match_agency_to_ntd(
                     agency_name,
