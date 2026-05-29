@@ -17,9 +17,9 @@ from __future__ import annotations
 import itertools
 import time
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 from geopy.distance import geodesic
 from rapidfuzz.fuzz import WRatio
 
@@ -42,7 +42,12 @@ def precompute_scores(
     test_df: pd.DataFrame,
     agencies: pd.DataFrame,
     token_idf: dict[str, float],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[
+    NDArray[np.float64],
+    NDArray[np.float64],
+    NDArray[np.float64],
+    NDArray[np.bool_],
+]:
     """Precompute WRatio, IDF, distance, and agency-ID-match matrices.
 
     Returns
@@ -121,12 +126,12 @@ def precompute_scores(
 
 
 def evaluate_params(
-    wratio_matrix: np.ndarray,
-    idf_matrix: np.ndarray,
-    distance_matrix: np.ndarray,
-    id_match_matrix: np.ndarray,
+    wratio_matrix: NDArray[np.float64],
+    idf_matrix: NDArray[np.float64],
+    distance_matrix: NDArray[np.float64],
+    id_match_matrix: NDArray[np.bool_],
     expected_ids: list[str],
-    candidate_ids: np.ndarray,
+    candidate_ids: NDArray[np.str_],
     *,
     wratio_weight: float,
     idf_weight: float,
@@ -220,7 +225,7 @@ def main() -> None:
 
     # Normalise expected IDs
     expected_ids = [str(eid).zfill(5) for eid in test_df_labelled["ntd_agency_id"]]
-    candidate_ids = np.asarray(agencies["NTD_ID"].values)
+    candidate_ids: NDArray[np.str_] = np.asarray(agencies["NTD_ID"], dtype=str)
 
     # Precompute expensive scoring matrices
     print("Precomputing WRatio, IDF, distance, and agency-ID scores...")
