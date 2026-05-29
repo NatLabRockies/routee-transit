@@ -452,7 +452,7 @@
 </section>
 <section id="depot-deadhead-pull-out-pull-in">
 <h3>Depot deadhead (pull-out / pull-in)<a class="headerlink" href="#depot-deadhead-pull-out-pull-in" title="Link to this heading">#</a></h3>
-<p>Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. By default, depot locations are drawn from the <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">National Transit Database &quot;Public Transit Facilities and Stations – 2023&quot;</a> dataset. Custom depot locations can be supplied by passing a <code class="docutils literal notranslate"><span class="pre">depot_path</span></code> to <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code>.</p>
+<p>Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. Depot locations are drawn from the <a class="reference external" href="https://www.transit.dot.gov/ntd/data-product/2024-annual-database-facility-inventory">National Transit Database 2024 Annual Facility Inventory</a> and the <a class="reference external" href="https://geodata.bts.gov/maps/ad6b0823f7364cac86c5421834eaba84">National Transit Map Agencies</a> tables, both bundled with this package.</p>
 <p>All deadhead shapes are generated through RouteE-Compass using shortest-time routing on the OpenStreetMap road network. Unique origin–destination pairs are routed only once, so blocks that share identical endpoints incur no additional routing cost.</p>
 </section>
 </section>
@@ -511,7 +511,6 @@
     <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;path/to/gtfs&quot;</span><span class="p">,</span>
     <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span>
     <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;reports/my_agency&quot;</span><span class="p">,</span>  <span class="c1"># optional; enables result caching</span>
-    <span class="c1"># depot_path is optional - defaults to NTD depot locations</span>
 <span class="p">)</span>
 
 <span class="c1"># Option 1: Use the convenience method (recommended)</span>

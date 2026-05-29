@@ -334,39 +334,23 @@
                 <article class="bd-article">
                   
   <h1>Source code for routee.transit.depot_deadhead</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">geopy.distance</span><span class="w"> </span><span class="kn">import</span> <span class="n">geodesic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gtfsblocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.ntd</span><span class="w"> </span><span class="kn">import</span> <span class="n">NTDAgencyMatch</span><span class="p">,</span> <span class="n">load_ntd_facilities</span><span class="p">,</span> <span class="n">match_agency_to_ntd</span>
 
-<span class="c1"># Default path to FTA depot shapefile, relative to repository root</span>
-<div class="viewcode-block" id="get_default_depot_path">
-<a class="viewcode-back" href="../../../api.html#routee.transit.depot_deadhead.get_default_depot_path">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_default_depot_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Return the default path to the FTA_Depot directory in the repository.</span>
-
-<span class="sd">    The default depot locations come from the National Transit Database&#39;s</span>
-<span class="sd">    &quot;Public Transit Facilities and Stations - 2023&quot; dataset, which contains</span>
-<span class="sd">    depot/facility locations for transit agencies across the United States.</span>
-
-<span class="sd">    Data source: https://data.transportation.gov/stories/s/gd62-jzra</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    Path</span>
-<span class="sd">        Path to the FTA_Depot directory containing Transit_Depot.shp</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">depot_path</span>
-
-    <span class="k">return</span> <span class="n">depot_path</span><span class="p">()</span></div>
-
+<span class="c1"># Re-export for backward compatibility</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;load_ntd_facilities&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;match_agency_to_ntd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NTDAgencyMatch&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_depot_deadhead_trips&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;infer_depot_trip_endpoints&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_depot_deadhead_stops&quot;</span><span class="p">,</span>
+<span class="p">]</span>
 
 
 <div class="viewcode-block" id="create_depot_deadhead_trips">
@@ -454,25 +438,32 @@
 <div class="viewcode-block" id="infer_depot_trip_endpoints">
 <a class="viewcode-back" href="../../../api.html#routee.transit.depot_deadhead.infer_depot_trip_endpoints">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">infer_depot_trip_endpoints</span><span class="p">(</span>
-    <span class="n">trips_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">feed</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">path_to_depots</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">trips_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span><span class="p">,</span>
+    <span class="n">depots_gdf</span><span class="p">:</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Add origin/destination depot geometry for each block.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    trips_df: pd.DataFrame</span>
 <span class="sd">        trips_df of selected date and route (result from read_in_gtfs).</span>
-<span class="sd">    feed : Any</span>
+<span class="sd">    feed : Feed</span>
 <span class="sd">        GTFS feed object (e.g. result from read_in_gtfs).</span>
-<span class="sd">    path_to_depots : str | Path</span>
-<span class="sd">        Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.</span>
+<span class="sd">    depots_gdf : gpd.GeoDataFrame</span>
+<span class="sd">        Point GeoDataFrame of candidate depot locations in EPSG:4326.  Typically</span>
+<span class="sd">        the result of :func:`load_ntd_facilities`.  If a ``depot_priority``</span>
+<span class="sd">        column is present (0 = best), candidate depots are first restricted to</span>
+<span class="sd">        the highest-priority type available before distance minimisation; if no</span>
+<span class="sd">        higher-priority depot is reachable the next tier is tried.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    tuple[GeoDataFrame, GeoDataFrame]</span>
-<span class="sd">        (first_stops_gdf, last_stops_gdf). Each GeoDataFrame contains the stop</span>
-<span class="sd">        geometry (column &#39;stop_geometry&#39;) and the matched depot geometry</span>
-<span class="sd">        (column &#39;depot_geometry&#39;).</span>
+<span class="sd">    tuple[GeoDataFrame, GeoDataFrame, GeoDataFrame]</span>
+<span class="sd">        (first_stops_gdf, last_stops_gdf, depots_gdf). The first two contain</span>
+<span class="sd">        stop geometry and matched depot geometry.  ``depots_gdf`` is the full</span>
+<span class="sd">        depot GeoDataFrame (EPSG:4326) so callers can look up metadata by row</span>
+<span class="sd">        index.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Process trips and stops dataframes in feed to get first and last stops of each block id</span>
@@ -488,8 +479,12 @@
     <span class="n">first_stops</span> <span class="o">=</span> <span class="n">blocks_trips_stops</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;block_id&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
     <span class="n">last_stops</span> <span class="o">=</span> <span class="n">blocks_trips_stops</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;block_id&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">last</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
 
-    <span class="n">first_stops</span> <span class="o">=</span> <span class="n">first_stops</span><span class="p">[[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">]]</span>
-    <span class="n">last_stops</span> <span class="o">=</span> <span class="n">last_stops</span><span class="p">[[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">]]</span>
+    <span class="n">first_stops</span> <span class="o">=</span> <span class="n">first_stops</span><span class="p">[</span>
+        <span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_id&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">last_stops</span> <span class="o">=</span> <span class="n">last_stops</span><span class="p">[</span>
+        <span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_id&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span>
+    <span class="p">]</span>
 
     <span class="n">first_stops</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">first_stops</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
         <span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">Point</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;stop_lon&quot;</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;stop_lat&quot;</span><span class="p">]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
@@ -502,38 +497,53 @@
     <span class="p">)</span>
     <span class="n">last_stops_gdf</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">last_stops</span><span class="p">,</span> <span class="n">geometry</span><span class="o">=</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Read depot locations; ensure file exists</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_to_depots</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Depot file not found: </span><span class="si">{</span><span class="n">path_to_depots</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">depots_df</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">path_to_depots</span><span class="p">)</span>
-    <span class="c1"># Ensure depot geometries are points and in WGS84</span>
-    <span class="k">if</span> <span class="n">depots_df</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">depots_df</span> <span class="o">=</span> <span class="n">depots_df</span><span class="o">.</span><span class="n">set_crs</span><span class="p">(</span><span class="n">epsg</span><span class="o">=</span><span class="mi">4326</span><span class="p">)</span>
+    <span class="c1"># Ensure depot geometries are in WGS84</span>
+    <span class="k">if</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">depots_gdf</span> <span class="o">=</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">set_crs</span><span class="p">(</span><span class="n">epsg</span><span class="o">=</span><span class="mi">4326</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">depots_df</span> <span class="o">=</span> <span class="n">depots_df</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">epsg</span><span class="o">=</span><span class="mi">4326</span><span class="p">)</span>
+        <span class="n">depots_gdf</span> <span class="o">=</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">epsg</span><span class="o">=</span><span class="mi">4326</span><span class="p">)</span>
+
+    <span class="n">has_priority</span> <span class="o">=</span> <span class="s2">&quot;depot_priority&quot;</span> <span class="ow">in</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">columns</span>
+    <span class="n">priority_levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">sorted</span><span class="p">(</span><span class="n">depots_gdf</span><span class="p">[</span><span class="s2">&quot;depot_priority&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">has_priority</span>
+        <span class="k">else</span> <span class="p">[]</span>
+    <span class="p">)</span>
 
     <span class="c1"># Create a simple mapping from depot index to geometry for fast lookup</span>
-    <span class="n">depots_geom_map</span> <span class="o">=</span> <span class="n">depots_df</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">depots_geom_map</span> <span class="o">=</span> <span class="n">depots_gdf</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 
     <span class="c1"># Project to Web Mercator (EPSG:3857) for distance computations</span>
     <span class="n">proj_crs</span> <span class="o">=</span> <span class="s2">&quot;EPSG:3857&quot;</span>
     <span class="n">first_proj</span> <span class="o">=</span> <span class="n">first_stops_gdf</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">proj_crs</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">last_proj</span> <span class="o">=</span> <span class="n">last_stops_gdf</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">proj_crs</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">depots_proj</span> <span class="o">=</span> <span class="n">depots_df</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">proj_crs</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">depots_proj</span> <span class="o">=</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">proj_crs</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-    <span class="n">best_depot_idx</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">best_depot_idx</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">block_id</span><span class="p">,</span> <span class="n">first_row</span> <span class="ow">in</span> <span class="n">first_proj</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;block_id&quot;</span><span class="p">):</span>
         <span class="n">first_geom</span> <span class="o">=</span> <span class="n">first_row</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">geometry</span>
         <span class="n">last_geom</span> <span class="o">=</span> <span class="n">last_proj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">last_proj</span><span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">block_id</span><span class="p">,</span> <span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span>
             <span class="mi">0</span>
         <span class="p">]</span>
 
-        <span class="c1"># Compute pull-out, pull-in, and total distances</span>
-        <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;pullout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">depots_proj</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">first_geom</span><span class="p">)</span>
-        <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;pullin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">depots_proj</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">last_geom</span><span class="p">)</span>
-        <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;pullout&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;pullin&quot;</span><span class="p">]</span>
+        <span class="c1"># Compute pull-out + pull-in distance for every depot candidate</span>
+        <span class="n">working</span> <span class="o">=</span> <span class="n">depots_proj</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">working</span><span class="p">[</span><span class="s2">&quot;pullout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">working</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">first_geom</span><span class="p">)</span>
+        <span class="n">working</span><span class="p">[</span><span class="s2">&quot;pullin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">working</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">last_geom</span><span class="p">)</span>
+        <span class="n">working</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">working</span><span class="p">[</span><span class="s2">&quot;pullout&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">working</span><span class="p">[</span><span class="s2">&quot;pullin&quot;</span><span class="p">]</span>
 
-        <span class="n">best_idx</span> <span class="o">=</span> <span class="n">depots_proj</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">has_priority</span><span class="p">:</span>
+            <span class="c1"># Pick nearest depot from the highest-priority tier that is</span>
+            <span class="c1"># non-empty; fall through to subsequent tiers if needed.</span>
+            <span class="n">best_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">working</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">priority_levels</span><span class="p">:</span>
+                <span class="n">tier</span> <span class="o">=</span> <span class="n">working</span><span class="p">[</span><span class="n">working</span><span class="p">[</span><span class="s2">&quot;depot_priority&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">level</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">tier</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                    <span class="n">best_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tier</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">())</span>
+                    <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">best_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">working</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">())</span>
+
         <span class="n">best_depot_idx</span><span class="p">[</span><span class="n">block_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_idx</span>
 
     <span class="n">first_stops_gdf</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">first_stops_gdf</span><span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span>
@@ -549,6 +559,21 @@
         <span class="n">depots_geom_map</span>
     <span class="p">)</span>
     <span class="n">last_stops_gdf</span><span class="p">[</span><span class="s2">&quot;geometry_origin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">last_stops_gdf</span><span class="o">.</span><span class="n">geometry</span>
+
+    <span class="c1"># Attach NTD metadata (NTD ID, agency name, facility name/type) to both</span>
+    <span class="c1"># stop GDFs so downstream callers and outputs can identify which depot was</span>
+    <span class="c1"># matched without having to rejoin on nearest_depot_idx themselves.</span>
+    <span class="n">_ntd_meta_cols</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;NTD ID&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_ntd_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Agency Name&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_agency_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Facility Name&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_facility_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Facility Type&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_facility_type&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">src_col</span><span class="p">,</span> <span class="n">dst_col</span> <span class="ow">in</span> <span class="n">_ntd_meta_cols</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">src_col</span> <span class="ow">in</span> <span class="n">depots_gdf</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">col_map</span> <span class="o">=</span> <span class="n">depots_gdf</span><span class="p">[</span><span class="n">src_col</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="n">first_stops_gdf</span><span class="p">[</span><span class="n">dst_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">first_stops_gdf</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">col_map</span><span class="p">)</span>
+            <span class="n">last_stops_gdf</span><span class="p">[</span><span class="n">dst_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">last_stops_gdf</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">col_map</span><span class="p">)</span>
 
     <span class="c1"># Set the arrival time as departure time for deadhead trip to depot for the last_stop_gdf</span>
     <span class="n">last_stops_gdf</span><span class="p">[</span><span class="s2">&quot;departure_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">last_stops_gdf</span><span class="p">[</span><span class="s2">&quot;arrival_time&quot;</span><span class="p">]</span>
@@ -566,7 +591,7 @@
         <span class="n">last_stops_gdf</span><span class="p">,</span> <span class="n">geometry</span><span class="o">=</span><span class="s2">&quot;geometry_origin&quot;</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span>
     <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">first_stops_gdf</span><span class="p">,</span> <span class="n">last_stops_gdf</span></div>
+    <span class="k">return</span> <span class="n">first_stops_gdf</span><span class="p">,</span> <span class="n">last_stops_gdf</span><span class="p">,</span> <span class="n">depots_gdf</span></div>
 
 
 
@@ -640,14 +665,32 @@
         <span class="n">deadhead_trips_df</span><span class="o">.</span><span class="n">trip_type</span> <span class="o">==</span> <span class="s2">&quot;pull-out&quot;</span>
     <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">deadhead_trips_df_from_depot</span> <span class="o">=</span> <span class="n">deadhead_trips_df_from_depot</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-        <span class="n">from_depot</span><span class="p">[[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;departure_time&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">]],</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;block_id&quot;</span>
+        <span class="n">from_depot</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;block_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;stop_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;departure_time&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">],</span>
+        <span class="n">on</span><span class="o">=</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">deadhead_trips_df_to_depot</span> <span class="o">=</span> <span class="n">deadhead_trips_df</span><span class="p">[</span>
         <span class="n">deadhead_trips_df</span><span class="o">.</span><span class="n">trip_type</span> <span class="o">==</span> <span class="s2">&quot;pull-in&quot;</span>
     <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">deadhead_trips_df_to_depot</span> <span class="o">=</span> <span class="n">deadhead_trips_df_to_depot</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-        <span class="n">to_depot</span><span class="p">[[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;departure_time&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">]],</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;block_id&quot;</span>
+        <span class="n">to_depot</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;block_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;stop_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;departure_time&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;arrival_time&quot;</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">],</span>
+        <span class="n">on</span><span class="o">=</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">deadhead_trips_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
         <span class="p">[</span><span class="n">deadhead_trips_df_from_depot</span><span class="p">,</span> <span class="n">deadhead_trips_df_to_depot</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
@@ -673,37 +716,70 @@
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pair</span>
     <span class="p">]</span>
-    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stop_times_df</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;depot_deadhead_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span>
-    <span class="p">)</span>
+    <span class="c1"># For pull-out trips: stop_sequence 1 = depot stop (new), stop_sequence 2 = first</span>
+    <span class="c1"># revenue stop (existing GTFS stop).  For pull-in trips the order is reversed.</span>
+    <span class="c1"># Depot stops are keyed as &quot;depot_{nearest_depot_idx}&quot; where nearest_depot_idx is</span>
+    <span class="c1"># the row index in the FTA shapefile.  This means all blocks that share the same</span>
+    <span class="c1"># physical depot get the same stop_id.</span>
+    <span class="n">from_depot_stop_ids</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span>
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;depot_&quot;</span> <span class="o">+</span> <span class="n">deadhead_trips_df_from_depot</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="n">deadhead_trips_df_from_depot</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pair</span>
+    <span class="p">]</span>
+    <span class="n">to_depot_stop_ids</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span>
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">deadhead_trips_df_to_depot</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;depot_&quot;</span> <span class="o">+</span> <span class="n">deadhead_trips_df_to_depot</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pair</span>
+    <span class="p">]</span>
+    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">from_depot_stop_ids</span> <span class="o">+</span> <span class="n">to_depot_stop_ids</span>
     <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;departure_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;arrival_time&quot;</span><span class="p">]</span>
     <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;shape_dist_traveled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
-    <span class="c1"># Create stops df for deadhead trips</span>
-    <span class="n">stops_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">])</span>
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span>
-
-    <span class="n">x_start_from_depot</span> <span class="o">=</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">x_end_from_depot</span> <span class="o">=</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">x_start_to_depot</span> <span class="o">=</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">x_end_to_depot</span> <span class="o">=</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">stop_lon_from_depot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_start_from_depot</span><span class="p">,</span> <span class="n">x_end_from_depot</span><span class="p">))</span>
+    <span class="c1"># Create stops df — one row per unique physical depot (keyed by nearest_depot_idx).</span>
+    <span class="c1"># Revenue stop endpoints are already in the GTFS feed and must not be duplicated.</span>
+    <span class="c1"># Use depot_facility_name as stop_name when available so stops_supplement.txt</span>
+    <span class="c1"># carries a human-readable depot identifier.</span>
+    <span class="n">from_depot_stop_name</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">from_depot</span><span class="p">[</span><span class="s2">&quot;depot_facility_name&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;depot_facility_name&quot;</span> <span class="ow">in</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="s2">&quot;&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">from_depot</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">from_depot</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">stop_lon_to_depot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_start_to_depot</span><span class="p">,</span> <span class="n">x_end_to_depot</span><span class="p">)))</span>
-
-    <span class="n">y_start_from_depot</span> <span class="o">=</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">y_end_from_depot</span> <span class="o">=</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">y_start_to_depot</span> <span class="o">=</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">y_end_to_depot</span> <span class="o">=</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">stop_lat_from_depot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">y_start_from_depot</span><span class="p">,</span> <span class="n">y_end_from_depot</span><span class="p">))</span>
+    <span class="n">to_depot_stop_name</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">to_depot</span><span class="p">[</span><span class="s2">&quot;depot_facility_name&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;depot_facility_name&quot;</span> <span class="ow">in</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="s2">&quot;&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">to_depot</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">to_depot</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">stop_lat_to_depot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">y_start_to_depot</span><span class="p">,</span> <span class="n">y_end_to_depot</span><span class="p">)))</span>
-
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">stop_lat_from_depot</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">stop_lat_to_depot</span><span class="p">)</span>
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">stop_lon_from_depot</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">stop_lon_to_depot</span><span class="p">)</span>
+    <span class="n">from_depot_stops</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;stop_id&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_&quot;</span> <span class="o">+</span> <span class="n">from_depot</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span>
+            <span class="s2">&quot;stop_name&quot;</span><span class="p">:</span> <span class="n">from_depot_stop_name</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s2">&quot;stop_lat&quot;</span><span class="p">:</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s2">&quot;stop_lon&quot;</span><span class="p">:</span> <span class="n">from_depot</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">to_depot_stops</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;stop_id&quot;</span><span class="p">:</span> <span class="s2">&quot;depot_&quot;</span> <span class="o">+</span> <span class="n">to_depot</span><span class="p">[</span><span class="s2">&quot;nearest_depot_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span>
+            <span class="s2">&quot;stop_name&quot;</span><span class="p">:</span> <span class="n">to_depot_stop_name</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s2">&quot;stop_lat&quot;</span><span class="p">:</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="s2">&quot;stop_lon&quot;</span><span class="p">:</span> <span class="n">to_depot</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">stops_df</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">from_depot_stops</span><span class="p">,</span> <span class="n">to_depot_stops</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;stop_id&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">stop_times_df</span><span class="p">,</span> <span class="n">stops_df</span></div>
 

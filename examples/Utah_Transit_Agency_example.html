@@ -409,6 +409,7 @@ extensible API for transit energy prediction.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit</span><span class="w"> </span><span class="kn">import</span> <span class="n">GTFSEnergyPredictor</span><span class="p">,</span> <span class="n">sample_inputs_path</span>
 
 <span class="c1"># Specify input data location</span>
@@ -462,12 +463,13 @@ INFO:routee.transit.predictor:Filtering trips (date=2023/08/02, routes=[&#39;806
 INFO:routee.transit.predictor:Filtered to 16 trips and 4 shapes
 INFO:routee.transit.predictor:Preparing mid-block deadhead trips...
 INFO:routee.transit.predictor:Preparing depot deadhead trips...
+INFO:routee.transit.predictor:Matched GTFS agency &#39;Utah Transit Authority&#39; to NTD ID 80001 (&#39;Utah Transit Authority&#39;).
 INFO:routee.transit.predictor:Building CompassApp from bounding box: (-112.03101, 40.22523, -111.65814, 40.482409999999994)
 INFO:nrel.routee.compass.io.generate_dataset:running pipeline import with phases: [[&#39;GRAPH&#39;, &#39;CONFIG&#39;, &#39;POWERTRAIN&#39;]]
 INFO:nrel.routee.compass.io.generate_dataset:processing graph topology and speeds
 INFO:nrel.routee.compass.io.generate_dataset:adding grade information
-INFO:nrel.routee.compass.io.utils:downloading n41w113
 INFO:nrel.routee.compass.io.utils:downloading n41w112
+INFO:nrel.routee.compass.io.utils:downloading n41w113
 INFO:nrel.routee.compass.io.generate_dataset:processing vertices
 INFO:nrel.routee.compass.io.generate_dataset:processing edges
 INFO:nrel.routee.compass.io.generate_dataset:writing vertex files
@@ -477,45 +479,50 @@ INFO:nrel.routee.compass.io.generate_dataset:copying default configuration TOML 
 INFO:nrel.routee.compass.io.generate_dataset:downloading the default RouteE Powertrain models
 INFO:nrel.routee.compass.io.generate_dataset:copying vehicle configuration files
 INFO:nrel.routee.compass.io.generate_dataset:running 2 dataset generation hooks
-INFO:gtfs_processing:Wrote 109260 stop-edge mappings to reports/saltlake/compass_app/gtfs_stops.csv
+INFO:gtfs_processing:Wrote 109107 stop-edge mappings to reports/saltlake/compass_app/gtfs_stops.csv
 INFO:gtfs_processing:Copied transit_energy.toml to reports/saltlake/compass_app/transit_energy.toml
+graph edge list 0: /home/runner/work/routee-transit/routee-transit/docs/examples/reports/saltlake/compass_app/edges-compass.csv.gz: 46816it [00:00, 1768199.88it/s]
 INFO:routee.transit.predictor:CompassApp initialized
-graph edge list 0: /home/runner/work/routee-transit/routee-transit/docs/examples/reports/saltlake/compass_app/edges-compass.csv.gz: 46796it [00:00, 1781413.62it/s]
-building adjacencies: 100%|██████████| 46796/46796 [00:00&lt;00:00, 5749321.50it/s]
+building adjacencies: 100%|██████████| 46816/46816 [00:00&lt;00:00, 4605235.00it/s]
 INFO:routee.transit.predictor:Routing mid-block deadhead trips...
 INFO:routee.transit.deadhead_router:Deadhead routing: 7 trips reduced to 3 unique O-D pairs
 
 
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 9564.68it/s]
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 8182.21it/s]
 
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 231356.53it/s]
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 234594.92it/s]
 
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 75.75it/s]
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 83.99it/s]
+/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/routee/transit/predictor.py:805: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  self.feed.stops = pd.concat(
 INFO:routee.transit.predictor:Added 7 mid-block deadhead trips
 INFO:routee.transit.predictor:Routing depot deadhead trips...
 INFO:routee.transit.deadhead_router:Deadhead routing: 9 trips reduced to 3 unique O-D pairs
 
 
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 38702.69it/s]
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 47534.54it/s]
 
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 253614.00it/s]
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 300751.91it/s]
 
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 28.49it/s]
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 34.27it/s]
 INFO:routee.transit.deadhead_router:Deadhead routing: 9 trips reduced to 3 unique O-D pairs
 
 
-applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 60129.88it/s]
+applying input plugin 1: 100%|██████████| 3/3 [00:00&lt;00:00, 39431.14it/s]
 
-applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 249438.77it/s]
 
-search: 100%|██████████| 3/3 [00:00&lt;00:00, 57.59it/s]
+applying input plugin 2: 100%|██████████| 3/3 [00:00&lt;00:00, 124398.74it/s]
+
+search: 100%|██████████| 3/3 [00:00&lt;00:00, 60.43it/s]
+/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/routee/transit/predictor.py:1046: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  self._deadhead_stops = pd.concat(
 INFO:routee.transit.predictor:Added 18 depot deadhead trips
 INFO:routee.transit.predictor:Predicting energy for 1 vehicle model(s)...
 INFO:routee.transit.predictor:Running map matching for 13 shapes...
-map matching:  15%|█▅        |  2/13 [00:00&lt;00:00, 16.50it/s]
-map matching: 100%|██████████| 13/13 [00:01&lt;00:00, 7.33it/s]
+map matching:  15%|█▅        |  2/13 [00:00&lt;00:00, 17.30it/s]
+map matching: 100%|██████████| 13/13 [00:01&lt;00:00, 6.94it/s]
 INFO:routee.transit.predictor:Running energy prediction via CompassApp for: Transit_Bus_Battery_Electric
-calculating paths: 100%|██████████| 13/13 [00:00&lt;00:00, 894.52it/s]
+calculating paths: 100%|██████████| 13/13 [00:00&lt;00:00, 726.72it/s]
 INFO:routee.transit.predictor:Adding HVAC energy impacts...
 INFO:routee.transit.predictor:Energy prediction complete
 </pre></div>
@@ -573,40 +580,40 @@ INFO:routee.transit.predictor:Energy prediction complete
       <td>5181298_to_5181301</td>
       <td>Transit_Bus_Battery_Electric</td>
       <td>median</td>
-      <td>16.967052</td>
-      <td>15.491856</td>
+      <td>17.652321</td>
+      <td>16.290775</td>
     </tr>
     <tr>
       <th>1</th>
       <td>5181298_to_5181301</td>
       <td>Transit_Bus_Battery_Electric</td>
       <td>summer</td>
-      <td>16.025047</td>
-      <td>15.491856</td>
+      <td>16.710315</td>
+      <td>16.290775</td>
     </tr>
     <tr>
       <th>2</th>
       <td>5181298_to_5181301</td>
       <td>Transit_Bus_Battery_Electric</td>
       <td>winter</td>
-      <td>44.538575</td>
-      <td>15.491856</td>
+      <td>45.223844</td>
+      <td>16.290775</td>
     </tr>
     <tr>
       <th>3</th>
       <td>5181297_to_5181299</td>
       <td>Transit_Bus_Battery_Electric</td>
       <td>median</td>
-      <td>12.599589</td>
-      <td>15.491856</td>
+      <td>13.284857</td>
+      <td>16.290775</td>
     </tr>
     <tr>
       <th>4</th>
       <td>5181297_to_5181299</td>
       <td>Transit_Bus_Battery_Electric</td>
       <td>summer</td>
-      <td>12.586869</td>
-      <td>15.491856</td>
+      <td>13.272138</td>
+      <td>16.290775</td>
     </tr>
   </tbody>
 </table>
@@ -631,9 +638,9 @@ The results include a <code class="docutils literal notranslate"><span class="pr
 </div>
 <div class="cell_output docutils container">
 <div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>scenario
-median    1.665196
-summer    1.947711
-winter    5.331571
+median    1.674372
+summer    1.961275
+winter    5.371088
 Name: kwh_per_mi, dtype: float64
 </pre></div>
 </div>
@@ -659,8 +666,8 @@ Name: kwh_per_mi, dtype: float64
 </div>
 <div class="cell_output docutils container">
 <div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>route_short_name
-807    1.295723
-806    1.020666
+807    1.295621
+806    1.020716
 Name: kwh_per_mi, dtype: float64
 </pre></div>
 </div>
@@ -703,18 +710,18 @@ Name: kwh_per_mi, dtype: float64
       <th>edge_index</th>
       <th>edge_list_id</th>
       <th>edge_id</th>
-      <th>battery_capacity</th>
       <th>trip_elevation_loss</th>
-      <th>edge_grade</th>
-      <th>edge_time</th>
-      <th>edge_speed</th>
-      <th>trip_distance</th>
-      <th>...</th>
-      <th>trip_soc</th>
-      <th>trip_energy_electric</th>
-      <th>edge_energy_electric</th>
+      <th>trip_time</th>
       <th>edge_distance</th>
+      <th>trip_energy_electric</th>
+      <th>trip_distance</th>
+      <th>edge_grade</th>
+      <th>...</th>
+      <th>edge_turn_delay</th>
+      <th>battery_capacity</th>
+      <th>edge_time</th>
       <th>trip_elevation_gain</th>
+      <th>trip_soc</th>
       <th>geometry</th>
       <th>shape_id</th>
       <th>vehicle</th>
@@ -728,23 +735,23 @@ Name: kwh_per_mi, dtype: float64
       <td>0</td>
       <td>0</td>
       <td>0</td>
-      <td>30081</td>
-      <td>500.0</td>
+      <td>30082</td>
       <td>0.000000</td>
+      <td>0.055853</td>
+      <td>0.025420</td>
+      <td>0.080083</td>
+      <td>0.025420</td>
       <td>0.034760</td>
-      <td>0.055813</td>
-      <td>27.326809</td>
-      <td>0.025420</td>
       <td>...</td>
-      <td>0.999840</td>
-      <td>0.080132</td>
-      <td>0.080132</td>
-      <td>0.025420</td>
+      <td>0.0</td>
+      <td>500.0</td>
+      <td>0.055853</td>
       <td>0.000884</td>
+      <td>0.999840</td>
       <td>LINESTRING (-111.71143 40.27542, -111.71156 40...</td>
       <td>-111.712,40.276-&gt;-111.895,40.426</td>
       <td>Transit_Bus_Battery_Electric</td>
-      <td>12.359723</td>
+      <td>13.044992</td>
       <td>kWh</td>
     </tr>
     <tr>
@@ -752,23 +759,23 @@ Name: kwh_per_mi, dtype: float64
       <td>0</td>
       <td>1</td>
       <td>0</td>
-      <td>30082</td>
-      <td>500.0</td>
+      <td>30083</td>
       <td>0.000000</td>
-      <td>0.088317</td>
-      <td>0.082326</td>
-      <td>27.326809</td>
-      <td>0.055324</td>
-      <td>...</td>
-      <td>0.999494</td>
-      <td>0.252983</td>
-      <td>0.172851</td>
+      <td>0.138225</td>
       <td>0.029904</td>
+      <td>0.252935</td>
+      <td>0.055324</td>
+      <td>0.088317</td>
+      <td>...</td>
+      <td>1.0</td>
+      <td>500.0</td>
+      <td>0.082372</td>
       <td>0.003525</td>
+      <td>0.999494</td>
       <td>LINESTRING (-111.71166 40.27568, -111.71109 40...</td>
       <td>-111.712,40.276-&gt;-111.895,40.426</td>
       <td>Transit_Bus_Battery_Electric</td>
-      <td>12.359723</td>
+      <td>13.044992</td>
       <td>kWh</td>
     </tr>
     <tr>
@@ -777,22 +784,22 @@ Name: kwh_per_mi, dtype: float64
       <td>2</td>
       <td>0</td>
       <td>246</td>
-      <td>500.0</td>
       <td>-0.006952</td>
-      <td>-0.076052</td>
-      <td>0.359040</td>
-      <td>27.326809</td>
-      <td>0.146736</td>
-      <td>...</td>
-      <td>0.999959</td>
-      <td>0.020278</td>
-      <td>-0.232705</td>
+      <td>0.497408</td>
       <td>0.091411</td>
+      <td>0.020610</td>
+      <td>0.146736</td>
+      <td>-0.076052</td>
+      <td>...</td>
+      <td>9.5</td>
+      <td>500.0</td>
+      <td>0.359183</td>
       <td>0.003525</td>
+      <td>0.999959</td>
       <td>LINESTRING (-111.71109 40.27571, -111.71139 40...</td>
       <td>-111.712,40.276-&gt;-111.895,40.426</td>
       <td>Transit_Bus_Battery_Electric</td>
-      <td>12.359723</td>
+      <td>13.044992</td>
       <td>kWh</td>
     </tr>
     <tr>
@@ -800,23 +807,23 @@ Name: kwh_per_mi, dtype: float64
       <td>0</td>
       <td>3</td>
       <td>0</td>
-      <td>40037</td>
-      <td>500.0</td>
+      <td>40030</td>
       <td>-0.006952</td>
-      <td>0.001036</td>
-      <td>0.054291</td>
-      <td>27.326809</td>
-      <td>0.167667</td>
-      <td>...</td>
-      <td>0.999906</td>
-      <td>0.047239</td>
-      <td>0.026962</td>
+      <td>0.541968</td>
       <td>0.020931</td>
+      <td>0.046976</td>
+      <td>0.167667</td>
+      <td>0.001036</td>
+      <td>...</td>
+      <td>0.5</td>
+      <td>500.0</td>
+      <td>0.044559</td>
       <td>0.003546</td>
+      <td>0.999906</td>
       <td>LINESTRING (-111.71275 40.27596, -111.71275 40...</td>
       <td>-111.712,40.276-&gt;-111.895,40.426</td>
       <td>Transit_Bus_Battery_Electric</td>
-      <td>12.359723</td>
+      <td>13.044992</td>
       <td>kWh</td>
     </tr>
     <tr>
@@ -825,22 +832,22 @@ Name: kwh_per_mi, dtype: float64
       <td>4</td>
       <td>0</td>
       <td>259</td>
-      <td>500.0</td>
       <td>-0.007189</td>
-      <td>-0.013422</td>
-      <td>0.030526</td>
-      <td>34.665791</td>
-      <td>0.185304</td>
-      <td>...</td>
-      <td>0.999897</td>
-      <td>0.051700</td>
-      <td>0.004460</td>
+      <td>0.572492</td>
       <td>0.017637</td>
+      <td>0.051436</td>
+      <td>0.185304</td>
+      <td>-0.013422</td>
+      <td>...</td>
+      <td>0.0</td>
+      <td>500.0</td>
+      <td>0.030525</td>
       <td>0.003546</td>
+      <td>0.999897</td>
       <td>LINESTRING (-111.71305 40.27608, -111.7131 40....</td>
       <td>-111.712,40.276-&gt;-111.895,40.426</td>
       <td>Transit_Bus_Battery_Electric</td>
-      <td>12.359723</td>
+      <td>13.044992</td>
       <td>kWh</td>
     </tr>
   </tbody>

@@ -383,7 +383,6 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.gtfs_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.gtfs_path</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.depot_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.depot_path</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.n_processes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.n_processes</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.feed"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.feed</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.trips</span></code></a></li>
@@ -420,6 +419,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.copy_transit_config"><code class="docutils literal notranslate"><span class="pre">copy_transit_config()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.estimate_trip_timestamps"><code class="docutils literal notranslate"><span class="pre">estimate_trip_timestamps()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.extend_trip_traces"><code class="docutils literal notranslate"><span class="pre">extend_trip_traces()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.timedelta_to_gtfs_time"><code class="docutils literal notranslate"><span class="pre">timedelta_to_gtfs_time()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.upsample_shape"><code class="docutils literal notranslate"><span class="pre">upsample_shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.write_gtfs_stops"><code class="docutils literal notranslate"><span class="pre">write_gtfs_stops()</span></code></a></li>
 </ul>
@@ -427,10 +427,27 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.mid_block_deadhead">Deadhead Trips (Internal)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_stops()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Agency_Name"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Agency_Name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.City"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.City</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Common_Name"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Common_Name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.In_Latest_NTAD_Upload"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.In_Latest_NTAD_Upload</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lat"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Lat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.License"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.License</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lon"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Lon</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTAD_NTD_ID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.NTAD_NTD_ID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTD_ID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.NTD_ID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.OBJECTID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.OBJECTID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.State"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.State</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.x"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.x</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.y"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.y</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_stops()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_trips()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.get_default_depot_path"><code class="docutils literal notranslate"><span class="pre">get_default_depot_path()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.load_ntd_facilities"><code class="docutils literal notranslate"><span class="pre">load_ntd_facilities()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.match_agency_to_ntd"><code class="docutils literal notranslate"><span class="pre">match_agency_to_ntd()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.thermal_energy">Thermal Energy (Internal)</a><ul class="nav section-nav flex-column">
@@ -459,7 +476,7 @@
 <p>The primary interface for transit energy prediction.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">routee.transit.</span></span><span class="sig-name descname"><span class="pre">GTFSEnergyPredictor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depot_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">routee.transit.</span></span><span class="sig-name descname"><span class="pre">GTFSEnergyPredictor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Predict transit bus energy consumption from GTFS data.</p>
 <p>This class provides a complete workflow for RouteE-Transit, including:
@@ -474,7 +491,6 @@ subclass can override network matching methods to use TomTom instead of OSM.</p>
 <dl>
 <dt>Typical usage:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;data/gtfs&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="c1"># depot_path is optional - uses NTD depot locations by default</span>
 <span class="gp">... </span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023-08-02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">])</span>
@@ -500,17 +516,6 @@ subclass can override network matching methods to use TomTom instead of OSM.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Path</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.depot_path">
-<span class="sig-name descname"><span class="pre">depot_path</span></span><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.depot_path" title="Link to this definition">#</a></dt>
-<dd><p>Path to depot shapefile directory</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Path | None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -594,17 +599,17 @@ subclass can override network matching methods to use TomTom instead of OSM.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depot_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.__init__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gtfs_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compass_app</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TransitCompassApp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vehicle_models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.__init__" title="Link to this definition">#</a></dt>
 <dd><p>Initialize the GTFSEnergyPredictor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>gtfs_path</strong> -- Path to directory containing GTFS feed files</p></li>
-<li><p><strong>depot_path</strong> -- Path to directory containing depot shapefile (Transit_Depot.shp).
-If None (default), uses depot locations from the National Transit Database's
-&quot;Public Transit Facilities and Stations - 2023&quot; dataset. This dataset covers
-depot/facility locations for transit agencies across the United States.
-Data source: <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a></p></li>
+<li><p><strong>gtfs_path</strong> -- Path to directory containing GTFS feed files.
+Depot locations are derived from the NTD Facility Inventory
+bundled with this package.  Only bus-operating agencies and
+depot-type facilities (maintenance/depot, combined
+admin+maintenance, service &amp; inspection) are used; rail-only
+facilities are excluded.</p></li>
 <li><p><strong>n_processes</strong> -- Number of parallel processes for processing. Defaults to CPU count.</p></li>
 <li><p><strong>compass_app</strong> -- An optional pre-initialized CompassApp instance.</p></li>
 <li><p><strong>output_dir</strong> -- Directory for saving results and caching the CompassApp graph.
@@ -811,7 +816,7 @@ When True and <code class="docutils literal notranslate"><span class="pre">route
 to ensure only blocks that exclusively serve the selected routes are
 included (required for correct deadhead estimation).</p></li>
 <li><p><strong>add_depot_deadhead</strong> (<em>bool</em><em>, </em><em>default=False</em>) -- Whether to add deadhead trips from/to depots at start/end of blocks.
-Requires depot_path to be set during initialization.
+Uses the NTD facility inventory bundled with this package.
 When True and <code class="docutils literal notranslate"><span class="pre">routes</span></code> is specified, block-level filtering is used
 (see <code class="docutils literal notranslate"><span class="pre">add_mid_block_deadhead</span></code>).</p></li>
 <li><p><strong>add_hvac</strong> (<em>bool</em><em>, </em><em>default=True</em>) -- Whether to add HVAC energy consumption based on ambient temperature.</p></li>
@@ -860,7 +865,7 @@ When True and <code class="docutils literal notranslate"><span class="pre">route
 
 <dl class="py method">
 <dt class="sig sig-object py" id="routee.transit.GTFSEnergyPredictor.save_results">
-<span class="sig-name descname"><span class="pre">save_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_geometry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.save_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.save_results" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">save_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_geometry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_tods</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/routee/transit/predictor.html#GTFSEnergyPredictor.save_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.GTFSEnergyPredictor.save_results" title="Link to this definition">#</a></dt>
 <dd><p>Save prediction results to CSV files.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -869,6 +874,9 @@ When True and <code class="docutils literal notranslate"><span class="pre">route
 defaulting to the current working directory if that is also None.</p></li>
 <li><p><strong>save_geometry</strong> -- Whether to save link geometry separately</p></li>
 <li><p><strong>save_inputs</strong> -- Whether to save RouteE input features</p></li>
+<li><p><strong>save_tods</strong> -- Whether to write TODS supplement files for deadhead trips.
+Files are written to a <code class="docutils literal notranslate"><span class="pre">tods/</span></code> subdirectory. Has no effect if
+no deadhead trips were added.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -1057,6 +1065,14 @@ for all trips, including estimated timestamps.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.gtfs_processing.timedelta_to_gtfs_time">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">timedelta_to_gtfs_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">td</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Timedelta</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">NaTType</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#timedelta_to_gtfs_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.timedelta_to_gtfs_time" title="Link to this definition">#</a></dt>
+<dd><p>Convert a timedelta-like value to GTFS HH:MM:SS.</p>
+<p>GTFS times may exceed 24:00:00 for service that runs past midnight.
+NaT values are converted to an empty string.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="routee.transit.gtfs_processing.upsample_shape">
 <span class="sig-prename descclassname"><span class="pre">routee.transit.gtfs_processing.</span></span><span class="sig-name descname"><span class="pre">upsample_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/gtfs_processing.html#upsample_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.gtfs_processing.upsample_shape" title="Link to this definition">#</a></dt>
 <dd><p>Upsample a GTFS shape DataFrame to generate a roughly 1 Hz GPS trace.</p>
@@ -1100,12 +1116,12 @@ The function performs the following steps:</p>
 <span id="deadhead-trips-internal"></span><h2>Deadhead Trips (Internal)<a class="headerlink" href="#module-routee.transit.mid_block_deadhead" title="Link to this heading">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops">
-<span class="sig-prename descclassname"><span class="pre">routee.transit.mid_block_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_mid_block_deadhead_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadhead_trips</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/mid_block_deadhead.html#create_mid_block_deadhead_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">routee.transit.mid_block_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_mid_block_deadhead_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Feed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadhead_trips</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/mid_block_deadhead.html#create_mid_block_deadhead_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops" title="Link to this definition">#</a></dt>
 <dd><p>Create stop_times and stops for mid-block deadhead trips.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>feed</strong> (<em>Any</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>feed</strong> (<em>Feed</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
 <li><p><strong>deadhead_trips</strong> (<em>pd.DataFrame</em>) -- Deadhead trip records from <a class="reference internal" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips" title="routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="xref py py-func docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a>.</p></li>
 </ul>
 </dd>
@@ -1140,7 +1156,79 @@ and <code class="docutils literal notranslate"><span class="pre">deadhead_ods_df
 </dl>
 </dd></dl>
 
-<dl class="py function" id="module-routee.transit.depot_deadhead">
+<dl class="py class" id="module-routee.transit.depot_deadhead">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">NTDAgencyMatch</span></span><a class="reference internal" href="_modules/routee/transit/ntd.html#NTDAgencyMatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>Row from the NTD agency table returned by <a class="reference internal" href="#routee.transit.depot_deadhead.match_agency_to_ntd" title="routee.transit.depot_deadhead.match_agency_to_ntd"><code class="xref py py-func docutils literal notranslate"><span class="pre">match_agency_to_ntd()</span></code></a>.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.Agency_Name">
+<span class="sig-name descname"><span class="pre">Agency_Name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Agency_Name" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.City">
+<span class="sig-name descname"><span class="pre">City</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.City" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.Common_Name">
+<span class="sig-name descname"><span class="pre">Common_Name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Common_Name" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.In_Latest_NTAD_Upload">
+<span class="sig-name descname"><span class="pre">In_Latest_NTAD_Upload</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.In_Latest_NTAD_Upload" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.Lat">
+<span class="sig-name descname"><span class="pre">Lat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lat" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.License">
+<span class="sig-name descname"><span class="pre">License</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.License" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.Lon">
+<span class="sig-name descname"><span class="pre">Lon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lon" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.NTAD_NTD_ID">
+<span class="sig-name descname"><span class="pre">NTAD_NTD_ID</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTAD_NTD_ID" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.NTD_ID">
+<span class="sig-name descname"><span class="pre">NTD_ID</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTD_ID" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.OBJECTID">
+<span class="sig-name descname"><span class="pre">OBJECTID</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.OBJECTID" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.State">
+<span class="sig-name descname"><span class="pre">State</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.State" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.x">
+<span class="sig-name descname"><span class="pre">x</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.x" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.NTDAgencyMatch.y">
+<span class="sig-name descname"><span class="pre">y</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#routee.transit.depot_deadhead.NTDAgencyMatch.y" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="routee.transit.depot_deadhead.create_depot_deadhead_stops">
 <span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">create_depot_deadhead_stops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">first_stops_gdf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_stops_gdf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadhead_trips</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#create_depot_deadhead_stops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops" title="Link to this definition">#</a></dt>
 <dd><p>Create stop_times and stops for deadhead trips from and to depots.</p>
@@ -1189,42 +1277,117 @@ functions in this module).</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="routee.transit.depot_deadhead.get_default_depot_path">
-<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">get_default_depot_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Path</span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#get_default_depot_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.get_default_depot_path" title="Link to this definition">#</a></dt>
-<dd><p>Return the default path to the FTA_Depot directory in the repository.</p>
-<p>The default depot locations come from the National Transit Database's
-&quot;Public Transit Facilities and Stations - 2023&quot; dataset, which contains
-depot/facility locations for transit agencies across the United States.</p>
-<p>Data source: <a class="reference external" href="https://data.transportation.gov/stories/s/gd62-jzra">https://data.transportation.gov/stories/s/gd62-jzra</a></p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Path to the FTA_Depot directory containing Transit_Depot.shp</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Path</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="routee.transit.depot_deadhead.infer_depot_trip_endpoints">
-<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">infer_depot_trip_endpoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_depots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#infer_depot_trip_endpoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">infer_depot_trip_endpoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trips_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Feed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depots_gdf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">GeoDataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">GeoDataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">GeoDataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">GeoDataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/routee/transit/depot_deadhead.html#infer_depot_trip_endpoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints" title="Link to this definition">#</a></dt>
 <dd><p>Add origin/destination depot geometry for each block.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>trips_df</strong> (<em>pd.DataFrame</em>) -- trips_df of selected date and route (result from read_in_gtfs).</p></li>
-<li><p><strong>feed</strong> (<em>Any</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
-<li><p><strong>path_to_depots</strong> (<em>str</em><em> | </em><em>Path</em>) -- Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.</p></li>
+<li><p><strong>feed</strong> (<em>Feed</em>) -- GTFS feed object (e.g. result from read_in_gtfs).</p></li>
+<li><p><strong>depots_gdf</strong> (<em>gpd.GeoDataFrame</em>) -- Point GeoDataFrame of candidate depot locations in EPSG:4326.  Typically
+the result of <a class="reference internal" href="#routee.transit.depot_deadhead.load_ntd_facilities" title="routee.transit.depot_deadhead.load_ntd_facilities"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_ntd_facilities()</span></code></a>.  If a <code class="docutils literal notranslate"><span class="pre">depot_priority</span></code>
+column is present (0 = best), candidate depots are first restricted to
+the highest-priority type available before distance minimisation; if no
+higher-priority depot is reachable the next tier is tried.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>(first_stops_gdf, last_stops_gdf). Each GeoDataFrame contains the stop
-geometry (column 'stop_geometry') and the matched depot geometry
-(column 'depot_geometry').</p>
+<dd class="field-even"><p>(first_stops_gdf, last_stops_gdf, depots_gdf). The first two contain
+stop geometry and matched depot geometry.  <code class="docutils literal notranslate"><span class="pre">depots_gdf</span></code> is the full
+depot GeoDataFrame (EPSG:4326) so callers can look up metadata by row
+index.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[GeoDataFrame, GeoDataFrame]</p>
+<dd class="field-odd"><p>tuple[GeoDataFrame, GeoDataFrame, GeoDataFrame]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.load_ntd_facilities">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">load_ntd_facilities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ntd_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ntd_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">GeoDataFrame</span></span></span><a class="reference internal" href="_modules/routee/transit/ntd.html#load_ntd_facilities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.load_ntd_facilities" title="Link to this definition">#</a></dt>
+<dd><p>Load and filter the NTD facility inventory to bus depot locations.</p>
+<p>Reads the bundled NTD &quot;Facility Inventory&quot; xlsx, retains only rows that:</p>
+<ol class="arabic simple">
+<li><p>Belong to a bus-operating agency (<code class="docutils literal notranslate"><span class="pre">Primary</span> <span class="pre">Mode</span> <span class="pre">Served</span></code> in
+<code class="docutils literal notranslate"><span class="pre">{MB,</span> <span class="pre">RB,</span> <span class="pre">CB,</span> <span class="pre">TB,</span> <span class="pre">PB,</span> <span class="pre">DR,</span> <span class="pre">VP}</span></code>).</p></li>
+<li><p>Are one of the three depot facility types (general purpose depot,
+combined admin/maintenance, or service-and-inspection facility).</p></li>
+<li><p>Have valid latitude/longitude coordinates.</p></li>
+</ol>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">ntd_id</span></code> to restrict to a single agency or <code class="docutils literal notranslate"><span class="pre">ntd_ids</span></code> for several.
+When both are omitted all bus depot facilities across all agencies are
+returned.  Passing both is an error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ntd_id</strong> (<em>str</em><em> | </em><em>None</em>) -- Zero-padded 5-digit NTD ID (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;00001&quot;</span></code>).  Mutually exclusive
+with <code class="docutils literal notranslate"><span class="pre">ntd_ids</span></code>.</p></li>
+<li><p><strong>ntd_ids</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>None</em>) -- List of zero-padded 5-digit NTD IDs.  Facilities for all listed
+agencies are returned combined.  Mutually exclusive with <code class="docutils literal notranslate"><span class="pre">ntd_id</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Point GeoDataFrame in EPSG:4326 with columns including <code class="docutils literal notranslate"><span class="pre">NTD</span> <span class="pre">ID</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Agency</span> <span class="pre">Name</span></code>, <code class="docutils literal notranslate"><span class="pre">Facility</span> <span class="pre">Type</span></code>, <code class="docutils literal notranslate"><span class="pre">Facility</span> <span class="pre">Name</span></code>, and a
+<code class="docutils literal notranslate"><span class="pre">depot_priority</span></code> column (0 = highest priority depot type).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>gpd.GeoDataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="routee.transit.depot_deadhead.match_agency_to_ntd">
+<span class="sig-prename descclassname"><span class="pre">routee.transit.depot_deadhead.</span></span><span class="sig-name descname"><span class="pre">match_agency_to_ntd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agency_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_distance_km</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agency_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#routee.transit.depot_deadhead.NTDAgencyMatch" title="routee.transit.ntd.NTDAgencyMatch"><span class="pre">NTDAgencyMatch</span></a></span></span><a class="reference internal" href="_modules/routee/transit/ntd.html#match_agency_to_ntd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#routee.transit.depot_deadhead.match_agency_to_ntd" title="Link to this definition">#</a></dt>
+<dd><p>Fuzzy-match an agency name and location to a row in the NTD agency table.</p>
+<blockquote>
+<div><p>Candidates are scored by a weighted combination of name similarity and
+geographic distance. Name scoring blends:</p>
+<ol class="arabic simple">
+<li><p>Rapidfuzz <code class="docutils literal notranslate"><span class="pre">WRatio</span></code></p></li>
+<li><dl class="simple">
+<dt>IDF-weighted query-token coverage, where common tokens across NTD</dt><dd><p>agencies (e.g. &quot;transit&quot;, &quot;city&quot;) have less influence than rare tokens.</p>
+</dd>
+</dl>
+</li>
+</ol>
+<p>Both the official legal name (<code class="docutils literal notranslate"><span class="pre">Agency_Name</span></code>) and common name
+(<code class="docutils literal notranslate"><span class="pre">Common_Name</span></code>) are considered; the higher of the two scores is used.</p>
+<p>Proximity uses exponential decay (<code class="docutils literal notranslate"><span class="pre">exp(-dist</span> <span class="pre">/</span> <span class="pre">scale)</span></code>) so that very
+close matches (&lt; 10 km) are strongly preferred over distant ones.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">agency_id</span></code> is provided and, after zero-padding to 5 digits, exactly
+matches a candidate's NTD ID, that candidate receives a large bonus to
+the combined score.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agency_name</strong> (<em>str</em>) -- Agency name to match (e.g. from GTFS <code class="docutils literal notranslate"><span class="pre">agency.txt</span></code> or Mobility Database).</p></li>
+<li><p><strong>lat</strong> (<em>float</em>) -- Approximate latitude of the agency's service area (WGS84).</p></li>
+<li><p><strong>lon</strong> (<em>float</em>) -- Approximate longitude of the agency's service area (WGS84).</p></li>
+<li><p><strong>name_threshold</strong> (<em>int</em>) -- Minimum rapidfuzz <code class="docutils literal notranslate"><span class="pre">WRatio</span></code> score (0–100) for a candidate to
+be considered. Candidates below this threshold are discarded before
+distance scoring.</p></li>
+<li><p><strong>max_distance_km</strong> (<em>float</em>) -- If the best candidate's centroid is farther than this from <code class="docutils literal notranslate"><span class="pre">(lat,</span> <span class="pre">lon)</span></code>,
+a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is raised even if the name score is high.</p></li>
+<li><p><strong>agency_id</strong> (<em>str</em><em> | </em><em>None</em>) -- Optional GTFS <code class="docutils literal notranslate"><span class="pre">agency_id</span></code>.  When it zero-pads to a valid 5-digit NTD
+ID, the matching candidate gets a strong bonus.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Row from the NTD agency table for the best match.
+Includes all original columns plus <code class="docutils literal notranslate"><span class="pre">_name_score</span></code> and
+<code class="docutils literal notranslate"><span class="pre">_distance_km</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#routee.transit.depot_deadhead.NTDAgencyMatch" title="routee.transit.depot_deadhead.NTDAgencyMatch">NTDAgencyMatch</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> -- If no candidate passes the name threshold, or if the best candidate
+    exceeds <code class="docutils literal notranslate"><span class="pre">max_distance_km</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1363,7 +1526,6 @@ TMY_DIR. It returns None.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gtfsenergypredictor-object-oriented-interface">GTFSEnergyPredictor (Object-Oriented Interface)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.gtfs_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.gtfs_path</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.depot_path"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.depot_path</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.n_processes"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.n_processes</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.feed"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.feed</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.GTFSEnergyPredictor.trips"><code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor.trips</span></code></a></li>
@@ -1400,6 +1562,7 @@ TMY_DIR. It returns None.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.copy_transit_config"><code class="docutils literal notranslate"><span class="pre">copy_transit_config()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.estimate_trip_timestamps"><code class="docutils literal notranslate"><span class="pre">estimate_trip_timestamps()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.extend_trip_traces"><code class="docutils literal notranslate"><span class="pre">extend_trip_traces()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.timedelta_to_gtfs_time"><code class="docutils literal notranslate"><span class="pre">timedelta_to_gtfs_time()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.upsample_shape"><code class="docutils literal notranslate"><span class="pre">upsample_shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.gtfs_processing.write_gtfs_stops"><code class="docutils literal notranslate"><span class="pre">write_gtfs_stops()</span></code></a></li>
 </ul>
@@ -1407,10 +1570,27 @@ TMY_DIR. It returns None.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.mid_block_deadhead">Deadhead Trips (Internal)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_stops()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.mid_block_deadhead.create_mid_block_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_mid_block_deadhead_trips()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Agency_Name"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Agency_Name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.City"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.City</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Common_Name"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Common_Name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.In_Latest_NTAD_Upload"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.In_Latest_NTAD_Upload</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lat"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Lat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.License"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.License</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.Lon"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.Lon</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTAD_NTD_ID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.NTAD_NTD_ID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.NTD_ID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.NTD_ID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.OBJECTID"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.OBJECTID</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.State"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.State</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.x"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.x</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.NTDAgencyMatch.y"><code class="docutils literal notranslate"><span class="pre">NTDAgencyMatch.y</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_stops"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_stops()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.create_depot_deadhead_trips"><code class="docutils literal notranslate"><span class="pre">create_depot_deadhead_trips()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.get_default_depot_path"><code class="docutils literal notranslate"><span class="pre">get_default_depot_path()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.infer_depot_trip_endpoints"><code class="docutils literal notranslate"><span class="pre">infer_depot_trip_endpoints()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.load_ntd_facilities"><code class="docutils literal notranslate"><span class="pre">load_ntd_facilities()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#routee.transit.depot_deadhead.match_agency_to_ntd"><code class="docutils literal notranslate"><span class="pre">match_agency_to_ntd()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-routee.transit.thermal_energy">Thermal Energy (Internal)</a><ul class="nav section-nav flex-column">

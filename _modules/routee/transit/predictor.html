@@ -364,12 +364,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.depot_deadhead</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">create_depot_deadhead_stops</span><span class="p">,</span>
     <span class="n">create_depot_deadhead_trips</span><span class="p">,</span>
-    <span class="n">get_default_depot_path</span><span class="p">,</span>
     <span class="n">infer_depot_trip_endpoints</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.gtfs_processing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">copy_transit_config</span><span class="p">,</span>
     <span class="n">extend_trip_traces</span><span class="p">,</span>
+    <span class="n">timedelta_to_gtfs_time</span><span class="p">,</span>
     <span class="n">upsample_shape</span><span class="p">,</span>
     <span class="n">write_gtfs_stops</span><span class="p">,</span>
 <span class="p">)</span>
@@ -377,7 +377,9 @@
     <span class="n">create_mid_block_deadhead_stops</span><span class="p">,</span>
     <span class="n">create_mid_block_deadhead_trips</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.ntd</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_ntd_facilities</span><span class="p">,</span> <span class="n">match_agency_to_ntd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.thermal_energy</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_HVAC_energy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">routee.transit.tods_export</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_tods_deadhead</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -428,7 +430,6 @@
 <span class="sd">    Typical usage:</span>
 <span class="sd">        &gt;&gt;&gt; predictor = GTFSEnergyPredictor(</span>
 <span class="sd">        ...     gtfs_path=&quot;data/gtfs&quot;,</span>
-<span class="sd">        ...     # depot_path is optional - uses NTD depot locations by default</span>
 <span class="sd">        ... )</span>
 <span class="sd">        &gt;&gt;&gt; predictor.load_gtfs_data()</span>
 <span class="sd">        &gt;&gt;&gt; predictor.filter_trips(date=&quot;2023-08-02&quot;, routes=[&quot;205&quot;])</span>
@@ -445,7 +446,6 @@
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        gtfs_path (Path): Path to GTFS feed directory</span>
-<span class="sd">        depot_path (Path | None): Path to depot shapefile directory</span>
 <span class="sd">        n_processes (int): Number of parallel processes to use</span>
 <span class="sd">        feed (Feed | None): Loaded GTFS feed object</span>
 <span class="sd">        trips (pd.DataFrame): Trips DataFrame (initially all, can be filtered)</span>
@@ -460,7 +460,6 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">gtfs_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-        <span class="n">depot_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_processes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compass_app</span><span class="p">:</span> <span class="n">TransitCompassApp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -473,12 +472,12 @@
 <span class="sd">        Initialize the GTFSEnergyPredictor.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            gtfs_path: Path to directory containing GTFS feed files</span>
-<span class="sd">            depot_path: Path to directory containing depot shapefile (Transit_Depot.shp).</span>
-<span class="sd">                If None (default), uses depot locations from the National Transit Database&#39;s</span>
-<span class="sd">                &quot;Public Transit Facilities and Stations - 2023&quot; dataset. This dataset covers</span>
-<span class="sd">                depot/facility locations for transit agencies across the United States.</span>
-<span class="sd">                Data source: https://data.transportation.gov/stories/s/gd62-jzra</span>
+<span class="sd">            gtfs_path: Path to directory containing GTFS feed files.</span>
+<span class="sd">                Depot locations are derived from the NTD Facility Inventory</span>
+<span class="sd">                bundled with this package.  Only bus-operating agencies and</span>
+<span class="sd">                depot-type facilities (maintenance/depot, combined</span>
+<span class="sd">                admin+maintenance, service &amp; inspection) are used; rail-only</span>
+<span class="sd">                facilities are excluded.</span>
 <span class="sd">            n_processes: Number of parallel processes for processing. Defaults to CPU count.</span>
 <span class="sd">            compass_app: An optional pre-initialized CompassApp instance.</span>
 <span class="sd">            output_dir: Directory for saving results and caching the CompassApp graph.</span>
@@ -490,10 +489,6 @@
 <span class="sd">                even if cached outputs already exist in ``output_dir``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gtfs_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">gtfs_path</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">depot_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">depot_path</span> <span class="o">=</span> <span class="n">get_default_depot_path</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">depot_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">depot_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_processes</span> <span class="o">=</span> <span class="n">n_processes</span> <span class="k">if</span> <span class="n">n_processes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">mp</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">compass_app</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_dir</span> <span class="k">else</span> <span class="kc">None</span>
@@ -510,6 +505,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">routee_inputs</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">energy_predictions</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_bbox</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Deadhead data accumulated during routing — used for TODS export</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="c1"># Snapshot of GTFS stops before any deadhead stops are added — used to</span>
+        <span class="c1"># filter stops_supplement.txt to only genuinely new stops.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gtfs_stops</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="c1"># FTA depot GeoDataFrame captured during depot deadhead preparation —</span>
+        <span class="c1"># used to write depot_metadata.csv alongside the TODS files.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fta_depots</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized GTFSEnergyPredictor for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gtfs_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
@@ -533,17 +539,10 @@
         <span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span>
 
         <span class="c1"># Convert start/end times to GTFS-style strings</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">format_timedelta</span><span class="p">(</span><span class="n">td</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">td</span><span class="p">):</span>
-                <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-            <span class="n">total_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">td</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
-            <span class="n">hours</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">//</span> <span class="mi">3600</span>
-            <span class="n">minutes</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">3600</span><span class="p">)</span> <span class="o">//</span> <span class="mi">60</span>
-            <span class="n">seconds</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">60</span>
-            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hours</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">minutes</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">seconds</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">&quot;</span>
-
-        <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">format_timedelta</span><span class="p">)</span>
-        <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">format_timedelta</span><span class="p">)</span>
+        <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">timedelta_to_gtfs_time</span>
+        <span class="p">)</span>
+        <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">timedelta_to_gtfs_time</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">trips</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
             <span class="n">trip_times</span><span class="p">[[</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="s2">&quot;end_time&quot;</span><span class="p">,</span> <span class="s2">&quot;trip_duration_minutes&quot;</span><span class="p">]],</span>
@@ -607,7 +606,7 @@
 <span class="sd">            included (required for correct deadhead estimation).</span>
 <span class="sd">        add_depot_deadhead : bool, default=False</span>
 <span class="sd">            Whether to add deadhead trips from/to depots at start/end of blocks.</span>
-<span class="sd">            Requires depot_path to be set during initialization.</span>
+<span class="sd">            Uses the NTD facility inventory bundled with this package.</span>
 <span class="sd">            When True and ``routes`` is specified, block-level filtering is used</span>
 <span class="sd">            (see ``add_mid_block_deadhead``).</span>
 <span class="sd">        add_hvac : bool, default=True</span>
@@ -683,19 +682,14 @@
                 <span class="n">extra_geoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mid_block_metadata</span><span class="p">[</span><span class="s2">&quot;deadhead_ods&quot;</span><span class="p">])</span>
 
         <span class="k">if</span> <span class="n">add_depot_deadhead</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">depot_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Cannot add depot deadhead: depot_path not provided during initialization&quot;</span>
+            <span class="n">depot_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_depot_deadhead</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">depot_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">extra_geoms</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">depot_metadata</span><span class="p">[</span><span class="s2">&quot;first_stops_gdf&quot;</span><span class="p">],</span>
+                        <span class="n">depot_metadata</span><span class="p">[</span><span class="s2">&quot;last_stops_gdf&quot;</span><span class="p">],</span>
+                    <span class="p">]</span>
                 <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">depot_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_depot_deadhead</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">depot_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">extra_geoms</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-                        <span class="p">[</span>
-                            <span class="n">depot_metadata</span><span class="p">[</span><span class="s2">&quot;first_stops_gdf&quot;</span><span class="p">],</span>
-                            <span class="n">depot_metadata</span><span class="p">[</span><span class="s2">&quot;last_stops_gdf&quot;</span><span class="p">],</span>
-                        <span class="p">]</span>
-                    <span class="p">)</span>
 
         <span class="c1"># Step 4: Load CompassApp once with comprehensive bounding box</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">load_compass_app</span><span class="p">(</span><span class="n">extra_geoms</span><span class="o">=</span><span class="n">extra_geoms</span> <span class="k">if</span> <span class="n">extra_geoms</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
@@ -757,6 +751,9 @@
 
         <span class="n">shape_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shapes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">shapes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">shapes</span><span class="o">.</span><span class="n">shape_id</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">shape_ids</span><span class="p">)]</span>
+
+        <span class="c1"># Snapshot of original stops before deadhead routing adds new ones</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gtfs_stops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">stops</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">)</span><span class="si">}</span><span class="s2"> trips and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">shape_ids</span><span class="p">)</span><span class="si">}</span><span class="s2"> shapes&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -1113,20 +1110,11 @@
         <span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="c1"># Convert start/end times to GTFS-style strings</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">format_timedelta</span><span class="p">(</span><span class="n">td</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">td</span><span class="p">):</span>
-                <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-            <span class="n">total_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">td</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
-            <span class="n">hours</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">//</span> <span class="mi">3600</span>
-            <span class="n">minutes</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">3600</span><span class="p">)</span> <span class="o">//</span> <span class="mi">60</span>
-            <span class="n">seconds</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">60</span>
-            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hours</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">minutes</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">seconds</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">&quot;</span>
-
         <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-            <span class="n">format_timedelta</span>
+            <span class="n">timedelta_to_gtfs_time</span>
         <span class="p">)</span>
         <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-            <span class="n">format_timedelta</span>
+            <span class="n">timedelta_to_gtfs_time</span>
         <span class="p">)</span>
 
         <span class="n">deadhead_trips</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
@@ -1145,6 +1133,17 @@
         <span class="n">trip_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;trip_id&quot;</span><span class="p">)[</span><span class="s2">&quot;trip_count&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
         <span class="n">deadhead_trips</span><span class="p">[</span><span class="s2">&quot;trip_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="p">[</span><span class="s2">&quot;before_trip&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">trip_counts</span><span class="p">)</span>
         <span class="n">deadhead_trips</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;before_trip&quot;</span><span class="p">])</span>
+
+        <span class="c1"># Accumulate deadhead data for TODS export</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span><span class="p">,</span> <span class="n">deadhead_trips</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span><span class="p">,</span> <span class="n">deadhead_stop_times</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span><span class="p">,</span> <span class="n">deadhead_stops</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
 
         <span class="c1"># Update internal state</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;GTFS feed must be loaded&quot;</span>
@@ -1181,11 +1180,6 @@
                 <span class="s2">&quot;Must call load_gtfs_data() before adding deadhead trips&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">depot_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="s2">&quot;depot_path must be specified in __init__() to add depot deadhead trips&quot;</span>
-            <span class="p">)</span>
-
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preparing depot deadhead trips...&quot;</span><span class="p">)</span>
 
         <span class="c1"># Create depot deadhead trip records</span>
@@ -1195,10 +1189,83 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No depot deadhead trips needed&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
+        <span class="c1"># Match each agency name to an NTD ID using fuzzy name + location matching</span>
+        <span class="c1"># and load the union of all matched agencies&#39; facilities.</span>
+        <span class="n">all_stops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">stops</span>
+        <span class="n">feed_lat</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">all_stops</span><span class="p">[</span><span class="s2">&quot;stop_lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">all_stops</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">feed_lon</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">all_stops</span><span class="p">[</span><span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">all_stops</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="n">matched_ntd_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">agency_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">agency</span>
+        <span class="n">has_agency_id</span> <span class="o">=</span> <span class="s2">&quot;agency_id&quot;</span> <span class="ow">in</span> <span class="n">agency_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="n">routes_has_agency_id</span> <span class="o">=</span> <span class="s2">&quot;agency_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">routes</span><span class="o">.</span><span class="n">columns</span>
+
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">agency_row</span> <span class="ow">in</span> <span class="n">agency_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;agency_name&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">agency_name</span> <span class="o">=</span> <span class="n">agency_row</span><span class="p">[</span><span class="s2">&quot;agency_name&quot;</span><span class="p">]</span>
+            <span class="n">gtfs_agency_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">agency_row</span><span class="p">[</span><span class="s2">&quot;agency_id&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="n">has_agency_id</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="c1"># Compute the centroid of stops served by this agency&#39;s trips.</span>
+            <span class="c1"># Note: self.feed.routes has route_id as its index, not a column.</span>
+            <span class="k">if</span> <span class="n">gtfs_agency_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">routes_has_agency_id</span><span class="p">:</span>
+                <span class="n">agency_route_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">routes</span><span class="o">.</span><span class="n">index</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">routes</span><span class="p">[</span><span class="s2">&quot;agency_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gtfs_agency_id</span>
+                <span class="p">]</span>
+                <span class="n">agency_trip_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">[</span><span class="s2">&quot;route_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">agency_route_ids</span><span class="p">),</span> <span class="s2">&quot;trip_id&quot;</span>
+                <span class="p">]</span>
+                <span class="n">agency_stop_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">stop_times</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">stop_times</span><span class="p">[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">agency_trip_ids</span><span class="p">),</span> <span class="s2">&quot;stop_id&quot;</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+                <span class="n">agency_stops</span> <span class="o">=</span> <span class="n">all_stops</span><span class="p">[</span><span class="n">all_stops</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">agency_stop_ids</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">agency_stops</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                    <span class="n">agency_lat</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">agency_stops</span><span class="p">[</span><span class="s2">&quot;stop_lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+                    <span class="n">agency_lon</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">agency_stops</span><span class="p">[</span><span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">agency_lat</span><span class="p">,</span> <span class="n">agency_lon</span> <span class="o">=</span> <span class="n">feed_lat</span><span class="p">,</span> <span class="n">feed_lon</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">agency_lat</span><span class="p">,</span> <span class="n">agency_lon</span> <span class="o">=</span> <span class="n">feed_lat</span><span class="p">,</span> <span class="n">feed_lon</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ntd_match</span> <span class="o">=</span> <span class="n">match_agency_to_ntd</span><span class="p">(</span>
+                    <span class="n">agency_name</span><span class="p">,</span>
+                    <span class="n">agency_lat</span><span class="p">,</span>
+                    <span class="n">agency_lon</span><span class="p">,</span>
+                    <span class="n">agency_id</span><span class="o">=</span><span class="n">gtfs_agency_id</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">ntd_id</span> <span class="o">=</span> <span class="n">ntd_match</span><span class="p">[</span><span class="s2">&quot;NTD_ID&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ntd_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matched_ntd_ids</span><span class="p">:</span>
+                    <span class="n">matched_ntd_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ntd_id</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Matched GTFS agency &#39;</span><span class="si">%s</span><span class="s2">&#39; to NTD ID </span><span class="si">%s</span><span class="s2"> (&#39;</span><span class="si">%s</span><span class="s2">&#39;).&quot;</span><span class="p">,</span>
+                    <span class="n">agency_name</span><span class="p">,</span>
+                    <span class="n">ntd_id</span><span class="p">,</span>
+                    <span class="n">ntd_match</span><span class="p">[</span><span class="s2">&quot;Agency_Name&quot;</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Could not match GTFS agency &#39;</span><span class="si">%s</span><span class="s2">&#39; to an NTD record; &quot;</span>
+                    <span class="s2">&quot;its trips will fall back to the nearest available facility.&quot;</span><span class="p">,</span>
+                    <span class="n">agency_name</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">depots_gdf</span> <span class="o">=</span> <span class="n">load_ntd_facilities</span><span class="p">(</span>
+                <span class="n">ntd_ids</span><span class="o">=</span><span class="n">matched_ntd_ids</span> <span class="k">if</span> <span class="n">matched_ntd_ids</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">matched_ntd_ids</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;No NTD facilities found for matched NTD IDs </span><span class="si">%s</span><span class="s2">; &quot;</span>
+                    <span class="s2">&quot;falling back to all bus facilities.&quot;</span><span class="p">,</span>
+                    <span class="n">matched_ntd_ids</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">depots_gdf</span> <span class="o">=</span> <span class="n">load_ntd_facilities</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span>
+
         <span class="c1"># Infer depot locations for each block&#39;s first and last stops</span>
-        <span class="n">depot_shapefile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">depot_path</span> <span class="o">/</span> <span class="s2">&quot;Transit_Depot.shp&quot;</span>
-        <span class="n">first_stops_gdf</span><span class="p">,</span> <span class="n">last_stops_gdf</span> <span class="o">=</span> <span class="n">infer_depot_trip_endpoints</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">depot_shapefile</span>
+        <span class="n">first_stops_gdf</span><span class="p">,</span> <span class="n">last_stops_gdf</span><span class="p">,</span> <span class="n">depots_df</span> <span class="o">=</span> <span class="n">infer_depot_trip_endpoints</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trips</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">depots_gdf</span>
         <span class="p">)</span>
 
         <span class="c1"># Create stop_times and stops for depot deadhead trips</span>
@@ -1212,6 +1279,7 @@
             <span class="s2">&quot;deadhead_stops&quot;</span><span class="p">:</span> <span class="n">deadhead_stops</span><span class="p">,</span>
             <span class="s2">&quot;first_stops_gdf&quot;</span><span class="p">:</span> <span class="n">first_stops_gdf</span><span class="p">,</span>
             <span class="s2">&quot;last_stops_gdf&quot;</span><span class="p">:</span> <span class="n">last_stops_gdf</span><span class="p">,</span>
+            <span class="s2">&quot;fta_depots&quot;</span><span class="p">:</span> <span class="n">depots_df</span><span class="p">,</span>
         <span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_route_depot_deadhead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1228,6 +1296,7 @@
         <span class="n">deadhead_stops</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;deadhead_stops&quot;</span><span class="p">]</span>
         <span class="n">first_stops_gdf</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;first_stops_gdf&quot;</span><span class="p">]</span>
         <span class="n">last_stops_gdf</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;last_stops_gdf&quot;</span><span class="p">]</span>
+        <span class="n">fta_depots</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fta_depots&quot;</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Routing depot deadhead trips...&quot;</span><span class="p">)</span>
 
@@ -1295,20 +1364,11 @@
         <span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="c1"># Convert start/end times to GTFS-style strings</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">format_timedelta</span><span class="p">(</span><span class="n">td</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">td</span><span class="p">):</span>
-                <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-            <span class="n">total_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">td</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
-            <span class="n">hours</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">//</span> <span class="mi">3600</span>
-            <span class="n">minutes</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">3600</span><span class="p">)</span> <span class="o">//</span> <span class="mi">60</span>
-            <span class="n">seconds</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">60</span>
-            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hours</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">minutes</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">seconds</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">&quot;</span>
-
         <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-            <span class="n">format_timedelta</span>
+            <span class="n">timedelta_to_gtfs_time</span>
         <span class="p">)</span>
         <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trip_times</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-            <span class="n">format_timedelta</span>
+            <span class="n">timedelta_to_gtfs_time</span>
         <span class="p">)</span>
 
         <span class="n">deadhead_trips</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
@@ -1331,6 +1391,19 @@
             <span class="n">trip_counts</span>
         <span class="p">)</span>
         <span class="n">deadhead_trips</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;before_or_after_trip&quot;</span><span class="p">])</span>
+
+        <span class="c1"># Accumulate deadhead data for TODS export</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span><span class="p">,</span> <span class="n">deadhead_trips</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span><span class="p">,</span> <span class="n">deadhead_stop_times</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span><span class="p">,</span> <span class="n">deadhead_stops</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">fta_depots</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fta_depots</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fta_depots</span> <span class="o">=</span> <span class="n">fta_depots</span>
 
         <span class="c1"># Update internal state</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;GTFS feed must be loaded&quot;</span>
@@ -1803,6 +1876,7 @@
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">save_geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">save_inputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">save_tods</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save prediction results to CSV files.</span>
@@ -1812,6 +1886,9 @@
 <span class="sd">                defaulting to the current working directory if that is also None.</span>
 <span class="sd">            save_geometry: Whether to save link geometry separately</span>
 <span class="sd">            save_inputs: Whether to save RouteE input features</span>
+<span class="sd">            save_tods: Whether to write TODS supplement files for deadhead trips.</span>
+<span class="sd">                Files are written to a ``tods/`` subdirectory. Has no effect if</span>
+<span class="sd">                no deadhead trips were added.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            RuntimeError: If no predictions have been generated yet</span>
@@ -1862,13 +1939,28 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved trip predictions to </span><span class="si">{</span><span class="n">trip_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># Save RouteE inputs</span>
-        <span class="k">if</span> <span class="n">save_inputs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">routee_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">save_inputs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">routee_inputs</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
             <span class="n">inputs_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">routee_inputs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="k">if</span> <span class="s2">&quot;geom&quot;</span> <span class="ow">in</span> <span class="n">inputs_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                 <span class="n">inputs_df</span> <span class="o">=</span> <span class="n">inputs_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s2">&quot;geom&quot;</span><span class="p">)</span>
             <span class="n">inputs_path</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;routee_inputs.csv&quot;</span>
             <span class="n">inputs_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">inputs_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved RouteE inputs to </span><span class="si">{</span><span class="n">inputs_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved RouteE inputs to </span><span class="si">{</span><span class="n">inputs_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Save TODS supplement files for inferred deadhead trips</span>
+        <span class="k">if</span> <span class="n">save_tods</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;GTFS feed must be loaded&quot;</span>
+            <span class="n">tods_dir</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;tods&quot;</span>
+            <span class="n">write_tods_deadhead</span><span class="p">(</span>
+                <span class="n">deadhead_trips</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_trips</span><span class="p">,</span>
+                <span class="n">deadhead_stop_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stop_times</span><span class="p">,</span>
+                <span class="n">deadhead_stops</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_deadhead_stops</span><span class="p">,</span>
+                <span class="n">shapes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shapes</span><span class="p">,</span>
+                <span class="n">gtfs_stops</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_gtfs_stops</span><span class="p">,</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="n">tods_dir</span><span class="p">,</span>
+                <span class="n">fta_depots</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_fta_depots</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fta_depots</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved TODS supplement files to </span><span class="si">{</span><span class="n">tods_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

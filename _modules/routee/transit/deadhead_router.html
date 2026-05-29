@@ -340,9 +340,9 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass.utils.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">geometry_from_route</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.compass_app</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransitCompassApp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass.utils.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">geometry_from_route</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -513,7 +513,6 @@
     <span class="c1"># Step 5: Route far O-D pairs with CompassApp</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">far_ods</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">od_keys</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">far_ods</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
             <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="p">{</span>
@@ -525,15 +524,50 @@
                     <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;trip_time&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
                 <span class="p">}</span>
             <span class="p">)</span>
-            <span class="n">od_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;od_key&quot;</span><span class="p">])</span>
+
+        <span class="n">far_rows_by_key</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;od_key&quot;</span><span class="p">]):</span> <span class="p">{</span>
+                <span class="s2">&quot;origin_x&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;origin_y&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;dest_x&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;dest_y&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">]),</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">far_ods</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
+        <span class="p">}</span>
 
         <span class="c1"># Run queries in parallel</span>
         <span class="n">results</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">results</span><span class="p">]</span>
 
+        <span class="n">processed_keys</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
         <span class="c1"># Process routing results</span>
-        <span class="k">for</span> <span class="n">od_key</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">od_keys</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">far_ods</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()):</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">req</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;request&quot;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">od_key</span> <span class="o">=</span> <span class="n">_create_od_key</span><span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">]),</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">]),</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s2">&quot;destination_x&quot;</span><span class="p">]),</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s2">&quot;destination_y&quot;</span><span class="p">]),</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;CompassApp returned a result without parseable request O-D; &quot;</span>
+                    <span class="s2">&quot;skipping this response.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">od_info</span> <span class="o">=</span> <span class="n">far_rows_by_key</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">od_key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">od_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;CompassApp returned an unmatched O-D result for key </span><span class="si">{</span><span class="n">od_key</span><span class="si">}</span><span class="s2">; &quot;</span>
+                    <span class="s2">&quot;skipping this response.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">processed_keys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">od_key</span><span class="p">)</span>
+
             <span class="k">if</span> <span class="s2">&quot;error&quot;</span> <span class="ow">in</span> <span class="n">result</span> <span class="ow">or</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;route&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">cp_error</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;No route found&quot;</span><span class="p">)</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
@@ -541,10 +575,10 @@
                     <span class="s2">&quot;Creating a straight-line fallback route.&quot;</span>
                 <span class="p">)</span>
                 <span class="n">rows</span> <span class="o">=</span> <span class="n">route_single_trip_fallback</span><span class="p">(</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">],</span>
                     <span class="n">od_key</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">shape_rows</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
@@ -558,10 +592,10 @@
                     <span class="s2">&quot;Creating a straight-line fallback route.&quot;</span>
                 <span class="p">)</span>
                 <span class="n">rows</span> <span class="o">=</span> <span class="n">route_single_trip_fallback</span><span class="p">(</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">],</span>
-                    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">],</span>
+                    <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">],</span>
                     <span class="n">od_key</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">shape_rows</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
@@ -583,6 +617,24 @@
                     <span class="p">}</span>
                 <span class="p">)</span>
                 <span class="n">prev_lat</span><span class="p">,</span> <span class="n">prev_lon</span> <span class="o">=</span> <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span>
+
+        <span class="c1"># Ensure every requested far O-D gets a shape, even if Compass omitted</span>
+        <span class="c1"># a response or returned an unparsable one.</span>
+        <span class="n">missing_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">far_rows_by_key</span><span class="p">)</span> <span class="o">-</span> <span class="n">processed_keys</span>
+        <span class="k">for</span> <span class="n">od_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>
+            <span class="n">od_info</span> <span class="o">=</span> <span class="n">far_rows_by_key</span><span class="p">[</span><span class="n">od_key</span><span class="p">]</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;CompassApp returned no usable result for od_key </span><span class="si">{</span><span class="n">od_key</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Creating a straight-line fallback route.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">route_single_trip_fallback</span><span class="p">(</span>
+                <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_x&quot;</span><span class="p">],</span>
+                <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;origin_y&quot;</span><span class="p">],</span>
+                <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_x&quot;</span><span class="p">],</span>
+                <span class="n">od_info</span><span class="p">[</span><span class="s2">&quot;dest_y&quot;</span><span class="p">],</span>
+                <span class="n">od_key</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">shape_rows</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
 
     <span class="c1"># Step 6: Build output DataFrames</span>
     <span class="n">shapes_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>

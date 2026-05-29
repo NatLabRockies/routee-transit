@@ -334,12 +334,10 @@
                 <article class="bd-article">
                   
   <h1>Source code for routee.transit.mid_block_deadhead</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">geopy.distance</span><span class="w"> </span><span class="kn">import</span> <span class="n">geodesic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gtfsblocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feed</span>
 
 
 <div class="viewcode-block" id="create_mid_block_deadhead_trips">
@@ -383,6 +381,16 @@
         <span class="n">trip_start</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;trip_id&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span>
     <span class="p">)</span>  <span class="c1"># only look at trips on selected date and route</span>
     <span class="n">trips_df</span> <span class="o">=</span> <span class="n">trips_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_time&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Precompute last/first stop per trip to build origin-destination route IDs</span>
+    <span class="n">stop_times_sorted</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;stop_sequence&quot;</span><span class="p">)</span>
+    <span class="n">last_stop_per_trip</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">stop_times_sorted</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;trip_id&quot;</span><span class="p">)[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">last</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">first_stop_per_trip</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">stop_times_sorted</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;trip_id&quot;</span><span class="p">)[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="p">)</span>
+
     <span class="n">block_gb</span> <span class="o">=</span> <span class="n">trips_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;block_id&quot;</span><span class="p">)</span>
     <span class="n">dh_dfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">block_df</span> <span class="ow">in</span> <span class="n">block_gb</span><span class="p">:</span>
@@ -393,6 +401,10 @@
         <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;deadhead_trip&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_to_&quot;</span> <span class="o">+</span> <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;to_trip&quot;</span><span class="p">]</span>
         <span class="p">)</span>
+        <span class="c1"># Route ID encodes origin/destination stops, not the inherited revenue route</span>
+        <span class="n">from_stop</span> <span class="o">=</span> <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;trip_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">last_stop_per_trip</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">to_stop</span> <span class="o">=</span> <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;to_trip&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">first_stop_per_trip</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">block_df</span><span class="p">[</span><span class="s2">&quot;route_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;deadhead_&quot;</span> <span class="o">+</span> <span class="n">from_stop</span> <span class="o">+</span> <span class="s2">&quot;_to_&quot;</span> <span class="o">+</span> <span class="n">to_stop</span>
 
         <span class="n">block_df</span> <span class="o">=</span> <span class="n">block_df</span><span class="p">[</span>
             <span class="p">[</span><span class="s2">&quot;deadhead_trip&quot;</span><span class="p">,</span> <span class="s2">&quot;route_id&quot;</span><span class="p">,</span> <span class="s2">&quot;service_id&quot;</span><span class="p">,</span> <span class="s2">&quot;block_id&quot;</span><span class="p">,</span> <span class="s2">&quot;shape_id&quot;</span><span class="p">]</span>
@@ -415,13 +427,13 @@
 <div class="viewcode-block" id="create_mid_block_deadhead_stops">
 <a class="viewcode-back" href="../../../api.html#routee.transit.mid_block_deadhead.create_mid_block_deadhead_stops">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_mid_block_deadhead_stops</span><span class="p">(</span>
-    <span class="n">feed</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">deadhead_trips</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span><span class="p">,</span> <span class="n">deadhead_trips</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create stop_times and stops for mid-block deadhead trips.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    feed: Any</span>
+<span class="sd">    feed: Feed</span>
 <span class="sd">        GTFS feed object (e.g. result from read_in_gtfs).</span>
 <span class="sd">    deadhead_trips: pd.DataFrame</span>
 <span class="sd">        Deadhead trip records from :func:`create_mid_block_deadhead_trips`.</span>
@@ -538,24 +550,22 @@
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pair</span>
     <span class="p">]</span>
-    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stop_times_df</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;mid_block_deadhead_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span>
-    <span class="p">)</span>
+    <span class="c1"># Reference the real GTFS stop IDs for origin and destination — no new stops</span>
+    <span class="c1"># need to be added because mid-block deadhead trips start and end at existing</span>
+    <span class="c1"># revenue stops.</span>
+    <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span>
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">deadhead_trips</span><span class="p">[</span><span class="s2">&quot;from_stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="n">deadhead_trips</span><span class="p">[</span><span class="s2">&quot;to_stop_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pair</span>
+    <span class="p">]</span>
     <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;departure_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;arrival_time&quot;</span><span class="p">]</span>
     <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;shape_dist_traveled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
-    <span class="c1"># Create stops df for deadhead trips</span>
+    <span class="c1"># Mid-block deadhead endpoints are existing GTFS stops; no new stops to add.</span>
     <span class="n">stops_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lat&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_lon&quot;</span><span class="p">])</span>
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_times_df</span><span class="p">[</span><span class="s2">&quot;stop_id&quot;</span><span class="p">]</span>
-    <span class="n">x_start</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">x_end</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">stop_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_start</span><span class="p">,</span> <span class="n">x_end</span><span class="p">)))</span>
-    <span class="n">y_start</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">geometry_origin</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">y_end</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="o">.</span><span class="n">geometry_destination</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">stop_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">y_start</span><span class="p">,</span> <span class="n">y_end</span><span class="p">)))</span>
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_lat</span>
-    <span class="n">stops_df</span><span class="p">[</span><span class="s2">&quot;stop_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stop_lon</span>
 
     <span class="n">deadhead_trips</span><span class="p">[</span><span class="s2">&quot;block_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deadhead_trips</span><span class="p">[</span>
         <span class="s2">&quot;trip_id&quot;</span>
