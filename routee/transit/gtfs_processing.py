@@ -23,6 +23,21 @@ FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
 
 
+def timedelta_to_gtfs_time(td: pd.Timedelta | None) -> str:
+    """Convert a timedelta-like value to GTFS HH:MM:SS.
+
+    GTFS times may exceed 24:00:00 for service that runs past midnight.
+    Non-timedelta values (including None/NaT) are converted to an empty string.
+    """
+    if not isinstance(td, pd.Timedelta):
+        return ""
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
 def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:
     """
     Hook to write GTFS stop-to-edge mapping after dataset generation.

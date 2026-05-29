@@ -4,21 +4,22 @@ from pathlib import Path
 
 import pandas as pd
 
-from routee.transit.tods_export import _timedelta_to_hhmmss, write_tods_deadhead
+from routee.transit.gtfs_processing import timedelta_to_gtfs_time
+from routee.transit.tods_export import write_tods_deadhead
 
 
 class TestTimedeltaToHhmmss(unittest.TestCase):
     def test_simple_time(self) -> None:
         td = pd.Timedelta(hours=8, minutes=30, seconds=0)
-        self.assertEqual(_timedelta_to_hhmmss(td), "08:30:00")
+        self.assertEqual(timedelta_to_gtfs_time(td), "08:30:00")
 
     def test_past_midnight(self) -> None:
         # GTFS allows times past 24:00 for next-day service
         td = pd.Timedelta(hours=25, minutes=5, seconds=10)
-        self.assertEqual(_timedelta_to_hhmmss(td), "25:05:10")
+        self.assertEqual(timedelta_to_gtfs_time(td), "25:05:10")
 
     def test_nan(self) -> None:
-        self.assertEqual(_timedelta_to_hhmmss(pd.NaT), "")
+        self.assertEqual(timedelta_to_gtfs_time(pd.NaT), "")
 
 
 class TestWriteTodsDeadhead(unittest.TestCase):

@@ -33,6 +33,7 @@ from routee.transit.depot_deadhead import (
 from routee.transit.gtfs_processing import (
     copy_transit_config,
     extend_trip_traces,
+    timedelta_to_gtfs_time,
     upsample_shape,
     write_gtfs_stops,
 )
@@ -40,7 +41,7 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_stops,
     create_mid_block_deadhead_trips,
 )
-from routee.transit.ntd import load_ntd_facilities
+from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.thermal_energy import add_HVAC_energy
 from routee.transit.tods_export import write_tods_deadhead
 
@@ -71,8 +72,6 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
         "gge_per_unit": GGE_PER_GALLON_DIESEL,
     },
 }
-
-
 class GTFSEnergyPredictor:
     """
     Predict transit bus energy consumption from GTFS data.
@@ -195,17 +194,12 @@ class GTFSEnergyPredictor:
         ).dt.total_seconds() / 60
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
-        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
+        trip_times["start_time"] = trip_times["start_time"].apply(
+            timedelta_to_gtfs_time
+        )
+        trip_times["end_time"] = trip_times["end_time"].apply(
+            timedelta_to_gtfs_time
+        )
 
         self.trips = self.trips.merge(
             trip_times[["start_time", "end_time", "trip_duration_minutes"]],
@@ -760,20 +754,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -851,8 +836,6 @@ class GTFSEnergyPredictor:
         # Load NTD bus depot facilities for all agencies in this GTFS feed.
         # Match each agency name to an NTD ID using fuzzy name + location matching
         # and load the union of all matched agencies' facilities.
-        from routee.transit.ntd import match_agency_to_ntd
-
         stops = self.feed.stops
         agency_lat = float(stops["stop_lat"].mean()) if not stops.empty else 0.0
         agency_lon = float(stops["stop_lon"].mean()) if not stops.empty else 0.0
@@ -1002,20 +985,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -1569,7 +1543,7 @@ class GTFSEnergyPredictor:
             logger.info(f"Saved trip predictions to {trip_path}")
 
         # Save RouteE inputs
-        if save_inputs and self.routee_inputs is not None:
+        if save_inputs and not self.routee_inputs.empty:
             inputs_df = self.routee_inputs.copy()
             if "geom" in inputs_df.columns:
                 inputs_df = inputs_df.drop(columns="geom")

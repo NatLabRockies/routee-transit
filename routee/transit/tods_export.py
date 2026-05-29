@@ -19,7 +19,8 @@ referenced by their existing stop_id values; they are NOT written to
 from pathlib import Path
 
 import pandas as pd
-from pandas.api.typing import NaTType
+
+from routee.transit.gtfs_processing import timedelta_to_gtfs_time
 
 # Map routee-transit trip_type values to TODS_trip_type field values.
 # TODS uses "pull-back" (not "pull-in") for return-to-depot trips.
@@ -28,22 +29,6 @@ _TRIP_TYPE_MAP: dict[str, str] = {
     "pull-in": "pull-back",
     "mid_block_deadhead": "deadhead",
 }
-
-
-def _timedelta_to_hhmmss(td: pd.Timedelta | NaTType | None) -> str:
-    """Convert a pd.Timedelta (or None/NaT) to a GTFS HH:MM:SS string.
-
-    GTFS times may exceed 24:00:00 for service that runs past midnight.
-    """
-    if not isinstance(td, pd.Timedelta):
-        return ""
-    total_seconds = int(td.total_seconds())
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-
 def write_tods_deadhead(
     deadhead_trips: pd.DataFrame,
     deadhead_stop_times: pd.DataFrame,
@@ -130,7 +115,7 @@ def write_tods_deadhead(
     stop_times = deadhead_stop_times.copy()
     for col in ("arrival_time", "departure_time"):
         if col in stop_times.columns:
-            stop_times[col] = stop_times[col].apply(_timedelta_to_hhmmss)
+            stop_times[col] = stop_times[col].apply(timedelta_to_gtfs_time)
     st_cols = ["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"]
     stop_times[st_cols].to_csv(output_dir / "stop_times_supplement.txt", index=False)
 
