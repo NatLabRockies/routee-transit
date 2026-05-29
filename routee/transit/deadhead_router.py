@@ -237,10 +237,10 @@ def create_deadhead_shapes(
                     "Creating a straight-line fallback route."
                 )
                 rows = route_single_trip_fallback(
-                    row["origin_x"],
-                    row["origin_y"],
-                    row["dest_x"],
-                    row["dest_y"],
+                    od_info["origin_x"],
+                    od_info["origin_y"],
+                    od_info["dest_x"],
+                    od_info["dest_y"],
                     od_key,
                 )
                 shape_rows.extend(rows)
@@ -254,10 +254,10 @@ def create_deadhead_shapes(
                     "Creating a straight-line fallback route."
                 )
                 rows = route_single_trip_fallback(
-                    row["origin_x"],
-                    row["origin_y"],
-                    row["dest_x"],
-                    row["dest_y"],
+                    od_info["origin_x"],
+                    od_info["origin_y"],
+                    od_info["dest_x"],
+                    od_info["dest_y"],
                     od_key,
                 )
                 shape_rows.extend(rows)
