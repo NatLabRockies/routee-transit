@@ -28,12 +28,12 @@ from routee.transit.deadhead_router import create_deadhead_shapes
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
-    get_default_depot_path,
     infer_depot_trip_endpoints,
 )
 from routee.transit.gtfs_processing import (
     copy_transit_config,
     extend_trip_traces,
+    timedelta_to_gtfs_time,
     upsample_shape,
     write_gtfs_stops,
 )
@@ -41,7 +41,9 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_stops,
     create_mid_block_deadhead_trips,
 )
+from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.thermal_energy import add_HVAC_energy
+from routee.transit.tods_export import write_tods_deadhead
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +92,6 @@ class GTFSEnergyPredictor:
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     # depot_path is optional - uses NTD depot locations by default
         ... )
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
@@ -107,7 +108,6 @@ class GTFSEnergyPredictor:
 
     Attributes:
         gtfs_path (Path): Path to GTFS feed directory
-        depot_path (Path | None): Path to depot shapefile directory
         n_processes (int): Number of parallel processes to use
         feed (Feed | None): Loaded GTFS feed object
         trips (pd.DataFrame): Trips DataFrame (initially all, can be filtered)
@@ -120,7 +120,6 @@ class GTFSEnergyPredictor:
     def __init__(
         self,
         gtfs_path: str | Path,
-        depot_path: str | Path | None = None,
         n_processes: int | None = None,
         compass_app: TransitCompassApp | None = None,
         output_dir: str | Path | None = None,
@@ -133,12 +132,12 @@ class GTFSEnergyPredictor:
         Initialize the GTFSEnergyPredictor.
 
         Args:
-            gtfs_path: Path to directory containing GTFS feed files
-            depot_path: Path to directory containing depot shapefile (Transit_Depot.shp).
-                If None (default), uses depot locations from the National Transit Database's
-                "Public Transit Facilities and Stations - 2023" dataset. This dataset covers
-                depot/facility locations for transit agencies across the United States.
-                Data source: https://data.transportation.gov/stories/s/gd62-jzra
+            gtfs_path: Path to directory containing GTFS feed files.
+                Depot locations are derived from the NTD Facility Inventory
+                bundled with this package.  Only bus-operating agencies and
+                depot-type facilities (maintenance/depot, combined
+                admin+maintenance, service & inspection) are used; rail-only
+                facilities are excluded.
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
             compass_app: An optional pre-initialized CompassApp instance.
             output_dir: Directory for saving results and caching the CompassApp graph.
@@ -150,10 +149,6 @@ class GTFSEnergyPredictor:
                 even if cached outputs already exist in ``output_dir``.
         """
         self.gtfs_path = Path(gtfs_path)
-        if depot_path is None:
-            self.depot_path = get_default_depot_path()
-        else:
-            self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
         self.app = compass_app
         self.output_dir = Path(output_dir) if output_dir else None
@@ -170,6 +165,17 @@ class GTFSEnergyPredictor:
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
+
+        # Deadhead data accumulated during routing — used for TODS export
+        self._deadhead_trips: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stop_times: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stops: pd.DataFrame = pd.DataFrame()
+        # Snapshot of GTFS stops before any deadhead stops are added — used to
+        # filter stops_supplement.txt to only genuinely new stops.
+        self._gtfs_stops: pd.DataFrame = pd.DataFrame()
+        # FTA depot GeoDataFrame captured during depot deadhead preparation —
+        # used to write depot_metadata.csv alongside the TODS files.
+        self._fta_depots: pd.DataFrame = pd.DataFrame()
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
@@ -190,17 +196,10 @@ class GTFSEnergyPredictor:
         ).dt.total_seconds() / 60
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
-        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
+        trip_times["start_time"] = trip_times["start_time"].apply(
+            timedelta_to_gtfs_time
+        )
+        trip_times["end_time"] = trip_times["end_time"].apply(timedelta_to_gtfs_time)
 
         self.trips = self.trips.merge(
             trip_times[["start_time", "end_time", "trip_duration_minutes"]],
@@ -261,7 +260,7 @@ class GTFSEnergyPredictor:
             included (required for correct deadhead estimation).
         add_depot_deadhead : bool, default=False
             Whether to add deadhead trips from/to depots at start/end of blocks.
-            Requires depot_path to be set during initialization.
+            Uses the NTD facility inventory bundled with this package.
             When True and ``routes`` is specified, block-level filtering is used
             (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
@@ -337,19 +336,14 @@ class GTFSEnergyPredictor:
                 extra_geoms.append(mid_block_metadata["deadhead_ods"])
 
         if add_depot_deadhead:
-            if self.depot_path is None:
-                logger.warning(
-                    "Cannot add depot deadhead: depot_path not provided during initialization"
+            depot_metadata = self._prepare_depot_deadhead()
+            if depot_metadata is not None:
+                extra_geoms.extend(
+                    [
+                        depot_metadata["first_stops_gdf"],
+                        depot_metadata["last_stops_gdf"],
+                    ]
                 )
-            else:
-                depot_metadata = self._prepare_depot_deadhead()
-                if depot_metadata is not None:
-                    extra_geoms.extend(
-                        [
-                            depot_metadata["first_stops_gdf"],
-                            depot_metadata["last_stops_gdf"],
-                        ]
-                    )
 
         # Step 4: Load CompassApp once with comprehensive bounding box
         self.load_compass_app(extra_geoms=extra_geoms if extra_geoms else None)
@@ -408,6 +402,9 @@ class GTFSEnergyPredictor:
 
         shape_ids = self.trips.shape_id.unique()
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
+
+        # Snapshot of original stops before deadhead routing adds new ones
+        self._gtfs_stops = self.feed.stops.copy()
 
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
@@ -757,20 +754,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -789,6 +777,17 @@ class GTFSEnergyPredictor:
         trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
         deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
         deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
+
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
 
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
@@ -825,11 +824,6 @@ class GTFSEnergyPredictor:
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
 
-        if self.depot_path is None:
-            raise RuntimeError(
-                "depot_path must be specified in __init__() to add depot deadhead trips"
-            )
-
         logger.info("Preparing depot deadhead trips...")
 
         # Create depot deadhead trip records
@@ -839,10 +833,83 @@ class GTFSEnergyPredictor:
             logger.info("No depot deadhead trips needed")
             return None
 
+        # Match each agency name to an NTD ID using fuzzy name + location matching
+        # and load the union of all matched agencies' facilities.
+        all_stops = self.feed.stops
+        feed_lat = float(all_stops["stop_lat"].mean()) if not all_stops.empty else 0.0
+        feed_lon = float(all_stops["stop_lon"].mean()) if not all_stops.empty else 0.0
+
+        matched_ntd_ids: list[str] = []
+        agency_df = self.feed.agency
+        has_agency_id = "agency_id" in agency_df.columns
+        routes_has_agency_id = "agency_id" in self.feed.routes.columns
+
+        for _, agency_row in agency_df.dropna(subset=["agency_name"]).iterrows():
+            agency_name = agency_row["agency_name"]
+            gtfs_agency_id = str(agency_row["agency_id"]) if has_agency_id else None
+
+            # Compute the centroid of stops served by this agency's trips.
+            # Note: self.feed.routes has route_id as its index, not a column.
+            if gtfs_agency_id is not None and routes_has_agency_id:
+                agency_route_ids = self.feed.routes.index[
+                    self.feed.routes["agency_id"] == gtfs_agency_id
+                ]
+                agency_trip_ids = self.trips.loc[
+                    self.trips["route_id"].isin(agency_route_ids), "trip_id"
+                ]
+                agency_stop_ids = self.feed.stop_times.loc[
+                    self.feed.stop_times["trip_id"].isin(agency_trip_ids), "stop_id"
+                ].unique()
+                agency_stops = all_stops[all_stops["stop_id"].isin(agency_stop_ids)]
+                if not agency_stops.empty:
+                    agency_lat = float(agency_stops["stop_lat"].mean())
+                    agency_lon = float(agency_stops["stop_lon"].mean())
+                else:
+                    agency_lat, agency_lon = feed_lat, feed_lon
+            else:
+                agency_lat, agency_lon = feed_lat, feed_lon
+
+            try:
+                ntd_match = match_agency_to_ntd(
+                    agency_name,
+                    agency_lat,
+                    agency_lon,
+                    agency_id=gtfs_agency_id,
+                )
+                ntd_id = ntd_match["NTD_ID"]
+                if ntd_id not in matched_ntd_ids:
+                    matched_ntd_ids.append(ntd_id)
+                logger.info(
+                    "Matched GTFS agency '%s' to NTD ID %s ('%s').",
+                    agency_name,
+                    ntd_id,
+                    ntd_match["Agency_Name"],
+                )
+            except ValueError:
+                logger.warning(
+                    "Could not match GTFS agency '%s' to an NTD record; "
+                    "its trips will fall back to the nearest available facility.",
+                    agency_name,
+                )
+
+        try:
+            depots_gdf = load_ntd_facilities(
+                ntd_ids=matched_ntd_ids if matched_ntd_ids else None
+            )
+        except (FileNotFoundError, ValueError):
+            if matched_ntd_ids:
+                logger.warning(
+                    "No NTD facilities found for matched NTD IDs %s; "
+                    "falling back to all bus facilities.",
+                    matched_ntd_ids,
+                )
+                depots_gdf = load_ntd_facilities()
+            else:
+                raise
+
         # Infer depot locations for each block's first and last stops
-        depot_shapefile = self.depot_path / "Transit_Depot.shp"
-        first_stops_gdf, last_stops_gdf = infer_depot_trip_endpoints(
-            self.trips, self.feed, depot_shapefile
+        first_stops_gdf, last_stops_gdf, depots_df = infer_depot_trip_endpoints(
+            self.trips, self.feed, depots_gdf
         )
 
         # Create stop_times and stops for depot deadhead trips
@@ -856,6 +923,7 @@ class GTFSEnergyPredictor:
             "deadhead_stops": deadhead_stops,
             "first_stops_gdf": first_stops_gdf,
             "last_stops_gdf": last_stops_gdf,
+            "fta_depots": depots_df,
         }
 
     def _route_depot_deadhead(self, metadata: dict[str, Any]) -> None:
@@ -872,6 +940,7 @@ class GTFSEnergyPredictor:
         deadhead_stops = metadata["deadhead_stops"]
         first_stops_gdf = metadata["first_stops_gdf"]
         last_stops_gdf = metadata["last_stops_gdf"]
+        fta_depots = metadata.get("fta_depots")
 
         logger.info("Routing depot deadhead trips...")
 
@@ -939,20 +1008,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -975,6 +1035,19 @@ class GTFSEnergyPredictor:
             trip_counts
         )
         deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
+
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
+        if fta_depots is not None and self._fta_depots.empty:
+            self._fta_depots = fta_depots
 
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
@@ -1430,6 +1503,7 @@ class GTFSEnergyPredictor:
         output_dir: str | Path | None = None,
         save_geometry: bool = True,
         save_inputs: bool = False,
+        save_tods: bool = True,
     ) -> None:
         """
         Save prediction results to CSV files.
@@ -1439,6 +1513,9 @@ class GTFSEnergyPredictor:
                 defaulting to the current working directory if that is also None.
             save_geometry: Whether to save link geometry separately
             save_inputs: Whether to save RouteE input features
+            save_tods: Whether to write TODS supplement files for deadhead trips.
+                Files are written to a ``tods/`` subdirectory. Has no effect if
+                no deadhead trips were added.
 
         Raises:
             RuntimeError: If no predictions have been generated yet
@@ -1489,10 +1566,25 @@ class GTFSEnergyPredictor:
             logger.info(f"Saved trip predictions to {trip_path}")
 
         # Save RouteE inputs
-        if save_inputs and self.routee_inputs is not None:
+        if save_inputs and not self.routee_inputs.empty:
             inputs_df = self.routee_inputs.copy()
             if "geom" in inputs_df.columns:
                 inputs_df = inputs_df.drop(columns="geom")
             inputs_path = output_path / "routee_inputs.csv"
             inputs_df.to_csv(inputs_path, index=False)
             logger.info(f"Saved RouteE inputs to {inputs_path}")
+
+        # Save TODS supplement files for inferred deadhead trips
+        if save_tods and not self._deadhead_trips.empty:
+            assert self.feed is not None, "GTFS feed must be loaded"
+            tods_dir = output_path / "tods"
+            write_tods_deadhead(
+                deadhead_trips=self._deadhead_trips,
+                deadhead_stop_times=self._deadhead_stop_times,
+                deadhead_stops=self._deadhead_stops,
+                shapes=self.shapes,
+                gtfs_stops=self._gtfs_stops,
+                output_dir=tods_dir,
+                fta_depots=self._fta_depots if not self._fta_depots.empty else None,
+            )
+            logger.info(f"Saved TODS supplement files to {tods_dir}")

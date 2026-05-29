@@ -1,5 +1,6 @@
 import argparse
 import io
+import logging
 import os
 import zipfile
 from pathlib import Path
@@ -9,7 +10,10 @@ import pandas as pd
 import requests
 from gtfsblocks import Feed
 
+from routee.transit.ntd import match_agency_to_ntd
 from scripts.feeds.extract_static_gtfs import GtfsExtractor
+
+logger = logging.getLogger(__name__)
 
 GTFS_ROUTE_TYPE_BUS = 3
 SINGLE_AGENCY_PLACEHOLDER = "_single_agency_"
@@ -342,6 +346,24 @@ def compute_agency_metrics(
         adist = avg_distance.get(lookup_key)
         loc = agency_location.get(lookup_key)
 
+        # Attempt NTD agency matching when we have a name and location
+        ntd_agency_id: str | None = None
+        ntd_agency_name: str | None = None
+        ntd_agency_common_name: str | None = None
+        if agency_name and loc is not None:
+            try:
+                ntd_match = match_agency_to_ntd(
+                    agency_name,
+                    loc[0],
+                    loc[1],
+                    agency_id=str(real_id) if real_id is not None else None,
+                )
+                ntd_agency_id = ntd_match["NTD_ID"]
+                ntd_agency_name = ntd_match["Agency_Name"]
+                ntd_agency_common_name = ntd_match["Common_Name"]
+            except ValueError:
+                logger.debug("Could not match agency '%s' to NTD record.", agency_name)
+
         records.append(
             {
                 "dataset_id": dataset_id,
@@ -364,6 +386,9 @@ def compute_agency_metrics(
                 ),
                 "center_latitude": loc[0] if loc is not None else None,
                 "center_longitude": loc[1] if loc is not None else None,
+                "ntd_agency_id": ntd_agency_id,
+                "ntd_agency_name": ntd_agency_name,
+                "ntd_agency_common_name": ntd_agency_common_name,
             }
         )
 

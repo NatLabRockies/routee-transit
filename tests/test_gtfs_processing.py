@@ -1,11 +1,13 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
+
 from routee.transit.gtfs_processing import (
-    upsample_shape,
     add_stop_flags_to_shape,
     estimate_trip_timestamps,
     extend_trip_traces,
+    upsample_shape,
 )
 
 

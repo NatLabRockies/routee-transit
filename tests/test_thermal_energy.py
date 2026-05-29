@@ -1,15 +1,17 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
-import pandas as pd
-import numpy as np
+
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 from shapely.geometry import Point
+
 from routee.transit.thermal_energy import (
-    load_thermal_lookup_table,
-    compute_HVAC_energy,
     add_HVAC_energy,
+    compute_HVAC_energy,
+    load_thermal_lookup_table,
 )
 
 

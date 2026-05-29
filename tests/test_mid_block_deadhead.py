@@ -1,9 +1,11 @@
 import unittest
-import pandas as pd
 from unittest.mock import MagicMock
+
+import pandas as pd
+
 from routee.transit.mid_block_deadhead import (
-    create_mid_block_deadhead_trips,
     create_mid_block_deadhead_stops,
+    create_mid_block_deadhead_trips,
 )
 
 
@@ -57,6 +59,9 @@ class TestMidBlockDeadhead(unittest.TestCase):
         self.assertEqual(deadhead_trips.iloc[0]["trip_id"], "T1_to_T2")
         self.assertEqual(deadhead_trips.iloc[0]["trip_type"], "mid_block_deadhead")
         self.assertEqual(deadhead_trips.iloc[0]["block_id"], "B1")
+        # Route ID encodes last stop of from_trip → first stop of to_trip
+        # T1 last stop is S2, T2 first stop is S3
+        self.assertEqual(deadhead_trips.iloc[0]["route_id"], "deadhead_S2_to_S3")
 
     def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(
@@ -82,11 +87,8 @@ class TestMidBlockDeadhead(unittest.TestCase):
         self.assertEqual(len(stop_times), 2)
         self.assertEqual(stop_times.iloc[0]["trip_id"], "T1_to_T2")
 
-        # Verify locations in stops df
-        # T1 last stop is S2 (40.1, -105.1)
-        # T2 first stop is S3 (40.2, -105.2)
-        self.assertIn(40.1, stops["stop_lat"].values)
-        self.assertIn(40.2, stops["stop_lat"].values)
+        # Mid-block endpoints are existing GTFS stops — no new stops added
+        self.assertEqual(len(stops), 0)
 
         # Verify ODs
         self.assertEqual(len(ods), 1)

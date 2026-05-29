@@ -4,9 +4,9 @@ from typing import Any
 import geopandas as gpd
 import pandas as pd
 import shapely
+from nrel.routee.compass.utils.geometry import geometry_from_route
 
 from .compass_app import TransitCompassApp
-from nrel.routee.compass.utils.geometry import geometry_from_route
 
 log = logging.getLogger(__name__)
 
@@ -175,7 +175,6 @@ def create_deadhead_shapes(
     # Step 5: Route far O-D pairs with CompassApp
     if len(far_ods) > 0:
         queries = []
-        od_keys = []
         for _, row in far_ods.iterrows():
             queries.append(
                 {
@@ -187,15 +186,50 @@ def create_deadhead_shapes(
                     "weights": {"trip_time": 1.0},
                 }
             )
-            od_keys.append(row["od_key"])
+
+        far_rows_by_key: dict[str, dict[str, float]] = {
+            str(row["od_key"]): {
+                "origin_x": float(row["origin_x"]),
+                "origin_y": float(row["origin_y"]),
+                "dest_x": float(row["dest_x"]),
+                "dest_y": float(row["dest_y"]),
+            }
+            for _, row in far_ods.iterrows()
+        }
 
         # Run queries in parallel
         results = app.run(queries)
         if isinstance(results, dict):
             results = [results]
 
+        processed_keys: set[str] = set()
+
         # Process routing results
-        for od_key, result, (_, row) in zip(od_keys, results, far_ods.iterrows()):
+        for result in results:
+            req = result.get("request", {})
+            try:
+                od_key = _create_od_key(
+                    float(req["origin_x"]),
+                    float(req["origin_y"]),
+                    float(req["destination_x"]),
+                    float(req["destination_y"]),
+                )
+            except (KeyError, TypeError, ValueError):
+                log.warning(
+                    "CompassApp returned a result without parseable request O-D; "
+                    "skipping this response."
+                )
+                continue
+
+            od_info = far_rows_by_key.get(od_key)
+            if od_info is None:
+                log.warning(
+                    f"CompassApp returned an unmatched O-D result for key {od_key}; "
+                    "skipping this response."
+                )
+                continue
+            processed_keys.add(od_key)
+
             if "error" in result or result.get("route") is None:
                 cp_error = result.get("error", "No route found")
                 log.warning(
@@ -203,10 +237,10 @@ def create_deadhead_shapes(
                     "Creating a straight-line fallback route."
                 )
                 rows = route_single_trip_fallback(
-                    row["origin_x"],
-                    row["origin_y"],
-                    row["dest_x"],
-                    row["dest_y"],
+                    od_info["origin_x"],
+                    od_info["origin_y"],
+                    od_info["dest_x"],
+                    od_info["dest_y"],
                     od_key,
                 )
                 shape_rows.extend(rows)
@@ -220,10 +254,10 @@ def create_deadhead_shapes(
                     "Creating a straight-line fallback route."
                 )
                 rows = route_single_trip_fallback(
-                    row["origin_x"],
-                    row["origin_y"],
-                    row["dest_x"],
-                    row["dest_y"],
+                    od_info["origin_x"],
+                    od_info["origin_y"],
+                    od_info["dest_x"],
+                    od_info["dest_y"],
                     od_key,
                 )
                 shape_rows.extend(rows)
@@ -245,6 +279,24 @@ def create_deadhead_shapes(
                     }
                 )
                 prev_lat, prev_lon = lat, lon
+
+        # Ensure every requested far O-D gets a shape, even if Compass omitted
+        # a response or returned an unparsable one.
+        missing_keys = set(far_rows_by_key) - processed_keys
+        for od_key in missing_keys:
+            od_info = far_rows_by_key[od_key]
+            log.warning(
+                f"CompassApp returned no usable result for od_key {od_key}. "
+                "Creating a straight-line fallback route."
+            )
+            rows = route_single_trip_fallback(
+                od_info["origin_x"],
+                od_info["origin_y"],
+                od_info["dest_x"],
+                od_info["dest_y"],
+                od_key,
+            )
+            shape_rows.extend(rows)
 
     # Step 6: Build output DataFrames
     shapes_df = pd.DataFrame(

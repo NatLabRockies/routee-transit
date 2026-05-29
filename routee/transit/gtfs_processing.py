@@ -4,23 +4,43 @@ if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
 
 import datetime
+import importlib.resources
 import logging
 import multiprocessing as mp
 from functools import partial
-
 from pathlib import Path
+
 import geopandas as gpd
 import pandas as pd
+import tomlkit
 from geopy.distance import great_circle
 from gtfsblocks import Feed
-import importlib.resources
-import tomlkit
+from pandas.api.typing import NaTType
 
 logger = logging.getLogger("gtfs_processing")
 
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def timedelta_to_gtfs_time(td: pd.Timedelta | NaTType) -> str:
+    """Convert a timedelta-like value to GTFS HH:MM:SS.
+
+    GTFS times may exceed 24:00:00 for service that runs past midnight.
+    NaT values are converted to an empty string.
+    """
+    if isinstance(td, NaTType):
+        return ""
+    if not isinstance(td, pd.Timedelta):
+        raise TypeError(
+            "timedelta_to_gtfs_time only accepts pandas Timedelta or NaTType"
+        )
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
 def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:

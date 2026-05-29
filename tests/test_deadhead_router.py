@@ -6,9 +6,9 @@ import pandas as pd
 from shapely.geometry import Point
 
 from routee.transit.deadhead_router import (
+    _haversine_km,
     create_deadhead_shapes,
     route_single_trip_fallback,
-    _haversine_km,
 )
 
 
@@ -44,7 +44,17 @@ class TestDeadheadRouter(unittest.TestCase):
         from shapely.geometry import LineString
 
         # Setup mock app
-        self.app.run.return_value = [{"route": {"path": "mock_path"}}]
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path"},
+            }
+        ]
         mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
 
         df = gpd.GeoDataFrame(
@@ -81,7 +91,17 @@ class TestDeadheadRouter(unittest.TestCase):
         geom = LineString([(-105.0, 39.0), (-104.95, 39.05), (-104.9, 39.1)])
         mock_geom_from_route.return_value = geom
 
-        self.app.run.return_value = [{"route": {"path": "mock_path"}}]
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path"},
+            }
+        ]
 
         df = gpd.GeoDataFrame(
             {
@@ -110,7 +130,15 @@ class TestDeadheadRouter(unittest.TestCase):
         # Test with multiple trips that have the SAME O-D pair
         # Should only route once due to deduplication
         self.app.run.return_value = [
-            {"route": {"path": "mock_path_1"}},
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path_1"},
+            },
         ]
         mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
 
@@ -139,7 +167,17 @@ class TestDeadheadRouter(unittest.TestCase):
         self, mock_log: MagicMock
     ) -> None:
         # Test that a compass error triggers a fallback and a warning log
-        self.app.run.return_value = [{"error": "Something went wrong"}]
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "error": "Something went wrong",
+            }
+        ]
 
         df = gpd.GeoDataFrame(
             {
@@ -161,7 +199,17 @@ class TestDeadheadRouter(unittest.TestCase):
         self, mock_geom_from_route: MagicMock
     ) -> None:
         # Test that geometry parsing failure raises an error
-        self.app.run.return_value = [{"route": {"path": "corrupt"}}]
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "corrupt"},
+            }
+        ]
         mock_geom_from_route.side_effect = ValueError("Parsing failed")
 
         df = gpd.GeoDataFrame(
@@ -175,3 +223,81 @@ class TestDeadheadRouter(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             create_deadhead_shapes(self.app, df)
         self.assertEqual(str(cm.exception), "Parsing failed")
+
+    @patch("routee.transit.deadhead_router.geometry_from_route")
+    def test_create_deadhead_shapes_out_of_order_results(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
+        from shapely.geometry import LineString
+
+        # Two distinct O-D pairs
+        o1 = Point(-105.0, 39.0)
+        d1 = Point(-104.9, 39.1)
+        o2 = Point(-106.0, 40.0)
+        d2 = Point(-105.8, 40.2)
+
+        df = gpd.GeoDataFrame(
+            {
+                "block_id": ["B1", "B2"],
+                "geometry_origin": [o1, o2],
+                "geometry_destination": [d1, d2],
+            }
+        )
+
+        # Compass can return responses out of input order.
+        # Result 0 corresponds to B2, result 1 corresponds to B1.
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -106.0,
+                    "origin_y": 40.0,
+                    "destination_x": -105.8,
+                    "destination_y": 40.2,
+                },
+                "route": {"path": "route_b2"},
+            },
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "route_b1"},
+            },
+        ]
+
+        def _geom_for_path(route: dict[str, str]) -> LineString:
+            if route["path"] == "route_b1":
+                return LineString([(-105.0, 39.0), (-104.9, 39.1)])
+            return LineString([(-106.0, 40.0), (-105.8, 40.2)])
+
+        mock_geom_from_route.side_effect = _geom_for_path
+
+        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+
+        b1_shape_id = od_mapping.loc[od_mapping["block_id"] == "B1", "shape_id"].iloc[0]
+        b2_shape_id = od_mapping.loc[od_mapping["block_id"] == "B2", "shape_id"].iloc[0]
+
+        b1_rows = shapes_df[shapes_df["shape_id"] == b1_shape_id].sort_values(
+            "shape_pt_sequence"
+        )
+        b2_rows = shapes_df[shapes_df["shape_id"] == b2_shape_id].sort_values(
+            "shape_pt_sequence"
+        )
+
+        # B1 keeps B1's geometry endpoints
+        self.assertAlmostEqual(float(b1_rows.iloc[0]["shape_pt_lon"]), -105.0, places=6)
+        self.assertAlmostEqual(float(b1_rows.iloc[0]["shape_pt_lat"]), 39.0, places=6)
+        self.assertAlmostEqual(
+            float(b1_rows.iloc[-1]["shape_pt_lon"]), -104.9, places=6
+        )
+        self.assertAlmostEqual(float(b1_rows.iloc[-1]["shape_pt_lat"]), 39.1, places=6)
+
+        # B2 keeps B2's geometry endpoints
+        self.assertAlmostEqual(float(b2_rows.iloc[0]["shape_pt_lon"]), -106.0, places=6)
+        self.assertAlmostEqual(float(b2_rows.iloc[0]["shape_pt_lat"]), 40.0, places=6)
+        self.assertAlmostEqual(
+            float(b2_rows.iloc[-1]["shape_pt_lon"]), -105.8, places=6
+        )
+        self.assertAlmostEqual(float(b2_rows.iloc[-1]["shape_pt_lat"]), 40.2, places=6)

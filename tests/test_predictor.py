@@ -1,8 +1,9 @@
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from pathlib import Path
+
 from routee.transit.predictor import (
     GGE_PER_GALLON_DIESEL,
     KWH_PER_GGE,
