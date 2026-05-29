@@ -64,7 +64,7 @@ _OD_KEY_PRECISION = 3
 # ---------------------------------------------------------------------------
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc,unused-ignore]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator,unused-ignore]
 def load_tods(tods_dir: str) -> dict[str, pd.DataFrame]:
     """Load TODS supplement files and depot_metadata.csv from *tods_dir*."""
     p = Path(tods_dir)
@@ -95,7 +95,7 @@ def load_tods(tods_dir: str) -> dict[str, pd.DataFrame]:
     return out
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc,unused-ignore]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator,unused-ignore]
 def load_gtfs(gtfs_dir: str) -> dict[str, pd.DataFrame]:
     """Load GTFS files needed for revenue trip display."""
     p = Path(gtfs_dir)
@@ -125,7 +125,7 @@ def load_gtfs(gtfs_dir: str) -> dict[str, pd.DataFrame]:
     return out
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc,unused-ignore]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator,unused-ignore]
 def load_output(output_dir: str) -> dict[str, pd.DataFrame]:
     """Load routee-transit output files from the parent of the TODS directory.
 
@@ -161,7 +161,7 @@ def load_output(output_dir: str) -> dict[str, pd.DataFrame]:
     return out
 
 
-@st.cache_data(show_spinner=False)  # type: ignore[misc,unused-ignore]
+@st.cache_data(show_spinner=False)  # type: ignore[untyped-decorator,unused-ignore]
 def load_ntd_for_agency(ntd_id: str) -> pd.DataFrame | None:
     """Return all NTD bus depot facilities for *ntd_id* as a plain DataFrame.
 
