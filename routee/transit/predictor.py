@@ -849,9 +849,10 @@ class GTFSEnergyPredictor:
             gtfs_agency_id = str(agency_row["agency_id"]) if has_agency_id else None
 
             # Compute the centroid of stops served by this agency's trips.
+            # Note: self.feed.routes has route_id as its index, not a column.
             if gtfs_agency_id is not None and routes_has_agency_id:
-                agency_route_ids = self.feed.routes.loc[
-                    self.feed.routes["agency_id"] == gtfs_agency_id, "route_id"
+                agency_route_ids = self.feed.routes.index[
+                    self.feed.routes["agency_id"] == gtfs_agency_id
                 ]
                 agency_trip_ids = self.trips.loc[
                     self.trips["route_id"].isin(agency_route_ids), "trip_id"
