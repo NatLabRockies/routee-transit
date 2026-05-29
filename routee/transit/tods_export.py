@@ -29,6 +29,8 @@ _TRIP_TYPE_MAP: dict[str, str] = {
     "pull-in": "pull-back",
     "mid_block_deadhead": "deadhead",
 }
+
+
 def write_tods_deadhead(
     deadhead_trips: pd.DataFrame,
     deadhead_stop_times: pd.DataFrame,

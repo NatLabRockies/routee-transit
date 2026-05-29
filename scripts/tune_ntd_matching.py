@@ -17,10 +17,11 @@ from __future__ import annotations
 import itertools
 import time
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
 from geopy.distance import geodesic
+from numpy.typing import NDArray
 from rapidfuzz.fuzz import WRatio
 
 from routee.transit.ntd import (

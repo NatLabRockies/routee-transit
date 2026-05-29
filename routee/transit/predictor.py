@@ -72,6 +72,8 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
         "gge_per_unit": GGE_PER_GALLON_DIESEL,
     },
 }
+
+
 class GTFSEnergyPredictor:
     """
     Predict transit bus energy consumption from GTFS data.
@@ -197,9 +199,7 @@ class GTFSEnergyPredictor:
         trip_times["start_time"] = trip_times["start_time"].apply(
             timedelta_to_gtfs_time
         )
-        trip_times["end_time"] = trip_times["end_time"].apply(
-            timedelta_to_gtfs_time
-        )
+        trip_times["end_time"] = trip_times["end_time"].apply(timedelta_to_gtfs_time)
 
         self.trips = self.trips.merge(
             trip_times[["start_time", "end_time", "trip_duration_minutes"]],

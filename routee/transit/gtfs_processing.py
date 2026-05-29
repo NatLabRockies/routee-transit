@@ -13,9 +13,9 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import tomlkit
-from pandas.api.typing import NaTType
 from geopy.distance import great_circle
 from gtfsblocks import Feed
+from pandas.api.typing import NaTType
 
 logger = logging.getLogger("gtfs_processing")
 
