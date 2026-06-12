@@ -22,6 +22,8 @@ import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
+from shapely.geometry import LineString
+from shapely.ops import unary_union
 
 from routee.transit.compass_app import TransitCompassApp
 from routee.transit.deadhead_router import create_deadhead_shapes
@@ -411,17 +413,32 @@ class GTFSEnergyPredictor:
 
     def load_compass_app(
         self,
-        buffer_deg: float = 0.05,
+        buffer_deg: float = 0.01,
+        deadhead_buffer_deg: float = 0.05,
         n_processes: int | None = None,
         extra_geoms: list[gpd.GeoDataFrame | pd.DataFrame] | None = None,
     ) -> None:
         """
-        Initialize the CompassApp using the bounding box of the loaded shapes.
+        Initialize the CompassApp using a buffered corridor polygon of the loaded shapes.
+
+        Instead of downloading the entire rectangular bounding box of all
+        shapes (which wastes memory for long/diagonal routes), this method
+        builds a corridor polygon by buffering the actual shape geometries.
+        The polygon is passed to ``ox.graph_from_polygon`` so only road
+        network data near the transit routes is downloaded.
 
         Args:
-            buffer_deg: Buffer in degrees to add to the bounding box.
+            buffer_deg: Buffer in degrees to add around each shape geometry.
+                Default 0.01 (~1.1 km). Increase if map matching fails for
+                shapes near the corridor edge.
+            deadhead_buffer_deg: Buffer in degrees to add around deadhead
+                and extra geometries (depot locations, O-D segments).
+                Default 0.05 (~5.5 km). Larger than buffer_deg because
+                Compass must route these paths itself rather than
+                map-matching from known GTFS shapes.
             n_processes: Number of processes for parallelism.
-            extra_geoms: Optional list of GeoDataFrames or DataFrames with geometry to include in bbox.
+            extra_geoms: Optional list of GeoDataFrames or DataFrames with
+                geometry to include in the download polygon.
         """
         if n_processes is not None:
             self.n_processes = n_processes
@@ -431,51 +448,53 @@ class GTFSEnergyPredictor:
                 "Must load GTFS data (and shapes) before initializing CompassApp"
             )
 
-        # Calculate requested bounding box
-        lons = [
-            float(self.shapes.shape_pt_lon.min()),
-            float(self.shapes.shape_pt_lon.max()),
-        ]
-        lats = [
-            float(self.shapes.shape_pt_lat.min()),
-            float(self.shapes.shape_pt_lat.max()),
-        ]
+        # Build corridor polygon from GTFS shape geometries
+        shape_lines: list[LineString] = []
+        for _, grp in self.shapes.groupby("shape_id"):
+            coords = list(zip(grp["shape_pt_lon"], grp["shape_pt_lat"]))
+            if len(coords) >= 2:
+                shape_lines.append(LineString(coords))
 
+        # Include extra geometries (deadhead endpoints, depot locations)
+        extra_points: list[LineString] = []
         if extra_geoms:
             for df in extra_geoms:
-                if isinstance(df, gpd.GeoDataFrame):
-                    bounds = df.total_bounds
-                    lons.extend([float(bounds[0]), float(bounds[2])])
-                    lats.extend([float(bounds[1]), float(bounds[3])])
+                if isinstance(df, gpd.GeoDataFrame) and not df.empty:
+                    # Buffer the bounding box of the GeoDataFrame as a line
+                    bounds = df.total_bounds  # (minx, miny, maxx, maxy)
+                    extra_points.append(
+                        LineString(
+                            [
+                                (bounds[0], bounds[1]),
+                                (bounds[2], bounds[1]),
+                                (bounds[2], bounds[3]),
+                                (bounds[0], bounds[3]),
+                            ]
+                        )
+                    )
                 elif (
                     isinstance(df, pd.DataFrame)
                     and "geometry_origin" in df.columns
                     and "geometry_destination" in df.columns
                 ):
-                    # Handle deadhead O-D dataframes
-                    for col in ["geometry_origin", "geometry_destination"]:
-                        lons.extend(
-                            [
-                                df[col].apply(lambda p: p.x).min(),
-                                df[col].apply(lambda p: p.x).max(),
-                            ]
-                        )
-                        lats.extend(
-                            [
-                                df[col].apply(lambda p: p.y).min(),
-                                df[col].apply(lambda p: p.y).max(),
-                            ]
+                    # Include deadhead O-D points as line segments
+                    for _, row in df.iterrows():
+                        orig = row["geometry_origin"]
+                        dest = row["geometry_destination"]
+                        extra_points.append(
+                            LineString([(orig.x, orig.y), (dest.x, dest.y)])
                         )
 
-        min_lon, max_lon = min(lons), max(lons)
-        min_lat, max_lat = min(lats), max(lats)
+        # Buffer each line individually then union (faster than union-then-buffer)
+        # Use smaller buffer for GTFS shapes (map-matched) and larger buffer
+        # for deadhead segments (routed by Compass, needs more network coverage)
+        buffered = [line.buffer(buffer_deg) for line in shape_lines]
+        buffered += [line.buffer(deadhead_buffer_deg) for line in extra_points]
+        corridor_polygon = unary_union(buffered)
 
-        new_bbox = (
-            float(min_lon) - buffer_deg,
-            float(min_lat) - buffer_deg,
-            float(max_lon) + buffer_deg,
-            float(max_lat) + buffer_deg,
-        )
+        # Compute bounding box for cache-invalidation checks
+        bounds = corridor_polygon.bounds  # (minx, miny, maxx, maxy)
+        new_bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
 
         if self._bbox is not None and (
             new_bbox[0] < self._bbox[0]
@@ -483,10 +502,9 @@ class GTFSEnergyPredictor:
             or new_bbox[2] > self._bbox[2]
             or new_bbox[3] > self._bbox[3]
         ):
-            # If the user has not set overwrite to True, we warn them that their results may be outside the map bounds
             if not self.overwrite:
                 logger.warning(
-                    "Some geometries are outside the current CompassApp bounding box. "
+                    "Some geometries are outside the current CompassApp polygon. "
                     "Routing may fail. Set overwrite=True in GTFSEnergyPredictor to reload the map."
                 )
 
@@ -540,10 +558,13 @@ class GTFSEnergyPredictor:
             logger.info(f"Clearing CompassApp cache at {cache_dir}")
             shutil.rmtree(cache_dir)
 
-        logger.info(f"Building CompassApp from bounding box: {new_bbox}")
+        logger.info(
+            f"Building CompassApp from corridor polygon "
+            f"(bounds: {new_bbox}, buffer: {buffer_deg}°, deadhead_buffer: {deadhead_buffer_deg}°)"
+        )
 
-        graph = ox.graph_from_bbox(
-            bbox=new_bbox,
+        graph = ox.graph_from_polygon(
+            corridor_polygon,
             network_type="drive",
         )
         self.app = cast(
