@@ -1135,7 +1135,10 @@ class GTFSEnergyPredictor:
         logger.info("Matching shapes to road network...")
 
         # Step 1: Upsample all shapes to ~1 Hz
-        shape_groups = [group for _, group in self.shapes.groupby("shape_id")]
+        shape_groups = [
+            group.sort_values("shape_pt_sequence")
+            for _, group in self.shapes.groupby("shape_id")
+        ]
         with mp.Pool(self.n_processes) as pool:
             upsampled_shapes = pool.map(upsample_shape, shape_groups)
 
