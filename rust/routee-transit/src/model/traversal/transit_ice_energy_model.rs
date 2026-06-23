@@ -3,7 +3,9 @@ use routee_compass_core::{
     model::{
         network::{Edge, EdgeId, Vertex},
         state::{InputFeature, StateModel, StateVariable, StateVariableConfig},
-        traversal::{TraversalModel, TraversalModelError, TraversalModelService},
+        traversal::{
+            EdgeFrontierContext, TraversalModel, TraversalModelError, TraversalModelService,
+        },
         unit::{EnergyRateUnit, EnergyUnit},
     },
 };
@@ -129,12 +131,11 @@ impl TraversalModel for TransitIceEnergyModel {
 
     fn traverse_edge(
         &self,
-        trajectory: (&Vertex, &Edge, &Vertex),
+        ctx: &EdgeFrontierContext,
         state: &mut Vec<StateVariable>,
-        _tree: &SearchTree,
         state_model: &StateModel,
     ) -> Result<(), TraversalModelError> {
-        let (_src, edge, _dst) = trajectory;
+        let edge = ctx.edge;
 
         // Generate energy for link traversal using the prediction model
         let base_energy = self.prediction_model_record.predict(state, state_model)?;
