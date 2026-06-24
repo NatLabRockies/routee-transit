@@ -232,5 +232,7 @@ def create_mid_block_deadhead_stops(
     return (
         stop_times_df,
         stops_df,
-        deadhead_trips[["geometry_origin", "geometry_destination", "block_id"]],
+        deadhead_trips[
+            ["geometry_origin", "geometry_destination", "block_id", "departure_time"]
+        ],
     )

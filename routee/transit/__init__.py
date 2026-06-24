@@ -2,6 +2,7 @@ from pathlib import Path
 
 __all__ = [
     "GTFSEnergyPredictor",
+    "build_corridor_polygon",
     "create_deadhead_shapes",
     "add_HVAC_energy",
     "write_tods_deadhead",
@@ -13,6 +14,7 @@ __all__ = [
 ]
 
 from .deadhead_router import create_deadhead_shapes
+from .gtfs_processing import build_corridor_polygon
 from .ntd import (
     NTDAgencyMatch,
     load_ntd_facilities,

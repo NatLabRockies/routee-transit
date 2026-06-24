@@ -28,6 +28,65 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * c
 
 
+_WEEKDAYS = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
+
+
+def _gtfs_time_to_query_time(
+    departure: Any, base_weekday: str | None
+) -> tuple[str, str] | None:
+    """
+    Convert a GTFS departure time into a Compass ``(start_time, start_weekday)`` pair.
+
+    GTFS times are measured as an offset from the service day's midnight and may
+    exceed ``24:00:00`` for service running past midnight. A
+    ``speed_time_of_day`` traversal model parses ``start_time`` with chrono's
+    ``"%H:%M:%S"`` (hours 0-23 only), so past-midnight offsets are wrapped into the
+    0-23h range and the weekday is rolled forward by the number of whole days.
+
+    Parameters
+    ----------
+    departure :
+        A pandas Timedelta / timedelta-like (offset from service-day midnight).
+        ``NaT``/``None``/negative values yield ``None``.
+    base_weekday :
+        Lower-case weekday name for the service day (e.g. ``"wednesday"``). When
+        ``None`` or unrecognized, defaults to ``"monday"``.
+
+    Returns
+    -------
+    tuple[str, str] | None
+        ``(start_time "HH:MM:SS", start_weekday)`` or ``None`` when no usable time.
+    """
+    if departure is None:
+        return None
+    td = pd.to_timedelta(departure, errors="coerce")
+    if td is pd.NaT or pd.isna(td):
+        return None
+    total_seconds = int(td.total_seconds())
+    if total_seconds < 0:
+        return None
+
+    days, remainder = divmod(total_seconds, 86400)
+    hours = remainder // 3600
+    minutes = (remainder % 3600) // 60
+    seconds = remainder % 60
+    start_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+    base = (base_weekday or "monday").lower()
+    if base not in _WEEKDAYS:
+        base = "monday"
+    weekday = _WEEKDAYS[(_WEEKDAYS.index(base) + days) % 7]
+    return start_time, weekday
+
+
 def _create_od_key(
     origin_x: float, origin_y: float, dest_x: float, dest_y: float, precision: int = 3
 ) -> str:
@@ -94,6 +153,8 @@ def create_deadhead_shapes(
     o_col: str = "geometry_origin",
     d_col: str = "geometry_destination",
     min_distance_m: float = 200.0,
+    start_weekday: str | None = None,
+    time_col: str = "departure_time",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute deadhead route shapes for unique origin-destination pairs.
@@ -116,6 +177,25 @@ def create_deadhead_shapes(
     min_distance_m : float, optional
         Minimum distance in meters between O and D to perform routing.
         O-D pairs closer than this use straight-line fallback. (default: 200.0)
+    start_weekday : str, optional
+        Lower-case weekday name for the service day (e.g. ``"wednesday"``), used
+        to populate the ``start_weekday`` field of each routing query. Defaults to
+        ``"monday"`` when not provided. Required (together with a per-row
+        departure time) by time-of-day traversal models such as the
+        ``speed_time_of_day`` model, which reject queries missing ``start_time``.
+    time_col : str, optional
+        Name of the column in ``df`` holding each row's GTFS departure time
+        (offset from the service day's midnight). When present, the departure time
+        of the first trip seen for each unique O-D pair is attached to that pair's
+        query as ``start_time``/``start_weekday``. (default: ``"departure_time"``)
+
+    Notes
+    -----
+    O-D pairs are de-duplicated before routing, so when several trips share an O-D
+    pair the representative departure time of the first such trip is used for the
+    shared shape. This is sufficient for shape geometry (which is essentially
+    time-independent); time-of-day energy is computed later from the actual GTFS
+    timestamps sampled along the resulting shape.
 
     Returns
     -------
@@ -143,6 +223,10 @@ def create_deadhead_shapes(
                 "dest_x": float(destination.x),
                 "dest_y": float(destination.y),
                 "distance_m": distance_km * 1000,
+                # Representative GTFS departure time for this O-D pair, used to
+                # populate start_time on time-of-day routing queries (NaT when the
+                # input lacks the column).
+                "departure_time": r.get(time_col, pd.NaT),
             }
         )
 
@@ -176,16 +260,23 @@ def create_deadhead_shapes(
     if len(far_ods) > 0:
         queries = []
         for _, row in far_ods.iterrows():
-            queries.append(
-                {
-                    "origin_x": row["origin_x"],
-                    "origin_y": row["origin_y"],
-                    "destination_x": row["dest_x"],
-                    "destination_y": row["dest_y"],
-                    "model_name": "Transit_Bus_Battery_Electric",
-                    "weights": {"trip_time": 1.0},
-                }
-            )
+            query: dict[str, Any] = {
+                "origin_x": row["origin_x"],
+                "origin_y": row["origin_y"],
+                "destination_x": row["dest_x"],
+                "destination_y": row["dest_y"],
+                "model_name": "Transit_Bus_Battery_Electric",
+                "weights": {"trip_time": 1.0},
+            }
+            # Time-of-day traversal models (e.g. speed_time_of_day) require
+            # a start_time/start_weekday on every query; supply them from the
+            # GTFS departure time when available, falling back to midday so the
+            # query still builds when a trip's departure time is missing.
+            time_pair = _gtfs_time_to_query_time(
+                row.get("departure_time"), start_weekday
+            ) or ("12:00:00", (start_weekday or "monday"))
+            query["start_time"], query["start_weekday"] = time_pair
+            queries.append(query)
 
         far_rows_by_key: dict[str, dict[str, float]] = {
             str(row["od_key"]): {
