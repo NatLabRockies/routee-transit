@@ -25,8 +25,8 @@ from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 from routee.transit.compass_app import TransitCompassApp
 from routee.transit.deadhead_router import (
-    _gtfs_time_to_query_time,
     create_deadhead_shapes,
+    gtfs_time_to_query_time,
 )
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
@@ -1096,7 +1096,7 @@ class GTFSEnergyPredictor:
             deltas = pd.to_timedelta(group["start_time"], errors="coerce").dropna()
             if deltas.empty:
                 continue
-            time_pair = _gtfs_time_to_query_time(deltas.min(), self._service_weekday)
+            time_pair = gtfs_time_to_query_time(deltas.min(), self._service_weekday)
             if time_pair is not None:
                 start_times[str(shape_id)] = time_pair
         return start_times

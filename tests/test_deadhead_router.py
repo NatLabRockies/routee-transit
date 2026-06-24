@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from routee.transit.deadhead_router import (
     _haversine_km,
     create_deadhead_shapes,
+    gtfs_time_to_query_time,
     route_single_trip_fallback,
 )
 
@@ -301,3 +302,137 @@ class TestDeadheadRouter(unittest.TestCase):
             float(b2_rows.iloc[-1]["shape_pt_lon"]), -105.8, places=6
         )
         self.assertAlmostEqual(float(b2_rows.iloc[-1]["shape_pt_lat"]), 40.2, places=6)
+
+    @patch("routee.transit.deadhead_router.geometry_from_route")
+    def test_create_deadhead_shapes_injects_start_time(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
+        from shapely.geometry import LineString
+
+        # A single far O-D pair (~14 km apart) that gets routed via app.run.
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path"},
+            }
+        ]
+        mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
+
+        df = gpd.GeoDataFrame(
+            {
+                "block_id": ["B1"],
+                "geometry_origin": [Point(-105.0, 39.0)],
+                "geometry_destination": [Point(-104.9, 39.1)],
+                # 8 AM departure on the service day.
+                "departure_time": [pd.Timedelta(hours=8)],
+            }
+        )
+
+        create_deadhead_shapes(self.app, df, start_weekday="wednesday")
+
+        # The routing query handed to app.run must carry the time-of-day fields.
+        queries = self.app.run.call_args[0][0]
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(queries[0]["start_time"], "08:00:00")
+        self.assertEqual(queries[0]["start_weekday"], "wednesday")
+
+    @patch("routee.transit.deadhead_router.geometry_from_route")
+    def test_create_deadhead_shapes_post_midnight_rolls_weekday(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
+        from shapely.geometry import LineString
+
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path"},
+            }
+        ]
+        mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
+
+        df = gpd.GeoDataFrame(
+            {
+                "block_id": ["B1"],
+                "geometry_origin": [Point(-105.0, 39.0)],
+                "geometry_destination": [Point(-104.9, 39.1)],
+                # 25:00:00 GTFS time = 1 AM the following service day.
+                "departure_time": [pd.Timedelta(hours=25)],
+            }
+        )
+
+        create_deadhead_shapes(self.app, df, start_weekday="wednesday")
+
+        queries = self.app.run.call_args[0][0]
+        self.assertEqual(queries[0]["start_time"], "01:00:00")
+        # The whole-day offset rolls the weekday forward.
+        self.assertEqual(queries[0]["start_weekday"], "thursday")
+
+    @patch("routee.transit.deadhead_router.geometry_from_route")
+    def test_create_deadhead_shapes_missing_departure_time_falls_back(
+        self, mock_geom_from_route: MagicMock
+    ) -> None:
+        from shapely.geometry import LineString
+
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": "mock_path"},
+            }
+        ]
+        mock_geom_from_route.return_value = LineString([(-105.0, 39.0), (-104.9, 39.1)])
+
+        # No departure_time column at all; the query still gets a valid time pair.
+        df = gpd.GeoDataFrame(
+            {
+                "block_id": ["B1"],
+                "geometry_origin": [Point(-105.0, 39.0)],
+                "geometry_destination": [Point(-104.9, 39.1)],
+            }
+        )
+
+        create_deadhead_shapes(self.app, df, start_weekday="friday")
+
+        queries = self.app.run.call_args[0][0]
+        self.assertEqual(queries[0]["start_time"], "12:00:00")
+        self.assertEqual(queries[0]["start_weekday"], "friday")
+
+    def test_gtfs_time_to_query_time(self) -> None:
+        # Same-day departure: no weekday roll.
+        self.assertEqual(
+            gtfs_time_to_query_time(pd.Timedelta(hours=8, minutes=30), "wednesday"),
+            ("08:30:00", "wednesday"),
+        )
+        # Past-midnight (>24h) wraps the hour and rolls the weekday forward.
+        self.assertEqual(
+            gtfs_time_to_query_time(pd.Timedelta(hours=26), "wednesday"),
+            ("02:00:00", "thursday"),
+        )
+        # Two whole days of offset roll the weekday twice (and wrap the week).
+        self.assertEqual(
+            gtfs_time_to_query_time(pd.Timedelta(hours=49), "sunday"),
+            ("01:00:00", "tuesday"),
+        )
+        # Unknown / missing base weekday defaults to monday.
+        self.assertEqual(
+            gtfs_time_to_query_time(pd.Timedelta(hours=5), None),
+            ("05:00:00", "monday"),
+        )
+        # No usable time yields None.
+        self.assertIsNone(gtfs_time_to_query_time(None, "monday"))
+        self.assertIsNone(gtfs_time_to_query_time(pd.NaT, "monday"))
+        self.assertIsNone(gtfs_time_to_query_time(pd.Timedelta(seconds=-1), "monday"))

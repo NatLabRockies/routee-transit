@@ -19,10 +19,10 @@ pub struct TransitEnergyModelBuilder {}
 
 /// BEV vehicle config. Mirrors `routee_compass_powertrain`'s
 /// `BevEnergyModelConfig`: the prediction-model fields are flattened in and the
-/// transit-specific wrapper fields are declared alongside them. The
-/// `#[serde(flatten)]` field also relaxes `deny_unknown_fields`, so otherwise
-/// unused keys carried by the shared config files (e.g. `distance_unit`) are
-/// ignored rather than rejected.
+/// transit-specific wrapper fields are declared alongside them. With
+/// `#[serde(deny_unknown_fields)]`, every key in the shared config file must be
+/// claimed either by one of the declared wrapper fields or by the flattened
+/// `PredictionModelConfig`; any key neither layer consumes is rejected.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TransitBevVehicleConfig {

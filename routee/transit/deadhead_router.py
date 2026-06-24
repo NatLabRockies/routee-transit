@@ -39,7 +39,7 @@ _WEEKDAYS = [
 ]
 
 
-def _gtfs_time_to_query_time(
+def gtfs_time_to_query_time(
     departure: Any, base_weekday: str | None
 ) -> tuple[str, str] | None:
     """
@@ -272,7 +272,7 @@ def create_deadhead_shapes(
             # a start_time/start_weekday on every query; supply them from the
             # GTFS departure time when available, falling back to midday so the
             # query still builds when a trip's departure time is missing.
-            time_pair = _gtfs_time_to_query_time(
+            time_pair = gtfs_time_to_query_time(
                 row.get("departure_time"), start_weekday
             ) or ("12:00:00", (start_weekday or "monday"))
             query["start_time"], query["start_weekday"] = time_pair
