@@ -123,8 +123,8 @@ impl TraversalModelBuilder for TransitEnergyModelBuilder {
             let (model_name, service): (String, Arc<dyn TraversalModelService>) =
                 match vehicle_type.as_str() {
                     "bev" => {
-                        let config: TransitBevVehicleConfig =
-                            serde_json::from_value(vehicle_json).map_err(|e| {
+                        let config: TransitBevVehicleConfig = serde_json::from_value(vehicle_json)
+                            .map_err(|e| {
                                 TraversalModelError::BuildError(format!(
                                     "failure reading vehicle configuration for '{}': {e}",
                                     file_path
@@ -144,8 +144,8 @@ impl TraversalModelBuilder for TransitEnergyModelBuilder {
                         (config.prediction_model.name, Arc::new(service))
                     }
                     "ice" => {
-                        let config: TransitIceVehicleConfig =
-                            serde_json::from_value(vehicle_json).map_err(|e| {
+                        let config: TransitIceVehicleConfig = serde_json::from_value(vehicle_json)
+                            .map_err(|e| {
                                 TraversalModelError::BuildError(format!(
                                     "failure reading vehicle configuration for '{}': {e}",
                                     file_path
