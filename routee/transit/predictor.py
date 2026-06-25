@@ -22,17 +22,19 @@ import pandas as pd
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
-from shapely.geometry import LineString
-from shapely.ops import unary_union
 
 from routee.transit.compass_app import TransitCompassApp
-from routee.transit.deadhead_router import create_deadhead_shapes
+from routee.transit.deadhead_router import (
+    create_deadhead_shapes,
+    gtfs_time_to_query_time,
+)
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
 from routee.transit.gtfs_processing import (
+    build_corridor_polygon,
     copy_transit_config,
     extend_trip_traces,
     timedelta_to_gtfs_time,
@@ -89,7 +91,8 @@ class GTFSEnergyPredictor:
     - Adding HVAC energy impacts
 
     The class is designed to be easily extended via inheritance. For example, a
-    subclass can override network matching methods to use TomTom instead of OSM.
+    subclass can override network matching methods to use a different road-network
+    source instead of OSM.
 
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
@@ -103,9 +106,9 @@ class GTFSEnergyPredictor:
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
 
     For extending with custom network data:
-        >>> class TomTomEnergyPredictor(GTFSEnergyPredictor):
+        >>> class CustomNetworkPredictor(GTFSEnergyPredictor):
         ...     def _match_shapes_to_network(self, upsampled_shapes):
-        ...         # Custom TomTom matching logic
+        ...         # Custom network matching logic
         ...         return matched_shapes
 
     Attributes:
@@ -165,6 +168,10 @@ class GTFSEnergyPredictor:
         self.shapes: pd.DataFrame = pd.DataFrame()
         self.matched_shapes: pd.DataFrame = pd.DataFrame()
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
+        # Lower-case weekday name for the analysis service date, derived in run()
+        # from its ``date`` argument; used to stamp deadhead routing queries for
+        # time-of-day traversal models. None when no date filter is applied.
+        self._service_weekday: str | None = None
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
 
@@ -316,6 +323,17 @@ class GTFSEnergyPredictor:
         # deadhead estimation requires complete blocks.  Otherwise, use the
         # more intuitive trip-level filtering.
         needs_deadhead = add_mid_block_deadhead or add_depot_deadhead
+
+        # Resolve the service-day weekday from the analysis date (accepts
+        # "YYYY-MM-DD" or "YYYY/MM/DD") so deadhead routing queries can be stamped
+        # with start_weekday for time-of-day traversal models.
+        if date is not None:
+            self._service_weekday = (
+                pd.Timestamp(date.replace("/", "-")).day_name().lower()
+            )
+        else:
+            self._service_weekday = None
+
         if date is not None or routes is not None:
             self.filter_trips(
                 date=date,
@@ -448,49 +466,12 @@ class GTFSEnergyPredictor:
                 "Must load GTFS data (and shapes) before initializing CompassApp"
             )
 
-        # Build corridor polygon from GTFS shape geometries
-        shape_lines: list[LineString] = []
-        for _, grp in self.shapes.groupby("shape_id"):
-            coords = list(zip(grp["shape_pt_lon"], grp["shape_pt_lat"]))
-            if len(coords) >= 2:
-                shape_lines.append(LineString(coords))
-
-        # Include extra geometries (deadhead endpoints, depot locations)
-        extra_points: list[LineString] = []
-        if extra_geoms:
-            for df in extra_geoms:
-                if isinstance(df, gpd.GeoDataFrame) and not df.empty:
-                    # Buffer the bounding box of the GeoDataFrame as a line
-                    bounds = df.total_bounds  # (minx, miny, maxx, maxy)
-                    extra_points.append(
-                        LineString(
-                            [
-                                (bounds[0], bounds[1]),
-                                (bounds[2], bounds[1]),
-                                (bounds[2], bounds[3]),
-                                (bounds[0], bounds[3]),
-                            ]
-                        )
-                    )
-                elif (
-                    isinstance(df, pd.DataFrame)
-                    and "geometry_origin" in df.columns
-                    and "geometry_destination" in df.columns
-                ):
-                    # Include deadhead O-D points as line segments
-                    for _, row in df.iterrows():
-                        orig = row["geometry_origin"]
-                        dest = row["geometry_destination"]
-                        extra_points.append(
-                            LineString([(orig.x, orig.y), (dest.x, dest.y)])
-                        )
-
-        # Buffer each line individually then union (faster than union-then-buffer)
-        # Use smaller buffer for GTFS shapes (map-matched) and larger buffer
-        # for deadhead segments (routed by Compass, needs more network coverage)
-        buffered = [line.buffer(buffer_deg) for line in shape_lines]
-        buffered += [line.buffer(deadhead_buffer_deg) for line in extra_points]
-        corridor_polygon = unary_union(buffered)
+        # Build a buffered corridor polygon from GTFS shapes (+ extra geometries).
+        # Shared corridor builder so alternative network-download pipelines
+        # can cover the same area.
+        corridor_polygon = build_corridor_polygon(
+            self.shapes, extra_geoms, buffer_deg, deadhead_buffer_deg
+        )
 
         # Compute bounding box for cache-invalidation checks
         bounds = corridor_polygon.bounds  # (minx, miny, maxx, maxy)
@@ -747,7 +728,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for unique O-D pairs
         deadhead_shapes, od_mapping = create_deadhead_shapes(
-            app=self.app, df=deadhead_ods
+            app=self.app, df=deadhead_ods, start_weekday=self._service_weekday
         )
 
         # Assign shape_id to each trip based on O-D mapping
@@ -967,7 +948,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from depot to first stop
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=first_stops_gdf
+            app=self.app, df=first_stops_gdf, start_weekday=self._service_weekday
         )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -978,7 +959,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=last_stops_gdf
+            app=self.app, df=last_stops_gdf, start_weekday=self._service_weekday
         )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
@@ -1089,6 +1070,37 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Added {len(deadhead_trips)} depot deadhead trips")
 
+    def _shape_start_times(self) -> dict[str, tuple[str, str]]:
+        """
+        Map each shape_id to a representative ``(start_time, start_weekday)`` pair.
+
+        Time-of-day traversal models (e.g. a ``speed_time_of_day`` model)
+        require ``start_time``/``start_weekday`` on every map-match and
+        path-calculation query in order to select the correct speed profile. The
+        departure time of day comes from ``self.trips["start_time"]`` (a GTFS
+        ``HH:MM:SS`` string that may exceed ``24:00:00`` for past-midnight service);
+        the service-day weekday comes from the analysis ``date`` resolved in
+        ``run()``. When several trips share a shape_id, the earliest departure is
+        used as the representative time for that shape.
+
+        Shapes without a usable start time are simply omitted; callers fall back to
+        a neutral default so the query still builds.
+        """
+        if self.trips.empty or "start_time" not in self.trips.columns:
+            return {}
+
+        start_times: dict[str, tuple[str, str]] = {}
+        trips = self.trips[["shape_id", "start_time"]].dropna(subset=["shape_id"])
+        for shape_id, group in trips.groupby("shape_id"):
+            # Earliest GTFS departure for this shape, as a midnight offset.
+            deltas = pd.to_timedelta(group["start_time"], errors="coerce").dropna()
+            if deltas.empty:
+                continue
+            time_pair = gtfs_time_to_query_time(deltas.min(), self._service_weekday)
+            if time_pair is not None:
+                start_times[str(shape_id)] = time_pair
+        return start_times
+
     @staticmethod
     def aggregate_inputs_by_link(trips_ext: pd.DataFrame) -> pd.DataFrame:
         """After map matching all trips, aggregate the data by road link."""
@@ -1196,12 +1208,22 @@ class GTFSEnergyPredictor:
         else:
             mm_model_name = list(VEHICLE_MODELS.keys())[0]
 
+        # Representative departure time/weekday per shape, required by time-of-day
+        # traversal models. Shapes without a known time fall back to midday so the
+        # query still builds.
+        shape_start_times = self._shape_start_times()
+        default_time = ("12:00:00", self._service_weekday or "monday")
+
         # Build queries for all shapes
-        queries = [
-            self._create_map_match_query(shape_df, model_name=mm_model_name)
-            for shape_df in upsampled_shapes
-        ]
         shape_ids = [df["shape_id"].iloc[0] for df in upsampled_shapes]
+        queries = [
+            self._create_map_match_query(
+                shape_df,
+                model_name=mm_model_name,
+                start_time=shape_start_times.get(str(sid), default_time),
+            )
+            for shape_df, sid in zip(upsampled_shapes, shape_ids)
+        ]
 
         logger.info(f"Running map matching for {len(queries)} shapes...")
 
@@ -1215,6 +1237,7 @@ class GTFSEnergyPredictor:
     def _create_map_match_query(
         shape_df: pd.DataFrame,
         model_name: str | None = None,
+        start_time: tuple[str, str] | None = None,
     ) -> dict[str, Any]:
         """
         Create a CompassApp map matching query from a GTFS shape DataFrame.
@@ -1224,6 +1247,11 @@ class GTFSEnergyPredictor:
             model_name: Optional vehicle model name to use for map matching
                 search parameters. Required when using energy config to override
                 the default model_name.
+            start_time: Optional ``(start_time, start_weekday)`` pair for the
+                map matcher's internal path-recalculation traversal model. Map
+                matching builds that model from ``search_parameters`` (not the
+                top level), so these are nested there. Required by time-of-day
+                models such as a ``speed_time_of_day`` model.
 
         Returns:
             Dictionary suitable for CompassApp.map_match
@@ -1236,8 +1264,14 @@ class GTFSEnergyPredictor:
         query: dict[str, Any] = {
             "trace": trace,
         }
+        search_parameters: dict[str, Any] = {}
         if model_name is not None:
-            query["search_parameters"] = {"model_name": model_name}
+            search_parameters["model_name"] = model_name
+        if start_time is not None:
+            search_parameters["start_time"] = start_time[0]
+            search_parameters["start_weekday"] = start_time[1]
+        if search_parameters:
+            query["search_parameters"] = search_parameters
         return query
 
     def _process_map_match_results(
@@ -1367,16 +1401,25 @@ class GTFSEnergyPredictor:
             model_config = VEHICLE_MODELS[model_name]
             energy_field = model_config["energy_field"]
 
-            # Build queries with model_name parameter
+            # Build queries with model_name parameter. Time-of-day traversal
+            # models need start_time/start_weekday (top-level here) to select the
+            # correct speed profile when evaluating the matched path's energy.
+            shape_start_times = self._shape_start_times()
+            default_time = ("12:00:00", self._service_weekday or "monday")
             shape_id_list = list(shapes_edge_ids.keys())
-            queries: list[dict[str, Any]] = [
-                {
+            queries = []
+            for sid in shape_id_list:
+                query: dict[str, Any] = {
                     "path": shapes_edge_ids[sid],
                     "model_name": model_name,
                     "weights": {"trip_time": 1.0},
                 }
-                for sid in shape_id_list
-            ]
+                start_time, start_weekday = shape_start_times.get(
+                    str(sid), default_time
+                )
+                query["start_time"] = start_time
+                query["start_weekday"] = start_weekday
+                queries.append(query)
 
             # Run calculate path via CompassApp
             assert self.app is not None, "CompassApp must be loaded"

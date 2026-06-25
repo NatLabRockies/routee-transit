@@ -101,8 +101,12 @@ def create_mid_block_deadhead_stops(
     -------
     tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
         A ``(stop_times_df, stops_df, deadhead_ods_df)`` tuple where
-        ``stop_times_df`` and ``stops_df`` can be merged into the GTFS feed,
-        and ``deadhead_ods_df`` holds origin/destination geometry for routing.
+        ``stop_times_df`` and ``stops_df`` can be merged into the GTFS feed, and
+        ``deadhead_ods_df`` holds the per-trip routing inputs with columns
+        ``geometry_origin``, ``geometry_destination``, ``block_id``, and
+        ``departure_time``. The ``departure_time`` column carries each deadhead
+        trip's GTFS departure (offset from the service-day midnight) so callers
+        can stamp ``start_time``/``start_weekday`` on time-of-day routing queries.
     """
     # Calculate distance from end stop of first trip to start stop of second trip
     deadhead_trips["from_trip"] = deadhead_trips["trip_id"].apply(
@@ -232,5 +236,7 @@ def create_mid_block_deadhead_stops(
     return (
         stop_times_df,
         stops_df,
-        deadhead_trips[["geometry_origin", "geometry_destination", "block_id"]],
+        deadhead_trips[
+            ["geometry_origin", "geometry_destination", "block_id", "departure_time"]
+        ],
     )

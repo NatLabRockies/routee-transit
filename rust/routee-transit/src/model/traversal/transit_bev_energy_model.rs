@@ -3,7 +3,9 @@ use routee_compass_core::{
     model::{
         network::{Edge, EdgeId, Vertex},
         state::{InputFeature, StateModel, StateVariable, StateVariableConfig},
-        traversal::{TraversalModel, TraversalModelError, TraversalModelService},
+        traversal::{
+            EdgeFrontierContext, TraversalModel, TraversalModelError, TraversalModelService,
+        },
         unit::{EnergyRateUnit, RatioUnit},
     },
 };
@@ -168,12 +170,11 @@ impl TraversalModel for TransitBevEnergyModel {
 
     fn traverse_edge(
         &self,
-        trajectory: (&Vertex, &Edge, &Vertex),
+        ctx: &EdgeFrontierContext,
         state: &mut Vec<StateVariable>,
-        _tree: &SearchTree,
         state_model: &StateModel,
     ) -> Result<(), TraversalModelError> {
-        let (_src, edge, _dst) = trajectory;
+        let edge = ctx.edge;
 
         // Gather state variables
         let start_soc = state_model.get_ratio(state, fieldname::TRIP_SOC)?;
