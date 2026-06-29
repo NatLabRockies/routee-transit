@@ -172,6 +172,10 @@ class GTFSEnergyPredictor:
         # from its ``date`` argument; used to stamp deadhead routing queries for
         # time-of-day traversal models. None when no date filter is applied.
         self._service_weekday: str | None = None
+        # The specific service date used to filter trips (as a Timestamp), or None
+        # when no date filter was applied.  Passed to add_HVAC_energy() so that
+        # single-date runs only model HVAC for that one day.
+        self._service_date: pd.Timestamp | None = None
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
 
@@ -318,8 +322,10 @@ class GTFSEnergyPredictor:
             self._service_weekday = (
                 pd.Timestamp(date.replace("/", "-")).day_name().lower()
             )
+            self._service_date = pd.Timestamp(date.replace("/", "-"))
         else:
             self._service_weekday = None
+            self._service_date = None
 
         if date is not None or routes is not None:
             self.filter_trips(
@@ -1450,7 +1456,12 @@ class GTFSEnergyPredictor:
             # Optionally add HVAC to trip-level results
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
-                hvac_energy = add_HVAC_energy(self.feed, self.trips, self.output_dir)
+                hvac_energy = add_HVAC_energy(
+                    self.feed,
+                    self.trips,
+                    self.output_dir,
+                    service_date=self._service_date,
+                )
                 # Inner join expands trip_results to one row per (trip, calendar date)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id")
                 # Add HVAC energy to powertrain energy for electric vehicles
