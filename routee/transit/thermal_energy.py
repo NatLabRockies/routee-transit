@@ -192,7 +192,11 @@ def load_tmy_power_by_day(
 
 
 def add_HVAC_energy(
-    feed: Feed, trips_df: pd.DataFrame, output_dir: Path | None = None, max_days: int = 365
+    feed: Feed,
+    trips_df: pd.DataFrame,
+    output_dir: Path | None = None,
+    max_days: int = 365,
+    service_date: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """
     Add HVAC energy consumption for each calendar day covered by the feed.
@@ -214,7 +218,13 @@ def add_HVAC_energy(
         subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
     max_days : int, default=365
         Maximum number of calendar days to model.  The earliest ``max_days``
-        service dates in the feed are used; later dates are ignored.
+        service dates in the feed are used; later dates are ignored.  Ignored
+        when ``service_date`` is provided.
+    service_date : pd.Timestamp or None
+        When set, only this single calendar date is modeled for HVAC.  This
+        should be supplied when the predictor was run with a specific ``date``
+        filter so that the output contains exactly one row per trip rather than
+        one row per (trip, day-in-feed).
 
     Returns
     -------
@@ -299,16 +309,21 @@ def add_HVAC_energy(
     power_lookup: dict[tuple[int, int], np.ndarray] = {}
     for key, grp in avg_power.groupby(["month", "day_of_month"]):
         month_key, day_key = cast(tuple[int, int], key)
-        power_lookup[(month_key, day_key)] = (
-            grp.sort_values("hour")["Power"].to_numpy()
-        )
+        power_lookup[(month_key, day_key)] = grp.sort_values("hour")["Power"].to_numpy()
 
-    # Get all (date, service_id) pairs covered by the feed, capped to max_days
+    # Get all (date, service_id) pairs covered by the feed, capped to max_days.
+    # If a specific service_date was supplied (single-date run), restrict to that
+    # date only — do not re-expand to every day the service_id runs.
     all_dates_df = feed.get_service_ids_all_dates()
-    unique_dates = sorted(all_dates_df["date"].unique())[:max_days]
-    date_service_df = all_dates_df[all_dates_df["date"].isin(unique_dates)][
-        ["date", "service_id"]
-    ].drop_duplicates()
+    if service_date is not None:
+        date_service_df = all_dates_df[all_dates_df["date"] == service_date][
+            ["date", "service_id"]
+        ].drop_duplicates()
+    else:
+        unique_dates = sorted(all_dates_df["date"].unique())[:max_days]
+        date_service_df = all_dates_df[all_dates_df["date"].isin(unique_dates)][
+            ["date", "service_id"]
+        ].drop_duplicates()
 
     # Join dates to trips via service_id
     trips_slim = trips_df[["trip_id", "service_id"]].drop_duplicates()
