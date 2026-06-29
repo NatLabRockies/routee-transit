@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import cast
 
 import boto3
 import geopandas as gpd
@@ -35,7 +36,7 @@ def download_tmy_files(county_ids: list[str], tmy_dir: Path) -> None:
     modeling and system design studies.
 
     This function downloads TMY files for all the supplied county IDs and saves them to
-    TMY_DIR. It returns None.
+    `tmy_dir`. It returns None.
 
     Parameters
     ----------
@@ -149,61 +150,57 @@ def compute_HVAC_energy(
     return np.array(energies)
 
 
-def get_hourly_temperature(
+def load_tmy_power_by_day(
     county_id: str,
-    scenario: str,
     tmy_dir: Path,
+    df_temp_energy: pd.DataFrame,
 ) -> pd.DataFrame:
+    """
+    Load the full TMY temperature profile for a county and convert to power values.
+
+    Parameters
+    ----------
+    county_id : str
+        US Census county identifier.
+    tmy_dir : Path
+        Directory containing downloaded TMY CSV files.
+    df_temp_energy : pd.DataFrame
+        Lookup table mapping temperature (Temp_C) to power (Power) in kW,
+        as returned by load_thermal_lookup_table().
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns: month, day_of_month, hour, Power.
+        One row per hour of the synthetic TMY year (8760 rows).
+    """
     local_file = tmy_dir / f"{county_id}.csv"
     tmy_df = pd.read_csv(local_file, parse_dates=["date_time"])[
         ["date_time", "Dry Bulb Temperature [°C]"]
     ]
-    tmy_df["day_of_year"] = tmy_df["date_time"].dt.day_of_year
-    mean_temp_by_day = (
-        tmy_df.groupby("day_of_year")
-        .agg(avg_temp_C=("Dry Bulb Temperature [°C]", "mean"))
-        .reset_index()
+    tmy_df["month"] = tmy_df["date_time"].dt.month
+    tmy_df["day_of_month"] = tmy_df["date_time"].dt.day
+    tmy_df["hour"] = tmy_df["date_time"].dt.hour
+    tmy_df["Dry Bulb Temperature [°C]"] = tmy_df["Dry Bulb Temperature [°C]"].round(1)
+    tmy_df = tmy_df.merge(
+        df_temp_energy,
+        left_on="Dry Bulb Temperature [°C]",
+        right_on="Temp_C",
+        how="left",
     )
-
-    if scenario == "winter":
-        # Find the days with the hottest and coldest average temperature
-        cold_day: int = mean_temp_by_day[
-            mean_temp_by_day.avg_temp_C == mean_temp_by_day.avg_temp_C.min()
-        ]["day_of_year"].iloc[0]
-
-        # Grab the hourly profiles for the coldest and hottest days
-        df_out = tmy_df[tmy_df["day_of_year"] == cold_day].copy()
-
-    elif scenario == "summer":
-        hot_day: int = mean_temp_by_day[
-            mean_temp_by_day.avg_temp_C == mean_temp_by_day.avg_temp_C.max()
-        ]["day_of_year"].iloc[0]
-        df_out = tmy_df[tmy_df["day_of_year"] == hot_day].copy()
-
-    elif scenario == "median":
-        median_day: int = mean_temp_by_day.iloc[
-            (mean_temp_by_day["avg_temp_C"] - mean_temp_by_day["avg_temp_C"].median())
-            .abs()
-            .argsort()[:1]
-        ]["day_of_year"].iloc[0]
-
-        df_out = tmy_df[tmy_df["day_of_year"] == median_day].copy()
-        df_out["Dry Bulb Temperature [°C]"] = df_out["Dry Bulb Temperature [°C]"].round(
-            1
-        )
-
-    else:
-        raise ValueError(f"Unknown scenario: {scenario}")
-
-    df_out["hour"] = df_out["date_time"].dt.hour
-    return df_out
+    return tmy_df[["month", "day_of_month", "hour", "Power"]]
 
 
 def add_HVAC_energy(
-    feed: Feed, trips_df: pd.DataFrame, output_dir: Path | None = None
+    feed: Feed, trips_df: pd.DataFrame, output_dir: Path | None = None, max_days: int = 365
 ) -> pd.DataFrame:
     """
-    Add HVAC energy consumption.
+    Add HVAC energy consumption for each calendar day covered by the feed.
+
+    Uses Typical Meteorological Year (TMY) temperature data to compute hourly
+    HVAC+BTMS power demand for every day the feed is active (up to ``max_days``
+    days).  Each trip is replicated once per calendar day on which it runs, with
+    ``hvac_energy_kWh`` reflecting the temperature conditions for that specific day.
 
     Parameters
     ----------
@@ -211,16 +208,20 @@ def add_HVAC_energy(
         GTFS feed object containing blocks DataFrame.
     trips_df : pd.DataFrame
         Trips on selected date and route, including deadhead trips.
+        Must contain ``trip_id`` and ``service_id`` columns.
     output_dir : Path or None
         Directory used to store downloaded TMY weather files (in a ``TMY/``
         subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
+    max_days : int, default=365
+        Maximum number of calendar days to model.  The earliest ``max_days``
+        service dates in the feed are used; later dates are ignored.
 
     Returns
     -------
     pd.DataFrame
-        Updated trip-level energy prediction DataFrame with HVAC energy
-        consumption per trip for each weather scenario
-        (``summer``, ``winter``, ``median``).
+        DataFrame with columns ``trip_id``, ``date``, ``scenario``, and
+        ``hvac_energy_kWh``.  One row per (trip, calendar day) combination.
+        ``scenario`` is always ``"TMY"``.
     """
     if output_dir is not None:
         tmy_dir = output_dir / "TMY"
@@ -281,54 +282,74 @@ def add_HVAC_energy(
 
     df_temp_energy = load_thermal_lookup_table()
 
-    # Get the power tables for different weather scenarios
-    thermal_dfs = []
-    for county_id in county_ids:
-        for scenario in ["summer", "winter", "median"]:
-            hourly_temp_df = get_hourly_temperature(county_id, scenario, tmy_dir)
-            hourly_temp_df["Dry Bulb Temperature [°C]"] = hourly_temp_df[
-                "Dry Bulb Temperature [°C]"
-            ].round(1)
-            hourly_temp_df = hourly_temp_df.merge(
-                df_temp_energy,
-                left_on="Dry Bulb Temperature [°C]",
-                right_on="Temp_C",
-                how="left",
-            )
-            hourly_temp_df["scenario"] = scenario
-            hourly_temp_df["county"] = county_id
-            thermal_dfs.append(hourly_temp_df)
-
-    thermal_power_vals = (
-        pd.concat(thermal_dfs).groupby(["scenario", "hour"])["Power"].mean()
+    # Build a (month, day_of_month, hour) → power table averaged across all counties
+    # TODO: use allow shape-dependent TMY data choice
+    county_power_dfs = [
+        load_tmy_power_by_day(county_id, tmy_dir, df_temp_energy)
+        for county_id in county_ids
+    ]
+    avg_power = (
+        pd.concat(county_power_dfs)
+        .groupby(["month", "day_of_month", "hour"])["Power"]
+        .mean()
+        .reset_index()
     )
 
-    # Last calculate the trip HVAC energy
-    # Get the start and end time for each trip
+    # Build lookup: (month, day_of_month) → np.array[24] of hourly power values
+    power_lookup: dict[tuple[int, int], np.ndarray] = {}
+    for key, grp in avg_power.groupby(["month", "day_of_month"]):
+        month_key, day_key = cast(tuple[int, int], key)
+        power_lookup[(month_key, day_key)] = (
+            grp.sort_values("hour")["Power"].to_numpy()
+        )
+
+    # Get all (date, service_id) pairs covered by the feed, capped to max_days
+    all_dates_df = feed.get_service_ids_all_dates()
+    unique_dates = sorted(all_dates_df["date"].unique())[:max_days]
+    date_service_df = all_dates_df[all_dates_df["date"].isin(unique_dates)][
+        ["date", "service_id"]
+    ].drop_duplicates()
+
+    # Join dates to trips via service_id
+    trips_slim = trips_df[["trip_id", "service_id"]].drop_duplicates()
+    date_trips = date_service_df.merge(trips_slim, on="service_id")
+
+    # Load trip start/end fractional hours from stop_times
     df_stop_times = feed.stop_times[
         feed.stop_times["trip_id"].isin(trips_df["trip_id"].unique())
     ].copy()
-    df_trip_time = (
+    trip_hours = (
         df_stop_times.groupby("trip_id")
         .agg(start_time=("arrival_time", "min"), end_time=("arrival_time", "max"))
         .reset_index()
     )
-    start_hours = df_trip_time["start_time"].dt.total_seconds() / 3600
-    end_hours = df_trip_time["end_time"].dt.total_seconds() / 3600
+    trip_hours["start_hour"] = trip_hours["start_time"].dt.total_seconds() / 3600
+    trip_hours["end_hour"] = trip_hours["end_time"].dt.total_seconds() / 3600
 
-    hvac_df_list = []
-    for scen, subdf in thermal_power_vals.reset_index().groupby("scenario"):
-        scenario_trips = trips_df.copy()
-        scenario_trips["scenario"] = scen
-        scenario_trips["hvac_energy_kWh"] = compute_HVAC_energy(
-            start_hours, end_hours, subdf["Power"].to_numpy()
-        )
-        hvac_df_list.append(scenario_trips)
-
-    all_predictions = pd.concat(hvac_df_list).reset_index(drop=True)
-    trips_df_out = trips_df.merge(
-        all_predictions[["trip_id", "scenario", "hvac_energy_kWh"]],
-        on="trip_id",
-        how="inner",
+    date_trips = date_trips.merge(
+        trip_hours[["trip_id", "start_hour", "end_hour"]], on="trip_id"
     )
-    return trips_df_out
+
+    # Add (month, day_of_month) columns for power lookup
+    date_trips["month"] = date_trips["date"].dt.month
+    date_trips["day_of_month"] = date_trips["date"].dt.day
+    # Feb 29 → Feb 28 (TMY is a non-leap synthetic year)
+    feb29_mask = (date_trips["month"] == 2) & (date_trips["day_of_month"] == 29)
+    date_trips.loc[feb29_mask, "day_of_month"] = 28
+
+    # Compute HVAC energy for each unique (month, day_of_month) power profile
+    result_parts: list[pd.DataFrame] = []
+    for key, grp in date_trips.groupby(["month", "day_of_month"], sort=False):
+        month_key, day_key = cast(tuple[int, int], key)
+        power_array = power_lookup[(month_key, day_key)]
+        grp_reset = grp.reset_index(drop=True)
+        hvac_vals = compute_HVAC_energy(
+            grp_reset["start_hour"], grp_reset["end_hour"], power_array
+        )
+        part = grp_reset[["trip_id", "date"]].copy()
+        part["hvac_energy_kWh"] = hvac_vals
+        result_parts.append(part)
+
+    result = pd.concat(result_parts, ignore_index=True)
+    result["scenario"] = "TMY"
+    return result[["trip_id", "date", "scenario", "hvac_energy_kWh"]]

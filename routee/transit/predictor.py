@@ -216,19 +216,6 @@ class GTFSEnergyPredictor:
             right_index=True,
         )
 
-        # Add number of times each trip is run
-        sid_counts = (
-            self.feed.get_service_ids_all_dates()
-            .groupby("service_id")["date"]
-            .count()
-            .rename("trip_count")
-        )
-        self.trips = self.trips.merge(
-            sid_counts,
-            left_on="service_id",
-            right_index=True,
-        )
-
     def run(
         self,
         *,
@@ -771,14 +758,6 @@ class GTFSEnergyPredictor:
             how="left",
         )
 
-        # Add trip count column to deadhead trips, let it be the same as the service trips
-        # before or after the deadhead trip
-        deadhead_trips["before_trip"] = deadhead_trips["trip_id"].apply(
-            lambda x: x.split("_to_")[0]
-        )
-        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
-        deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
-        deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
 
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
@@ -1025,18 +1004,6 @@ class GTFSEnergyPredictor:
             how="left",
         )
 
-        # Add trip count column to deadhead trips, let it be the same as the service trips
-        # before or after the deadhead trip
-        deadhead_trips["before_or_after_trip"] = deadhead_trips["trip_id"].apply(
-            lambda x: (
-                x.split("depot_to_")[1] if "depot_to_" in x else x.split("_to_depot")[0]
-            )
-        )
-        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
-        deadhead_trips["trip_count"] = deadhead_trips["before_or_after_trip"].map(
-            trip_counts
-        )
-        deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
 
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
@@ -1484,12 +1451,14 @@ class GTFSEnergyPredictor:
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
                 hvac_energy = add_HVAC_energy(self.feed, self.trips, self.output_dir)
-                trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
+                # Inner join expands trip_results to one row per (trip, calendar date)
+                trip_results = trip_results.merge(hvac_energy, on="trip_id")
                 # Add HVAC energy to powertrain energy for electric vehicles
                 kwh_mask = trip_results["energy_unit"] == "kWh"
                 trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
                     kwh_mask, "hvac_energy_kWh"
                 ]
+                trip_results = trip_results.merge(self.trips, on="trip_id")
             else:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
 

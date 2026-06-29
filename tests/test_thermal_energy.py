@@ -52,7 +52,15 @@ class TestThermalEnergy(unittest.TestCase):
                 "stop_id": ["S1", "S1"],
             }
         )
-        trips_df = pd.DataFrame({"trip_id": ["T1"]})
+        # Two service dates, both running service_id "S1" → trip "T1"
+        mock_feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2023-01-15", "2023-07-15"]),
+                "service_id": ["S1", "S1"],
+                "weekday": ["sunday", "saturday"],
+            }
+        )
+        trips_df = pd.DataFrame({"trip_id": ["T1"], "service_id": ["S1"]})
         mock_county_gdf = gpd.GeoDataFrame(
             {
                 "county_id": ["G0800130"],
@@ -62,25 +70,29 @@ class TestThermalEnergy(unittest.TestCase):
             },
             crs="EPSG:4269",
         )
-        mock_hourly_temp = pd.DataFrame(
-            {"hour": list(range(24)), "Dry Bulb Temperature [°C]": [20.0] * 24}
-        )
-        return mock_feed, trips_df, mock_county_gdf, mock_hourly_temp
+        # Synthetic per-day power table: one row per (month, day_of_month, hour)
+        # covering just the two dates used in the test (Jan 15, Jul 15)
+        rows = []
+        for month, day in [(1, 15), (7, 15)]:
+            for hour in range(24):
+                rows.append({"month": month, "day_of_month": day, "hour": hour, "Power": 5.0})
+        mock_power_by_day = pd.DataFrame(rows)
+        return mock_feed, trips_df, mock_county_gdf, mock_power_by_day
 
     @patch("routee.transit.thermal_energy.fetch_counties_gdf")
     @patch("routee.transit.thermal_energy.download_tmy_files")
-    @patch("routee.transit.thermal_energy.get_hourly_temperature")
+    @patch("routee.transit.thermal_energy.load_tmy_power_by_day")
     def test_add_HVAC_energy(
         self,
-        mock_get_hourly: MagicMock,
+        mock_load_power: MagicMock,
         mock_download: MagicMock,
         mock_fetch_counties: MagicMock,
     ) -> None:
-        mock_feed, trips_df, mock_county_gdf, mock_hourly_temp = (
+        mock_feed, trips_df, mock_county_gdf, mock_power_by_day = (
             self._make_mock_feed_and_trips()
         )
         mock_fetch_counties.return_value = mock_county_gdf
-        mock_get_hourly.return_value = mock_hourly_temp
+        mock_load_power.return_value = mock_power_by_day
 
         # use a temp directory for output
         output_directory = Path(tempfile.mkdtemp())
@@ -89,31 +101,36 @@ class TestThermalEnergy(unittest.TestCase):
 
         self.assertIn("hvac_energy_kWh", result.columns)
         self.assertIn("scenario", result.columns)
-        # Should have results for 3 scenarios: summer, winter, median
-        self.assertEqual(len(result), 3)
+        self.assertIn("date", result.columns)
+        # scenario is always "TMY"
+        self.assertTrue((result["scenario"] == "TMY").all())
+        # 2 dates × 1 trip = 2 rows
+        self.assertEqual(len(result), 2)
 
     @patch("routee.transit.thermal_energy.fetch_counties_gdf")
     @patch("routee.transit.thermal_energy.download_tmy_files")
-    @patch("routee.transit.thermal_energy.get_hourly_temperature")
+    @patch("routee.transit.thermal_energy.load_tmy_power_by_day")
     def test_add_HVAC_energy_no_output_dir(
         self,
-        mock_get_hourly: MagicMock,
+        mock_load_power: MagicMock,
         mock_download: MagicMock,
         mock_fetch_counties: MagicMock,
     ) -> None:
         """add_HVAC_energy should work without output_dir using a default cache path."""
-        mock_feed, trips_df, mock_county_gdf, mock_hourly_temp = (
+        mock_feed, trips_df, mock_county_gdf, mock_power_by_day = (
             self._make_mock_feed_and_trips()
         )
         mock_fetch_counties.return_value = mock_county_gdf
-        mock_get_hourly.return_value = mock_hourly_temp
+        mock_load_power.return_value = mock_power_by_day
 
         # Call without specifying output_dir (previously raised an exception)
         result = add_HVAC_energy(mock_feed, trips_df, output_dir=None)
 
         self.assertIn("hvac_energy_kWh", result.columns)
         self.assertIn("scenario", result.columns)
-        self.assertEqual(len(result), 3)
+        self.assertIn("date", result.columns)
+        self.assertTrue((result["scenario"] == "TMY").all())
+        self.assertEqual(len(result), 2)
 
 
 if __name__ == "__main__":
