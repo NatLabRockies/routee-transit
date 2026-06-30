@@ -217,9 +217,10 @@ def add_HVAC_energy(
         Directory used to store downloaded TMY weather files (in a ``TMY/``
         subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
     max_days : int, default=365
-        Maximum number of calendar days to model.  The earliest ``max_days``
-        service dates in the feed are used; later dates are ignored.  Ignored
-        when ``service_date`` is provided.
+        Width in calendar days of the window to model.  The algorithm selects the
+        ``max_days``-wide window that contains the greatest number of service dates,
+        so that it is robust to feeds with sparse outlier dates far in the past or
+        future.  Ignored when ``service_date`` is provided.
     service_date : pd.Timestamp or None
         When set, only this single calendar date is modeled for HVAC.  This
         should be supplied when the predictor was run with a specific ``date``
@@ -320,8 +321,28 @@ def add_HVAC_energy(
             ["date", "service_id"]
         ].drop_duplicates()
     else:
-        unique_dates = sorted(all_dates_df["date"].unique())[:max_days]
-        date_service_df = all_dates_df[all_dates_df["date"].isin(unique_dates)][
+        # Find the max_days-calendar-day window containing the most service dates.
+        # Using a sliding window over the sorted date list makes this robust to
+        # feeds with sparse outlier dates far in the past or future (e.g. Frederick
+        # MD), since those lone dates can never anchor a dense window.
+        all_unique = sorted(all_dates_df["date"].unique())
+        if all_unique:
+            best_start = all_unique[0]
+            best_count = 0
+            j = 0
+            for i, start in enumerate(all_unique):
+                window_end = start + pd.Timedelta(days=max_days - 1)
+                while j < len(all_unique) and all_unique[j] <= window_end:
+                    j += 1
+                count = j - i
+                if count > best_count:
+                    best_count = count
+                    best_start = start
+            best_end = best_start + pd.Timedelta(days=max_days - 1)
+            in_window = [d for d in all_unique if best_start <= d <= best_end]
+        else:
+            in_window = []
+        date_service_df = all_dates_df[all_dates_df["date"].isin(in_window)][
             ["date", "service_id"]
         ].drop_duplicates()
 
