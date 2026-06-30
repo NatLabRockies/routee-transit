@@ -231,6 +231,7 @@ class GTFSEnergyPredictor:
         add_depot_deadhead: bool = False,
         # Energy prediction options
         add_hvac: bool = True,
+        scale_to_year: bool = False,
         save_results: bool = True,
     ) -> pd.DataFrame:
         """
@@ -265,6 +266,12 @@ class GTFSEnergyPredictor:
             (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
+        scale_to_year : bool, default=False
+            When True (and a per-date HVAC run is being performed), project the
+            feed's typical weekday service patterns onto every uncovered date in
+            a full one-year window so the output spans an entire year regardless
+            of feed coverage.  Synthesized rows are flagged with
+            ``trip_is_within_gtfs_scope=False`` in the trip-level output.
         save_results : bool, default=True
             Whether to save results to files.
 
@@ -369,7 +376,7 @@ class GTFSEnergyPredictor:
             self._route_depot_deadhead(depot_metadata)
 
         # Step 6: Predict energy using CompassApp
-        self.predict_energy(add_hvac=add_hvac)
+        self.predict_energy(add_hvac=add_hvac, scale_to_year=scale_to_year)
 
         # Step 7: Save results if requested
         if save_results:
@@ -764,7 +771,6 @@ class GTFSEnergyPredictor:
             how="left",
         )
 
-
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
             [self._deadhead_trips, deadhead_trips], ignore_index=True
@@ -1009,7 +1015,6 @@ class GTFSEnergyPredictor:
             on="trip_id",
             how="left",
         )
-
 
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
@@ -1282,6 +1287,7 @@ class GTFSEnergyPredictor:
     def predict_energy(
         self,
         add_hvac: bool = False,
+        scale_to_year: bool = False,
     ) -> dict[str, pd.DataFrame]:
         """
         Predict energy consumption by map matching once, then running
@@ -1461,6 +1467,7 @@ class GTFSEnergyPredictor:
                     self.trips,
                     self.output_dir,
                     service_date=self._service_date,
+                    scale_to_year=scale_to_year,
                 )
                 # Inner join expands trip_results to one row per (trip, calendar date)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id")
