@@ -1469,8 +1469,7 @@ class GTFSEnergyPredictor:
                     service_date=self._service_date,
                     scale_to_year=scale_to_year,
                 )
-                # Inner join expands trip_results to one row per (trip, calendar date)
-                trip_results = trip_results.merge(hvac_energy, on="trip_id")
+                trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
                 # Add HVAC energy to powertrain energy for electric vehicles
                 kwh_mask = trip_results["energy_unit"] == "kWh"
                 trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
