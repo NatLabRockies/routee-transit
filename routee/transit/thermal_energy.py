@@ -379,7 +379,7 @@ def add_HVAC_energy(
         ].drop_duplicates()
         date_service_df["trip_is_within_gtfs_scope"] = True
     else:
-        all_unique = pd.to_datetime(all_dates_df["date"].dropna().unique()).to_list()
+        all_unique = pd.to_datetime(all_dates_df["date"].dropna().unique()).tolist()
         all_unique.sort()
         if scale_to_year and all_unique:
             window_start, window_end = _select_full_year_window(all_unique, max_days)
