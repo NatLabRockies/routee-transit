@@ -1,11 +1,16 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
+import geopandas as gpd
 import pandas as pd
+from shapely.geometry import Point
+
 from routee.transit.gtfs_processing import (
-    upsample_shape,
     add_stop_flags_to_shape,
+    build_corridor_polygon,
     estimate_trip_timestamps,
     extend_trip_traces,
+    upsample_shape,
 )
 
 
@@ -110,6 +115,77 @@ class TestGTFSProcessing(unittest.TestCase):
         self.assertIsInstance(result, pd.DataFrame)
         self.assertIn("timestamp", result.columns)
         self.assertEqual(result.iloc[0]["trip_id"], "T1")
+
+
+class TestBuildCorridorPolygon(unittest.TestCase):
+    def _shapes(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "shape_id": ["a", "a"],
+                "shape_pt_lon": [-105.0, -105.01],
+                "shape_pt_lat": [39.7, 39.71],
+            }
+        )
+
+    def test_corridor_covers_shape(self) -> None:
+        poly = build_corridor_polygon(self._shapes())
+        self.assertTrue(poly.contains(Point(-105.0, 39.7)))
+
+    def test_empty_shapes_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            build_corridor_polygon(pd.DataFrame(columns=["shape_id"]))
+
+    def test_depot_geodataframe_covers_both_od_endpoints(self) -> None:
+        # A depot frame is a GeoDataFrame whose *active* geometry is only the stop
+        # side, but it declares the depot on a separate geometry_destination column.
+        # Both endpoints must land inside the corridor — the corridor is built from the
+        # declared O-D columns, never the frame's active geometry or bounding box, so
+        # the far depot is never dropped.
+        depot = gpd.GeoDataFrame(
+            {
+                "geometry_origin": [Point(-105.0, 39.7)],
+                "geometry_destination": [Point(-104.5, 39.4)],
+            },
+            geometry=[Point(-105.0, 39.7)],
+            crs="EPSG:4326",
+        )
+        poly = build_corridor_polygon(self._shapes(), extra_geoms=[depot])
+        self.assertTrue(poly.contains(Point(-105.0, 39.7)))
+        self.assertTrue(poly.contains(Point(-104.5, 39.4)))
+
+    def test_extra_geom_without_od_columns_raises(self) -> None:
+        # An extra geom must explicitly declare its O-D endpoints. A frame carrying only
+        # an active geometry (and no geometry_origin/geometry_destination) is rejected
+        # loudly rather than silently buffering its bounding box.
+        plain = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[Point(-104.5, 39.4)],
+            crs="EPSG:4326",
+        )
+        with self.assertRaises(ValueError):
+            build_corridor_polygon(self._shapes(), extra_geoms=[plain])
+
+    def test_none_extra_geom_raises(self) -> None:
+        # A None entry signals a caller bug — fail loudly instead of silently skipping.
+        with self.assertRaises(TypeError):
+            build_corridor_polygon(self._shapes(), extra_geoms=[None])
+
+    def test_non_dataframe_extra_geom_raises(self) -> None:
+        # A non-(Geo)DataFrame entry is a contract violation, not something to skip.
+        with self.assertRaises(TypeError):
+            build_corridor_polygon(self._shapes(), extra_geoms=[Point(-105.0, 39.7)])
+
+    def test_empty_extra_geom_raises(self) -> None:
+        # An empty but well-formed frame should never reach here (callers omit empties);
+        # surfacing it loudly catches an upstream problem rather than shrinking the
+        # corridor silently.
+        empty = gpd.GeoDataFrame(
+            {"geometry_origin": [], "geometry_destination": []},
+            geometry="geometry_origin",
+            crs="EPSG:4326",
+        )
+        with self.assertRaises(ValueError):
+            build_corridor_polygon(self._shapes(), extra_geoms=[empty])
 
 
 if __name__ == "__main__":

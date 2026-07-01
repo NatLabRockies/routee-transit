@@ -4,23 +4,110 @@ if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
 
 import datetime
+import importlib.resources
 import logging
 import multiprocessing as mp
 from functools import partial
-
 from pathlib import Path
+
 import geopandas as gpd
 import pandas as pd
+import tomlkit
 from geopy.distance import great_circle
 from gtfsblocks import Feed
-import importlib.resources
-import tomlkit
+from pandas.api.typing import NaTType
+from shapely.geometry import LineString
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 
 logger = logging.getLogger("gtfs_processing")
 
 KM_TO_METERS = 1000
 FT_TO_METERS = 0.3048
 FT_TO_MILES = 0.000189394
+
+
+def build_corridor_polygon(
+    shapes: pd.DataFrame,
+    extra_geoms: list[gpd.GeoDataFrame | pd.DataFrame] | None = None,
+    buffer_deg: float = 0.01,
+    deadhead_buffer_deg: float = 0.05,
+) -> BaseGeometry:
+    """Build a buffered corridor polygon from GTFS shapes (+ optional extra geometries).
+
+    Each shape line is buffered by ``buffer_deg`` and any deadhead / depot geometries by
+    the larger ``deadhead_buffer_deg`` (Compass routes those itself rather than
+    map-matching them, so they need more network coverage). Buffering each line then
+    unioning is faster than union-then-buffer.
+
+    Used by the OSM build (:meth:`GTFSEnergyPredictor.load_compass_app`, which passes the
+    result to ``ox.graph_from_polygon``); exposed as a reusable utility so alternative
+    network-download pipelines can cover exactly the same area.
+    """
+    if shapes.empty:
+        raise ValueError("Cannot build a corridor polygon from empty GTFS shapes")
+
+    shape_lines: list[LineString] = []
+    for _, grp in shapes.groupby("shape_id"):
+        coords = list(zip(grp["shape_pt_lon"], grp["shape_pt_lat"]))
+        if len(coords) >= 2:
+            shape_lines.append(LineString(coords))
+
+    # Validate each extra geom loudly rather than silently skipping malformed input:
+    # a dropped frame would shrink the corridor (a missing depot, uncovered deadheads)
+    # and only surface as an unrelated routing/map-matching failure later. Callers
+    # build these frames only when they have rows to contribute, so None / non-frame /
+    # empty all signal an upstream problem worth failing on.
+    extra_points: list[LineString] = []
+    for df in extra_geoms or []:
+        if df is None or not hasattr(df, "columns"):
+            raise TypeError(
+                "Each extra_geoms entry must be a (Geo)DataFrame with O-D columns; "
+                f"got {type(df).__name__}"
+            )
+        if (
+            "geometry_origin" not in df.columns
+            or "geometry_destination" not in df.columns
+        ):
+            raise ValueError(
+                "Each extra_geoms frame must have 'geometry_origin' and "
+                "'geometry_destination' columns declaring its O-D endpoints; "
+                f"got columns {list(df.columns)}"
+            )
+        if len(df) == 0:
+            raise ValueError(
+                "Received an empty extra_geoms frame with no O-D rows; callers should "
+                "omit frames that have nothing to contribute rather than passing them."
+            )
+        for _, row in df.iterrows():
+            orig = row["geometry_origin"]
+            dest = row["geometry_destination"]
+            extra_points.append(LineString([(orig.x, orig.y), (dest.x, dest.y)]))
+
+    buffered = [line.buffer(buffer_deg) for line in shape_lines]
+    buffered += [line.buffer(deadhead_buffer_deg) for line in extra_points]
+    if not buffered:
+        raise ValueError("No usable shape geometries to build a corridor polygon")
+    return unary_union(buffered)
+
+
+def timedelta_to_gtfs_time(td: pd.Timedelta | NaTType) -> str:
+    """Convert a timedelta-like value to GTFS HH:MM:SS.
+
+    GTFS times may exceed 24:00:00 for service that runs past midnight.
+    NaT values are converted to an empty string.
+    """
+    if isinstance(td, NaTType):
+        return ""
+    if not isinstance(td, pd.Timedelta):
+        raise TypeError(
+            "timedelta_to_gtfs_time only accepts pandas Timedelta or NaTType"
+        )
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
 def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:

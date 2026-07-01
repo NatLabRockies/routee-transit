@@ -1,33 +1,20 @@
-import os
-from pathlib import Path
-from typing import Any
-
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
+from gtfsblocks import Feed
 from shapely.geometry import Point
 
+from routee.transit.ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
 
-# Default path to FTA depot shapefile, relative to repository root
-def get_default_depot_path() -> Path:
-    """
-    Return the default path to the FTA_Depot directory in the repository.
-
-    The default depot locations come from the National Transit Database's
-    "Public Transit Facilities and Stations - 2023" dataset, which contains
-    depot/facility locations for transit agencies across the United States.
-
-    Data source: https://data.transportation.gov/stories/s/gd62-jzra
-
-    Returns
-    -------
-    Path
-        Path to the FTA_Depot directory containing Transit_Depot.shp
-    """
-    from routee.transit import depot_path
-
-    return depot_path()
+# Re-export for backward compatibility
+__all__ = [
+    "load_ntd_facilities",
+    "match_agency_to_ntd",
+    "NTDAgencyMatch",
+    "create_depot_deadhead_trips",
+    "infer_depot_trip_endpoints",
+    "create_depot_deadhead_stops",
+]
 
 
 def create_depot_deadhead_trips(
@@ -110,25 +97,32 @@ def create_depot_deadhead_trips(
 
 
 def infer_depot_trip_endpoints(
-    trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path
-) -> tuple[Any, Any]:
+    trips_df: pd.DataFrame,
+    feed: Feed,
+    depots_gdf: gpd.GeoDataFrame,
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Add origin/destination depot geometry for each block.
 
     Parameters
     ----------
     trips_df: pd.DataFrame
         trips_df of selected date and route (result from read_in_gtfs).
-    feed : Any
+    feed : Feed
         GTFS feed object (e.g. result from read_in_gtfs).
-    path_to_depots : str | Path
-        Path to a vector file (GeoJSON/Shapefile) containing depot point geometries.
+    depots_gdf : gpd.GeoDataFrame
+        Point GeoDataFrame of candidate depot locations in EPSG:4326.  Typically
+        the result of :func:`load_ntd_facilities`.  If a ``depot_priority``
+        column is present (0 = best), candidate depots are first restricted to
+        the highest-priority type available before distance minimisation; if no
+        higher-priority depot is reachable the next tier is tried.
 
     Returns
     -------
-    tuple[GeoDataFrame, GeoDataFrame]
-        (first_stops_gdf, last_stops_gdf). Each GeoDataFrame contains the stop
-        geometry (column 'stop_geometry') and the matched depot geometry
-        (column 'depot_geometry').
+    tuple[GeoDataFrame, GeoDataFrame, GeoDataFrame]
+        (first_stops_gdf, last_stops_gdf, depots_gdf). The first two contain
+        stop geometry and matched depot geometry.  ``depots_gdf`` is the full
+        depot GeoDataFrame (EPSG:4326) so callers can look up metadata by row
+        index.
     """
 
     # Process trips and stops dataframes in feed to get first and last stops of each block id
@@ -144,8 +138,12 @@ def infer_depot_trip_endpoints(
     first_stops = blocks_trips_stops.groupby("block_id").first().reset_index()
     last_stops = blocks_trips_stops.groupby("block_id").last().reset_index()
 
-    first_stops = first_stops[["block_id", "arrival_time", "stop_lat", "stop_lon"]]
-    last_stops = last_stops[["block_id", "arrival_time", "stop_lat", "stop_lon"]]
+    first_stops = first_stops[
+        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+    ]
+    last_stops = last_stops[
+        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+    ]
 
     first_stops["geometry"] = first_stops.apply(
         lambda row: Point(row["stop_lon"], row["stop_lat"]), axis=1
@@ -158,38 +156,53 @@ def infer_depot_trip_endpoints(
     )
     last_stops_gdf = gpd.GeoDataFrame(last_stops, geometry="geometry", crs="EPSG:4326")
 
-    # Read depot locations; ensure file exists
-    if not os.path.exists(path_to_depots):
-        raise FileNotFoundError(f"Depot file not found: {path_to_depots}")
-    depots_df = gpd.read_file(path_to_depots)
-    # Ensure depot geometries are points and in WGS84
-    if depots_df.crs is None:
-        depots_df = depots_df.set_crs(epsg=4326)
+    # Ensure depot geometries are in WGS84
+    if depots_gdf.crs is None:
+        depots_gdf = depots_gdf.set_crs(epsg=4326)
     else:
-        depots_df = depots_df.to_crs(epsg=4326)
+        depots_gdf = depots_gdf.to_crs(epsg=4326)
+
+    has_priority = "depot_priority" in depots_gdf.columns
+    priority_levels: list[int] = (
+        sorted(depots_gdf["depot_priority"].dropna().unique().tolist())
+        if has_priority
+        else []
+    )
 
     # Create a simple mapping from depot index to geometry for fast lookup
-    depots_geom_map = depots_df["geometry"].to_dict()
+    depots_geom_map = depots_gdf["geometry"].to_dict()
 
     # Project to Web Mercator (EPSG:3857) for distance computations
     proj_crs = "EPSG:3857"
     first_proj = first_stops_gdf.to_crs(proj_crs).reset_index(drop=True)
     last_proj = last_stops_gdf.to_crs(proj_crs).reset_index(drop=True)
-    depots_proj = depots_df.to_crs(proj_crs).copy()
+    depots_proj = depots_gdf.to_crs(proj_crs).copy()
 
-    best_depot_idx = {}
+    best_depot_idx: dict[object, int] = {}
     for block_id, first_row in first_proj.groupby("block_id"):
         first_geom = first_row.iloc[0].geometry
         last_geom = last_proj.loc[last_proj["block_id"] == block_id, "geometry"].values[
             0
         ]
 
-        # Compute pull-out, pull-in, and total distances
-        depots_proj["pullout"] = depots_proj.geometry.distance(first_geom)
-        depots_proj["pullin"] = depots_proj.geometry.distance(last_geom)
-        depots_proj["total"] = depots_proj["pullout"] + depots_proj["pullin"]
+        # Compute pull-out + pull-in distance for every depot candidate
+        working = depots_proj.copy()
+        working["pullout"] = working.geometry.distance(first_geom)
+        working["pullin"] = working.geometry.distance(last_geom)
+        working["total"] = working["pullout"] + working["pullin"]
 
-        best_idx = depots_proj["total"].idxmin()
+        if has_priority:
+            # Pick nearest depot from the highest-priority tier that is
+            # non-empty; fall through to subsequent tiers if needed.
+            best_idx: int = working["total"].idxmin()
+            for level in priority_levels:
+                tier = working[working["depot_priority"] == level]
+                if not tier.empty:
+                    best_idx = int(tier["total"].idxmin())
+                    break
+        else:
+            best_idx = int(working["total"].idxmin())
+
         best_depot_idx[block_id] = best_idx
 
     first_stops_gdf["nearest_depot_idx"] = first_stops_gdf["block_id"].map(
@@ -205,6 +218,21 @@ def infer_depot_trip_endpoints(
         depots_geom_map
     )
     last_stops_gdf["geometry_origin"] = last_stops_gdf.geometry
+
+    # Attach NTD metadata (NTD ID, agency name, facility name/type) to both
+    # stop GDFs so downstream callers and outputs can identify which depot was
+    # matched without having to rejoin on nearest_depot_idx themselves.
+    _ntd_meta_cols: dict[str, str] = {
+        "NTD ID": "depot_ntd_id",
+        "Agency Name": "depot_agency_name",
+        "Facility Name": "depot_facility_name",
+        "Facility Type": "depot_facility_type",
+    }
+    for src_col, dst_col in _ntd_meta_cols.items():
+        if src_col in depots_gdf.columns:
+            col_map = depots_gdf[src_col].to_dict()
+            first_stops_gdf[dst_col] = first_stops_gdf["nearest_depot_idx"].map(col_map)
+            last_stops_gdf[dst_col] = last_stops_gdf["nearest_depot_idx"].map(col_map)
 
     # Set the arrival time as departure time for deadhead trip to depot for the last_stop_gdf
     last_stops_gdf["departure_time"] = last_stops_gdf["arrival_time"]
@@ -222,7 +250,7 @@ def infer_depot_trip_endpoints(
         last_stops_gdf, geometry="geometry_origin", crs="EPSG:4326"
     )
 
-    return first_stops_gdf, last_stops_gdf
+    return first_stops_gdf, last_stops_gdf, depots_gdf
 
 
 def create_depot_deadhead_stops(
@@ -293,14 +321,32 @@ def create_depot_deadhead_stops(
         deadhead_trips_df.trip_type == "pull-out"
     ].copy()
     deadhead_trips_df_from_depot = deadhead_trips_df_from_depot.merge(
-        from_depot[["block_id", "departure_time", "arrival_time"]], on="block_id"
+        from_depot[
+            [
+                "block_id",
+                "stop_id",
+                "nearest_depot_idx",
+                "departure_time",
+                "arrival_time",
+            ]
+        ],
+        on="block_id",
     )
 
     deadhead_trips_df_to_depot = deadhead_trips_df[
         deadhead_trips_df.trip_type == "pull-in"
     ].copy()
     deadhead_trips_df_to_depot = deadhead_trips_df_to_depot.merge(
-        to_depot[["block_id", "departure_time", "arrival_time"]], on="block_id"
+        to_depot[
+            [
+                "block_id",
+                "stop_id",
+                "nearest_depot_idx",
+                "departure_time",
+                "arrival_time",
+            ]
+        ],
+        on="block_id",
     )
     deadhead_trips_df = pd.concat(
         [deadhead_trips_df_from_depot, deadhead_trips_df_to_depot], ignore_index=True
@@ -326,36 +372,69 @@ def create_depot_deadhead_stops(
         )
         for x in pair
     ]
-    stop_times_df["stop_id"] = range(1, len(stop_times_df) + 1)
-    stop_times_df["stop_id"] = stop_times_df["stop_id"].apply(
-        lambda x: f"depot_deadhead_{x}"
-    )
+    # For pull-out trips: stop_sequence 1 = depot stop (new), stop_sequence 2 = first
+    # revenue stop (existing GTFS stop).  For pull-in trips the order is reversed.
+    # Depot stops are keyed as "depot_{nearest_depot_idx}" where nearest_depot_idx is
+    # the row index in the FTA shapefile.  This means all blocks that share the same
+    # physical depot get the same stop_id.
+    from_depot_stop_ids = [
+        x
+        for pair in zip(
+            (
+                "depot_" + deadhead_trips_df_from_depot["nearest_depot_idx"].astype(str)
+            ).tolist(),
+            deadhead_trips_df_from_depot["stop_id"].tolist(),
+        )
+        for x in pair
+    ]
+    to_depot_stop_ids = [
+        x
+        for pair in zip(
+            deadhead_trips_df_to_depot["stop_id"].tolist(),
+            (
+                "depot_" + deadhead_trips_df_to_depot["nearest_depot_idx"].astype(str)
+            ).tolist(),
+        )
+        for x in pair
+    ]
+    stop_times_df["stop_id"] = from_depot_stop_ids + to_depot_stop_ids
     stop_times_df["departure_time"] = stop_times_df["arrival_time"]
     stop_times_df["shape_dist_traveled"] = 0.0
 
-    # Create stops df for deadhead trips
-    stops_df = pd.DataFrame(columns=["stop_id", "stop_lat", "stop_lon"])
-    stops_df["stop_id"] = stop_times_df["stop_id"]
-
-    x_start_from_depot = from_depot.geometry_origin.apply(lambda p: p.x).to_numpy()
-    x_end_from_depot = from_depot.geometry_destination.apply(lambda p: p.x).to_numpy()
-    x_start_to_depot = to_depot.geometry_origin.apply(lambda p: p.x).to_numpy()
-    x_end_to_depot = to_depot.geometry_destination.apply(lambda p: p.x).to_numpy()
-    stop_lon_from_depot = np.ravel(
-        np.column_stack((x_start_from_depot, x_end_from_depot))
+    # Create stops df — one row per unique physical depot (keyed by nearest_depot_idx).
+    # Revenue stop endpoints are already in the GTFS feed and must not be duplicated.
+    # Use depot_facility_name as stop_name when available so stops_supplement.txt
+    # carries a human-readable depot identifier.
+    from_depot_stop_name = (
+        from_depot["depot_facility_name"]
+        if "depot_facility_name" in from_depot.columns
+        else pd.Series([""] * len(from_depot), index=from_depot.index)
     )
-    stop_lon_to_depot = np.ravel(np.column_stack((x_start_to_depot, x_end_to_depot)))
-
-    y_start_from_depot = from_depot.geometry_origin.apply(lambda p: p.y).to_numpy()
-    y_end_from_depot = from_depot.geometry_destination.apply(lambda p: p.y).to_numpy()
-    y_start_to_depot = to_depot.geometry_origin.apply(lambda p: p.y).to_numpy()
-    y_end_to_depot = to_depot.geometry_destination.apply(lambda p: p.y).to_numpy()
-    stop_lat_from_depot = np.ravel(
-        np.column_stack((y_start_from_depot, y_end_from_depot))
+    to_depot_stop_name = (
+        to_depot["depot_facility_name"]
+        if "depot_facility_name" in to_depot.columns
+        else pd.Series([""] * len(to_depot), index=to_depot.index)
     )
-    stop_lat_to_depot = np.ravel(np.column_stack((y_start_to_depot, y_end_to_depot)))
-
-    stops_df["stop_lat"] = list(stop_lat_from_depot) + list(stop_lat_to_depot)
-    stops_df["stop_lon"] = list(stop_lon_from_depot) + list(stop_lon_to_depot)
+    from_depot_stops = pd.DataFrame(
+        {
+            "stop_id": "depot_" + from_depot["nearest_depot_idx"].astype(str),
+            "stop_name": from_depot_stop_name.values,
+            "stop_lat": from_depot.geometry_origin.apply(lambda p: p.y).values,
+            "stop_lon": from_depot.geometry_origin.apply(lambda p: p.x).values,
+        }
+    )
+    to_depot_stops = pd.DataFrame(
+        {
+            "stop_id": "depot_" + to_depot["nearest_depot_idx"].astype(str),
+            "stop_name": to_depot_stop_name.values,
+            "stop_lat": to_depot.geometry_destination.apply(lambda p: p.y).values,
+            "stop_lon": to_depot.geometry_destination.apply(lambda p: p.x).values,
+        }
+    )
+    stops_df = (
+        pd.concat([from_depot_stops, to_depot_stops])
+        .drop_duplicates(subset="stop_id")
+        .reset_index(drop=True)
+    )
 
     return stop_times_df, stops_df

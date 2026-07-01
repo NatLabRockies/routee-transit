@@ -13,6 +13,25 @@ The full workflow proceeds in four stages:
 
 RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.
 
+### Route filtering
+
+By default, route filtering is **trip-level**: only trips whose `route_short_name` appears in the `routes` list are included, regardless of what other routes share the same GTFS block. This gives the most intuitive results, especially for agencies where interlining is common (e.g., a bus block might serve both route 5 and route 21).
+
+When deadhead trips are requested (`add_mid_block_deadhead=True` or `add_depot_deadhead=True`), filtering automatically switches to **block-level** mode. In block-level mode, entire blocks are excluded if *any* trip in the block belongs to a route not in the requested set. This is necessary because deadhead estimation requires complete blocks. If block-level filtering removes all trips but trip-level filtering would have kept some, the error message will explain this and suggest alternatives (either disabling deadhead or adding the additional interlined routes to the `routes` list).
+
+When using `filter_trips()` directly, you can control this behavior with the `use_block_filter` parameter:
+
+```python
+predictor.load_gtfs_data()
+
+# Trip-level filtering (default) — individual trips on route "5" are
+# always kept, even if their block also serves route "21"
+predictor.filter_trips(routes=["5"])
+
+# Block-level filtering — only blocks that exclusively serve route "5"
+predictor.filter_trips(routes=["5"], use_block_filter=True)
+```
+
 See [](data:gtfs-reqs) for the full list of required GTFS files and fields.
 
 ## 2) Deadhead Trip Inference
@@ -25,7 +44,7 @@ For each block in the GTFS feed, consecutive revenue trips are examined. When th
 
 ### Depot deadhead (pull-out / pull-in)
 
-Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. By default, depot locations are drawn from the [National Transit Database "Public Transit Facilities and Stations – 2023"](https://data.transportation.gov/stories/s/gd62-jzra) dataset. Custom depot locations can be supplied by passing a `depot_path` to `GTFSEnergyPredictor`.
+Depot deadhead trips represent the pull-out (depot → first stop of the block) and pull-in (last stop of the block → depot) movements. The nearest depot for each block is selected by minimizing the combined pull-out and pull-in distance across all depot candidates. Depot locations are drawn from the [National Transit Database 2024 Annual Facility Inventory](https://www.transit.dot.gov/ntd/data-product/2024-annual-database-facility-inventory) and the [National Transit Map Agencies](https://geodata.bts.gov/maps/ad6b0823f7364cac86c5421834eaba84) tables, both bundled with this package.
 
 All deadhead shapes are generated through RouteE-Compass using shortest-time routing on the OpenStreetMap road network. Unique origin–destination pairs are routed only once, so blocks that share identical endpoints incur no additional routing cost.
 
@@ -73,10 +92,18 @@ predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
     vehicle_models=["Transit_Bus_Battery_Electric"],
     output_dir="reports/my_agency",  # optional; enables result caching
-    # depot_path is optional - defaults to NTD depot locations
 )
 
 # Option 1: Use the convenience method (recommended)
+# By default, only revenue trips are included (no deadhead).
+trip_results = predictor.run(
+    date="2023/08/02",
+    routes=["205"],
+)
+
+# Option 2: Include deadhead trips and HVAC impacts
+# When deadhead is enabled with route filtering, block-level filtering
+# is used automatically to ensure complete blocks.
 trip_results = predictor.run(
     date="2023/08/02",
     routes=["205"],
@@ -85,7 +112,7 @@ trip_results = predictor.run(
     add_hvac=True,
 )
 
-# Option 2: Step-by-step processing for more control
+# Option 3: Step-by-step processing for more control
 predictor.load_gtfs_data()
 predictor.filter_trips(date="2023/08/02", routes=["205"])
 predictor.add_mid_block_deadhead()  # Between-trip deadhead

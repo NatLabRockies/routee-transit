@@ -1,10 +1,11 @@
 use routee_compass_core::algorithm::search::SearchTree;
-use routee_compass_core::model::network::{Edge, Vertex};
+use routee_compass_core::model::network::Vertex;
 use routee_compass_core::model::state::{
     InputFeature, StateModel, StateVariable, StateVariableConfig,
 };
 use routee_compass_core::model::traversal::{
-    TraversalModel, TraversalModelBuilder, TraversalModelError, TraversalModelService,
+    EdgeFrontierContext, TraversalModel, TraversalModelBuilder, TraversalModelError,
+    TraversalModelService,
 };
 use std::sync::Arc;
 
@@ -25,9 +26,8 @@ impl TraversalModel for TransitTraversalModel {
 
     fn traverse_edge(
         &self,
-        _trajectory: (&Vertex, &Edge, &Vertex),
+        _ctx: &EdgeFrontierContext,
         _state: &mut Vec<StateVariable>,
-        _tree: &SearchTree,
         _state_model: &StateModel,
     ) -> Result<(), TraversalModelError> {
         Ok(())

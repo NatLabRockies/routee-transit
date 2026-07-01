@@ -1,8 +1,9 @@
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from pathlib import Path
+
 from routee.transit.predictor import (
     GGE_PER_GALLON_DIESEL,
     KWH_PER_GGE,
@@ -46,8 +47,7 @@ class TestPredictor(unittest.TestCase):
         self.assertEqual(self.predictor.trips.iloc[0]["trip_id"], "T1")
         self.assertEqual(len(self.predictor.shapes), 1)
 
-    @patch("routee.transit.predictor.filter_blocks_by_route")
-    def test_filter_trips(self, mock_filter: MagicMock) -> None:
+    def test_filter_trips_by_date(self) -> None:
         # Setup pre-loaded state
         self.predictor.feed = MagicMock()
         self.predictor.feed.get_service_ids_from_date.return_value = ["S1"]
@@ -64,6 +64,90 @@ class TestPredictor(unittest.TestCase):
         self.predictor.filter_trips(date="2023-01-01")
         self.assertEqual(len(self.predictor.trips), 1)
         self.assertEqual(self.predictor.trips.iloc[0]["service_id"], "S1")
+
+    def test_filter_trips_trip_level_default(self) -> None:
+        """Trip-level filtering keeps individual trips even if the block has other routes."""
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2", "T3"],
+                "block_id": ["B1", "B1", "B2"],
+                "route_short_name": ["R1", "R2", "R1"],
+                "service_id": ["S1", "S1", "S1"],
+                "shape_id": ["SH1", "SH2", "SH3"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1", "SH2", "SH3"]})
+
+        self.predictor.filter_trips(routes=["R1"])
+
+        # Should keep T1 and T3 (both on R1) even though T1's block also has R2
+        self.assertEqual(len(self.predictor.trips), 2)
+        self.assertListEqual(
+            sorted(self.predictor.trips["trip_id"].tolist()), ["T1", "T3"]
+        )
+
+    def test_filter_trips_block_level(self) -> None:
+        """Block-level filtering excludes blocks that contain trips from other routes."""
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2", "T3"],
+                "block_id": ["B1", "B1", "B2"],
+                "route_short_name": ["R1", "R2", "R1"],
+                "service_id": ["S1", "S1", "S1"],
+                "shape_id": ["SH1", "SH2", "SH3"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1", "SH2", "SH3"]})
+
+        self.predictor.filter_trips(routes=["R1"], use_block_filter=True)
+
+        # Block B1 has R2 so it is excluded entirely; only B2/T3 remains
+        self.assertEqual(len(self.predictor.trips), 1)
+        self.assertEqual(self.predictor.trips.iloc[0]["trip_id"], "T3")
+
+    def test_filter_trips_block_level_error_message(self) -> None:
+        """Block-level filtering gives a helpful error when all trips are excluded."""
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2"],
+                "block_id": ["B1", "B1"],
+                "route_short_name": ["R1", "R2"],
+                "service_id": ["S1", "S1"],
+                "shape_id": ["SH1", "SH2"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1", "SH2"]})
+
+        with self.assertRaises(ValueError) as ctx:
+            self.predictor.filter_trips(routes=["R1"], use_block_filter=True)
+
+        self.assertIn("block-level", str(ctx.exception))
+        self.assertIn("interlined", str(ctx.exception))
+        # Should mention the count of trip-level matches
+        self.assertIn("1 trip(s) match at the trip level", str(ctx.exception))
+
+    def test_filter_trips_block_level_no_trips_at_all(self) -> None:
+        """Block-level filtering with no matching trips gives a generic error."""
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2"],
+                "block_id": ["B1", "B1"],
+                "route_short_name": ["R1", "R2"],
+                "service_id": ["S1", "S1"],
+                "shape_id": ["SH1", "SH2"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1", "SH2"]})
+
+        with self.assertRaises(ValueError) as ctx:
+            self.predictor.filter_trips(routes=["R99"], use_block_filter=True)
+
+        # No trip-level matches either, so the generic error should be used
+        self.assertIn("No trips found", str(ctx.exception))
 
     def test_add_trip_times(self) -> None:
         # Setup pre-loaded state

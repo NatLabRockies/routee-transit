@@ -1,15 +1,17 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
-import pandas as pd
-import numpy as np
+
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 from shapely.geometry import Point
+
 from routee.transit.thermal_energy import (
-    load_thermal_lookup_table,
-    compute_HVAC_energy,
     add_HVAC_energy,
+    compute_HVAC_energy,
+    load_thermal_lookup_table,
 )
 
 
@@ -36,6 +38,35 @@ class TestThermalEnergy(unittest.TestCase):
         # np.trapezoid on [0, ..., 0.99] with constant 10 gives 9.9.
         self.assertAlmostEqual(energy[0], 9.9, places=1)
 
+    def _make_mock_feed_and_trips(
+        self,
+    ) -> tuple[MagicMock, pd.DataFrame, gpd.GeoDataFrame, pd.DataFrame]:
+        mock_feed = MagicMock()
+        mock_feed.stops = pd.DataFrame(
+            {"stop_id": ["S1"], "stop_lat": [40.0], "stop_lon": [-105.0]}
+        )
+        mock_feed.stop_times = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T1"],
+                "arrival_time": [pd.Timedelta(hours=8), pd.Timedelta(hours=9)],
+                "stop_id": ["S1", "S1"],
+            }
+        )
+        trips_df = pd.DataFrame({"trip_id": ["T1"]})
+        mock_county_gdf = gpd.GeoDataFrame(
+            {
+                "county_id": ["G0800130"],
+                "STATEFP": ["08"],
+                "COUNTYFP": ["013"],
+                "geometry": [Point(-105.0, 40.0).buffer(1.0)],
+            },
+            crs="EPSG:4269",
+        )
+        mock_hourly_temp = pd.DataFrame(
+            {"hour": list(range(24)), "Dry Bulb Temperature [°C]": [20.0] * 24}
+        )
+        return mock_feed, trips_df, mock_county_gdf, mock_hourly_temp
+
     @patch("routee.transit.thermal_energy.fetch_counties_gdf")
     @patch("routee.transit.thermal_energy.download_tmy_files")
     @patch("routee.transit.thermal_energy.get_hourly_temperature")
@@ -45,39 +76,10 @@ class TestThermalEnergy(unittest.TestCase):
         mock_download: MagicMock,
         mock_fetch_counties: MagicMock,
     ) -> None:
-        # Setup mock Feed
-        mock_feed = MagicMock()
-        mock_feed.stops = pd.DataFrame(
-            {"stop_id": ["S1"], "stop_lat": [40.0], "stop_lon": [-105.0]}
-        )
-        # Mock stop_times for HVAC calculation (integration needs start/end)
-        mock_feed.stop_times = pd.DataFrame(
-            {
-                "trip_id": ["T1", "T1"],
-                "arrival_time": [pd.Timedelta(hours=8), pd.Timedelta(hours=9)],
-                "stop_id": ["S1", "S1"],
-            }
-        )
-
-        # Setup mock trips
-        trips_df = pd.DataFrame({"trip_id": ["T1"]})
-
-        # Mock dependencies
-        mock_county_gdf = gpd.GeoDataFrame(
-            {
-                "county_id": ["G0800130"],  # Example FIPS
-                "STATEFP": ["08"],
-                "COUNTYFP": ["013"],
-                "geometry": [Point(-105.0, 40.0).buffer(1.0)],
-            },
-            crs="EPSG:4269",
+        mock_feed, trips_df, mock_county_gdf, mock_hourly_temp = (
+            self._make_mock_feed_and_trips()
         )
         mock_fetch_counties.return_value = mock_county_gdf
-
-        # Mock hourly temperature and power mapping
-        mock_hourly_temp = pd.DataFrame(
-            {"hour": list(range(24)), "Dry Bulb Temperature [°C]": [20.0] * 24}
-        )
         mock_get_hourly.return_value = mock_hourly_temp
 
         # use a temp directory for output
@@ -88,6 +90,29 @@ class TestThermalEnergy(unittest.TestCase):
         self.assertIn("hvac_energy_kWh", result.columns)
         self.assertIn("scenario", result.columns)
         # Should have results for 3 scenarios: summer, winter, median
+        self.assertEqual(len(result), 3)
+
+    @patch("routee.transit.thermal_energy.fetch_counties_gdf")
+    @patch("routee.transit.thermal_energy.download_tmy_files")
+    @patch("routee.transit.thermal_energy.get_hourly_temperature")
+    def test_add_HVAC_energy_no_output_dir(
+        self,
+        mock_get_hourly: MagicMock,
+        mock_download: MagicMock,
+        mock_fetch_counties: MagicMock,
+    ) -> None:
+        """add_HVAC_energy should work without output_dir using a default cache path."""
+        mock_feed, trips_df, mock_county_gdf, mock_hourly_temp = (
+            self._make_mock_feed_and_trips()
+        )
+        mock_fetch_counties.return_value = mock_county_gdf
+        mock_get_hourly.return_value = mock_hourly_temp
+
+        # Call without specifying output_dir (previously raised an exception)
+        result = add_HVAC_energy(mock_feed, trips_df, output_dir=None)
+
+        self.assertIn("hvac_energy_kWh", result.columns)
+        self.assertIn("scenario", result.columns)
         self.assertEqual(len(result), 3)
 
 

@@ -24,16 +24,20 @@ from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 from routee.transit.compass_app import TransitCompassApp
-from routee.transit.deadhead_router import create_deadhead_shapes
+from routee.transit.deadhead_router import (
+    create_deadhead_shapes,
+    gtfs_time_to_query_time,
+)
 from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
-    get_default_depot_path,
     infer_depot_trip_endpoints,
 )
 from routee.transit.gtfs_processing import (
+    build_corridor_polygon,
     copy_transit_config,
     extend_trip_traces,
+    timedelta_to_gtfs_time,
     upsample_shape,
     write_gtfs_stops,
 )
@@ -41,7 +45,9 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_stops,
     create_mid_block_deadhead_trips,
 )
+from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.thermal_energy import add_HVAC_energy
+from routee.transit.tods_export import write_tods_deadhead
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +91,12 @@ class GTFSEnergyPredictor:
     - Adding HVAC energy impacts
 
     The class is designed to be easily extended via inheritance. For example, a
-    subclass can override network matching methods to use TomTom instead of OSM.
+    subclass can override network matching methods to use a different road-network
+    source instead of OSM.
 
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     # depot_path is optional - uses NTD depot locations by default
         ... )
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
@@ -100,14 +106,13 @@ class GTFSEnergyPredictor:
         >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
 
     For extending with custom network data:
-        >>> class TomTomEnergyPredictor(GTFSEnergyPredictor):
+        >>> class CustomNetworkPredictor(GTFSEnergyPredictor):
         ...     def _match_shapes_to_network(self, upsampled_shapes):
-        ...         # Custom TomTom matching logic
+        ...         # Custom network matching logic
         ...         return matched_shapes
 
     Attributes:
         gtfs_path (Path): Path to GTFS feed directory
-        depot_path (Path | None): Path to depot shapefile directory
         n_processes (int): Number of parallel processes to use
         feed (Feed | None): Loaded GTFS feed object
         trips (pd.DataFrame): Trips DataFrame (initially all, can be filtered)
@@ -120,7 +125,6 @@ class GTFSEnergyPredictor:
     def __init__(
         self,
         gtfs_path: str | Path,
-        depot_path: str | Path | None = None,
         n_processes: int | None = None,
         compass_app: TransitCompassApp | None = None,
         output_dir: str | Path | None = None,
@@ -133,12 +137,12 @@ class GTFSEnergyPredictor:
         Initialize the GTFSEnergyPredictor.
 
         Args:
-            gtfs_path: Path to directory containing GTFS feed files
-            depot_path: Path to directory containing depot shapefile (Transit_Depot.shp).
-                If None (default), uses depot locations from the National Transit Database's
-                "Public Transit Facilities and Stations - 2023" dataset. This dataset covers
-                depot/facility locations for transit agencies across the United States.
-                Data source: https://data.transportation.gov/stories/s/gd62-jzra
+            gtfs_path: Path to directory containing GTFS feed files.
+                Depot locations are derived from the NTD Facility Inventory
+                bundled with this package.  Only bus-operating agencies and
+                depot-type facilities (maintenance/depot, combined
+                admin+maintenance, service & inspection) are used; rail-only
+                facilities are excluded.
             n_processes: Number of parallel processes for processing. Defaults to CPU count.
             compass_app: An optional pre-initialized CompassApp instance.
             output_dir: Directory for saving results and caching the CompassApp graph.
@@ -150,10 +154,6 @@ class GTFSEnergyPredictor:
                 even if cached outputs already exist in ``output_dir``.
         """
         self.gtfs_path = Path(gtfs_path)
-        if depot_path is None:
-            self.depot_path = get_default_depot_path()
-        else:
-            self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
         self.app = compass_app
         self.output_dir = Path(output_dir) if output_dir else None
@@ -168,8 +168,23 @@ class GTFSEnergyPredictor:
         self.shapes: pd.DataFrame = pd.DataFrame()
         self.matched_shapes: pd.DataFrame = pd.DataFrame()
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
+        # Lower-case weekday name for the analysis service date, derived in run()
+        # from its ``date`` argument; used to stamp deadhead routing queries for
+        # time-of-day traversal models. None when no date filter is applied.
+        self._service_weekday: str | None = None
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
+
+        # Deadhead data accumulated during routing — used for TODS export
+        self._deadhead_trips: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stop_times: pd.DataFrame = pd.DataFrame()
+        self._deadhead_stops: pd.DataFrame = pd.DataFrame()
+        # Snapshot of GTFS stops before any deadhead stops are added — used to
+        # filter stops_supplement.txt to only genuinely new stops.
+        self._gtfs_stops: pd.DataFrame = pd.DataFrame()
+        # FTA depot GeoDataFrame captured during depot deadhead preparation —
+        # used to write depot_metadata.csv alongside the TODS files.
+        self._fta_depots: pd.DataFrame = pd.DataFrame()
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
 
@@ -190,17 +205,10 @@ class GTFSEnergyPredictor:
         ).dt.total_seconds() / 60
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
-        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
+        trip_times["start_time"] = trip_times["start_time"].apply(
+            timedelta_to_gtfs_time
+        )
+        trip_times["end_time"] = trip_times["end_time"].apply(timedelta_to_gtfs_time)
 
         self.trips = self.trips.merge(
             trip_times[["start_time", "end_time", "trip_duration_minutes"]],
@@ -228,8 +236,8 @@ class GTFSEnergyPredictor:
         date: str | None = None,
         routes: list[str] | None = None,
         # Processing options
-        add_mid_block_deadhead: bool = True,
-        add_depot_deadhead: bool = True,
+        add_mid_block_deadhead: bool = False,
+        add_depot_deadhead: bool = False,
         # Energy prediction options
         add_hvac: bool = True,
         save_results: bool = True,
@@ -254,11 +262,16 @@ class GTFSEnergyPredictor:
             If None, all trips across all service dates are included.
         routes : list[str], optional
             Filter trips to specific route IDs. If None, all routes are included.
-        add_mid_block_deadhead : bool, default=True
+        add_mid_block_deadhead : bool, default=False
             Whether to add deadhead trips between consecutive revenue trips.
-        add_depot_deadhead : bool, default=True
+            When True and ``routes`` is specified, block-level filtering is used
+            to ensure only blocks that exclusively serve the selected routes are
+            included (required for correct deadhead estimation).
+        add_depot_deadhead : bool, default=False
             Whether to add deadhead trips from/to depots at start/end of blocks.
-            Requires depot_path to be set during initialization.
+            Uses the NTD facility inventory bundled with this package.
+            When True and ``routes`` is specified, block-level filtering is used
+            (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
         save_results : bool, default=True
@@ -306,8 +319,27 @@ class GTFSEnergyPredictor:
         self.load_gtfs_data()
 
         # Step 2: Filter trips if requested
+        # Use block-level filtering when deadhead trips are requested, because
+        # deadhead estimation requires complete blocks.  Otherwise, use the
+        # more intuitive trip-level filtering.
+        needs_deadhead = add_mid_block_deadhead or add_depot_deadhead
+
+        # Resolve the service-day weekday from the analysis date (accepts
+        # "YYYY-MM-DD" or "YYYY/MM/DD") so deadhead routing queries can be stamped
+        # with start_weekday for time-of-day traversal models.
+        if date is not None:
+            self._service_weekday = (
+                pd.Timestamp(date.replace("/", "-")).day_name().lower()
+            )
+        else:
+            self._service_weekday = None
+
         if date is not None or routes is not None:
-            self.filter_trips(date=date, routes=routes)
+            self.filter_trips(
+                date=date,
+                routes=routes,
+                use_block_filter=needs_deadhead and routes is not None,
+            )
 
         # Add start time, end time, and duration of each trip
         self.add_trip_times()
@@ -324,19 +356,14 @@ class GTFSEnergyPredictor:
                 extra_geoms.append(mid_block_metadata["deadhead_ods"])
 
         if add_depot_deadhead:
-            if self.depot_path is None:
-                logger.warning(
-                    "Cannot add depot deadhead: depot_path not provided during initialization"
+            depot_metadata = self._prepare_depot_deadhead()
+            if depot_metadata is not None:
+                extra_geoms.extend(
+                    [
+                        depot_metadata["first_stops_gdf"],
+                        depot_metadata["last_stops_gdf"],
+                    ]
                 )
-            else:
-                depot_metadata = self._prepare_depot_deadhead()
-                if depot_metadata is not None:
-                    extra_geoms.extend(
-                        [
-                            depot_metadata["first_stops_gdf"],
-                            depot_metadata["last_stops_gdf"],
-                        ]
-                    )
 
         # Step 4: Load CompassApp once with comprehensive bounding box
         self.load_compass_app(extra_geoms=extra_geoms if extra_geoms else None)
@@ -396,22 +423,40 @@ class GTFSEnergyPredictor:
         shape_ids = self.trips.shape_id.unique()
         self.shapes = self.feed.shapes[self.feed.shapes.shape_id.isin(shape_ids)]
 
+        # Snapshot of original stops before deadhead routing adds new ones
+        self._gtfs_stops = self.feed.stops.copy()
+
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
 
     def load_compass_app(
         self,
-        buffer_deg: float = 0.05,
+        buffer_deg: float = 0.01,
+        deadhead_buffer_deg: float = 0.05,
         n_processes: int | None = None,
         extra_geoms: list[gpd.GeoDataFrame | pd.DataFrame] | None = None,
     ) -> None:
         """
-        Initialize the CompassApp using the bounding box of the loaded shapes.
+        Initialize the CompassApp using a buffered corridor polygon of the loaded shapes.
+
+        Instead of downloading the entire rectangular bounding box of all
+        shapes (which wastes memory for long/diagonal routes), this method
+        builds a corridor polygon by buffering the actual shape geometries.
+        The polygon is passed to ``ox.graph_from_polygon`` so only road
+        network data near the transit routes is downloaded.
 
         Args:
-            buffer_deg: Buffer in degrees to add to the bounding box.
+            buffer_deg: Buffer in degrees to add around each shape geometry.
+                Default 0.01 (~1.1 km). Increase if map matching fails for
+                shapes near the corridor edge.
+            deadhead_buffer_deg: Buffer in degrees to add around deadhead
+                and extra geometries (depot locations, O-D segments).
+                Default 0.05 (~5.5 km). Larger than buffer_deg because
+                Compass must route these paths itself rather than
+                map-matching from known GTFS shapes.
             n_processes: Number of processes for parallelism.
-            extra_geoms: Optional list of GeoDataFrames or DataFrames with geometry to include in bbox.
+            extra_geoms: Optional list of GeoDataFrames or DataFrames with
+                geometry to include in the download polygon.
         """
         if n_processes is not None:
             self.n_processes = n_processes
@@ -421,51 +466,16 @@ class GTFSEnergyPredictor:
                 "Must load GTFS data (and shapes) before initializing CompassApp"
             )
 
-        # Calculate requested bounding box
-        lons = [
-            float(self.shapes.shape_pt_lon.min()),
-            float(self.shapes.shape_pt_lon.max()),
-        ]
-        lats = [
-            float(self.shapes.shape_pt_lat.min()),
-            float(self.shapes.shape_pt_lat.max()),
-        ]
-
-        if extra_geoms:
-            for df in extra_geoms:
-                if isinstance(df, gpd.GeoDataFrame):
-                    bounds = df.total_bounds
-                    lons.extend([float(bounds[0]), float(bounds[2])])
-                    lats.extend([float(bounds[1]), float(bounds[3])])
-                elif (
-                    isinstance(df, pd.DataFrame)
-                    and "geometry_origin" in df.columns
-                    and "geometry_destination" in df.columns
-                ):
-                    # Handle deadhead O-D dataframes
-                    for col in ["geometry_origin", "geometry_destination"]:
-                        lons.extend(
-                            [
-                                df[col].apply(lambda p: p.x).min(),
-                                df[col].apply(lambda p: p.x).max(),
-                            ]
-                        )
-                        lats.extend(
-                            [
-                                df[col].apply(lambda p: p.y).min(),
-                                df[col].apply(lambda p: p.y).max(),
-                            ]
-                        )
-
-        min_lon, max_lon = min(lons), max(lons)
-        min_lat, max_lat = min(lats), max(lats)
-
-        new_bbox = (
-            float(min_lon) - buffer_deg,
-            float(min_lat) - buffer_deg,
-            float(max_lon) + buffer_deg,
-            float(max_lat) + buffer_deg,
+        # Build a buffered corridor polygon from GTFS shapes (+ extra geometries).
+        # Shared corridor builder so alternative network-download pipelines
+        # can cover the same area.
+        corridor_polygon = build_corridor_polygon(
+            self.shapes, extra_geoms, buffer_deg, deadhead_buffer_deg
         )
+
+        # Compute bounding box for cache-invalidation checks
+        bounds = corridor_polygon.bounds  # (minx, miny, maxx, maxy)
+        new_bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
 
         if self._bbox is not None and (
             new_bbox[0] < self._bbox[0]
@@ -473,10 +483,9 @@ class GTFSEnergyPredictor:
             or new_bbox[2] > self._bbox[2]
             or new_bbox[3] > self._bbox[3]
         ):
-            # If the user has not set overwrite to True, we warn them that their results may be outside the map bounds
             if not self.overwrite:
                 logger.warning(
-                    "Some geometries are outside the current CompassApp bounding box. "
+                    "Some geometries are outside the current CompassApp polygon. "
                     "Routing may fail. Set overwrite=True in GTFSEnergyPredictor to reload the map."
                 )
 
@@ -530,10 +539,13 @@ class GTFSEnergyPredictor:
             logger.info(f"Clearing CompassApp cache at {cache_dir}")
             shutil.rmtree(cache_dir)
 
-        logger.info(f"Building CompassApp from bounding box: {new_bbox}")
+        logger.info(
+            f"Building CompassApp from corridor polygon "
+            f"(bounds: {new_bbox}, buffer: {buffer_deg}°, deadhead_buffer: {deadhead_buffer_deg}°)"
+        )
 
-        graph = ox.graph_from_bbox(
-            bbox=new_bbox,
+        graph = ox.graph_from_polygon(
+            corridor_polygon,
             network_type="drive",
         )
         self.app = cast(
@@ -553,6 +565,7 @@ class GTFSEnergyPredictor:
         self,
         date: str | None = None,
         routes: list[str] | None = None,
+        use_block_filter: bool = False,
     ) -> "GTFSEnergyPredictor":
         """
         Filter trips by date and/or routes.
@@ -560,18 +573,36 @@ class GTFSEnergyPredictor:
         This method can be called after load_gtfs_data() to restrict the analysis
         to specific dates or routes. Can be called multiple times to refine filters.
 
-        Args:
-            date: Date to filter trips (format: "YYYY-MM-DD" or datetime object).
-                If None, keeps all currently loaded trips.
-            routes: List of route_short_name values to filter by.
-                If None, keeps all currently loaded routes.
+        Parameters
+        ----------
+        date : str, optional
+            Date to filter trips (format: "YYYY-MM-DD" or datetime object).
+            If None, keeps all currently loaded trips.
+        routes : list[str], optional
+            List of route_short_name values to filter by.
+            If None, keeps all currently loaded routes.
+        use_block_filter : bool, default=False
+            When True, uses block-level filtering via
+            ``filter_blocks_by_route`` with ``route_method="exclusive"``.
+            This means entire blocks are excluded if any trip in the block
+            belongs to a route not in ``routes``. This is appropriate when
+            deadhead trips are being estimated, because we need complete
+            blocks.  When False (the default), trips are filtered purely
+            at the trip level so that individual trips on the requested
+            routes are always included regardless of what other routes
+            share the same block.
 
-        Returns:
-            Self for method chaining
+        Returns
+        -------
+        GTFSEnergyPredictor
+            Self for method chaining.
 
-        Raises:
-            RuntimeError: If GTFS data hasn't been loaded yet
-            ValueError: If no trips match the specified filters
+        Raises
+        ------
+        RuntimeError
+            If GTFS data hasn't been loaded yet.
+        ValueError
+            If no trips match the specified filters.
         """
         if self.feed is None or self.trips.empty:
             raise RuntimeError("Must call load_gtfs_data() before filtering trips")
@@ -588,14 +619,40 @@ class GTFSEnergyPredictor:
 
         # Filter by routes
         if routes is not None:
-            self.trips = filter_blocks_by_route(
-                trips=self.trips,
-                routes=routes,
-                route_column="route_short_name",
-                route_method="exclusive",
-            )
-            if len(self.trips) == 0:
-                raise ValueError("No trips found for the selected routes and date.")
+            if use_block_filter:
+                pre_filter_trips = self.trips
+                self.trips = filter_blocks_by_route(
+                    trips=self.trips,
+                    routes=routes,
+                    route_column="route_short_name",
+                    route_method="exclusive",
+                )
+                if len(self.trips) == 0:
+                    # Check whether trip-level filtering would have kept any
+                    # trips.  This tells the user whether the issue is that
+                    # no trips match the routes at all, or that block-level
+                    # filtering is too restrictive.
+                    trip_level_count = int(
+                        pre_filter_trips["route_short_name"].isin(routes).sum()
+                    )
+                    if trip_level_count > 0:
+                        raise ValueError(
+                            f"No trips remain after block-level route filtering, "
+                            f"but {trip_level_count} trip(s) match at the trip "
+                            f"level. This can happen when blocks contain trips "
+                            f"from routes not in the requested set (e.g. "
+                            f"interlined routes). Consider running without "
+                            f"deadhead trips to use trip-level filtering, or "
+                            f"add the additional routes to the 'routes' "
+                            f"parameter."
+                        )
+                    raise ValueError("No trips found for the selected routes and date.")
+            else:
+                self.trips = self.trips[
+                    self.trips["route_short_name"].isin(routes)
+                ].copy()
+                if len(self.trips) == 0:
+                    raise ValueError("No trips found for the selected routes and date.")
 
         # Update shapes to match filtered trips
         shape_ids = self.trips.shape_id.unique()
@@ -671,7 +728,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for unique O-D pairs
         deadhead_shapes, od_mapping = create_deadhead_shapes(
-            app=self.app, df=deadhead_ods
+            app=self.app, df=deadhead_ods, start_weekday=self._service_weekday
         )
 
         # Assign shape_id to each trip based on O-D mapping
@@ -699,20 +756,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -731,6 +779,17 @@ class GTFSEnergyPredictor:
         trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
         deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
         deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
+
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
 
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
@@ -767,11 +826,6 @@ class GTFSEnergyPredictor:
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
 
-        if self.depot_path is None:
-            raise RuntimeError(
-                "depot_path must be specified in __init__() to add depot deadhead trips"
-            )
-
         logger.info("Preparing depot deadhead trips...")
 
         # Create depot deadhead trip records
@@ -781,10 +835,83 @@ class GTFSEnergyPredictor:
             logger.info("No depot deadhead trips needed")
             return None
 
+        # Match each agency name to an NTD ID using fuzzy name + location matching
+        # and load the union of all matched agencies' facilities.
+        all_stops = self.feed.stops
+        feed_lat = float(all_stops["stop_lat"].mean()) if not all_stops.empty else 0.0
+        feed_lon = float(all_stops["stop_lon"].mean()) if not all_stops.empty else 0.0
+
+        matched_ntd_ids: list[str] = []
+        agency_df = self.feed.agency
+        has_agency_id = "agency_id" in agency_df.columns
+        routes_has_agency_id = "agency_id" in self.feed.routes.columns
+
+        for _, agency_row in agency_df.dropna(subset=["agency_name"]).iterrows():
+            agency_name = agency_row["agency_name"]
+            gtfs_agency_id = str(agency_row["agency_id"]) if has_agency_id else None
+
+            # Compute the centroid of stops served by this agency's trips.
+            # Note: self.feed.routes has route_id as its index, not a column.
+            if gtfs_agency_id is not None and routes_has_agency_id:
+                agency_route_ids = self.feed.routes.index[
+                    self.feed.routes["agency_id"] == gtfs_agency_id
+                ]
+                agency_trip_ids = self.trips.loc[
+                    self.trips["route_id"].isin(agency_route_ids), "trip_id"
+                ]
+                agency_stop_ids = self.feed.stop_times.loc[
+                    self.feed.stop_times["trip_id"].isin(agency_trip_ids), "stop_id"
+                ].unique()
+                agency_stops = all_stops[all_stops["stop_id"].isin(agency_stop_ids)]
+                if not agency_stops.empty:
+                    agency_lat = float(agency_stops["stop_lat"].mean())
+                    agency_lon = float(agency_stops["stop_lon"].mean())
+                else:
+                    agency_lat, agency_lon = feed_lat, feed_lon
+            else:
+                agency_lat, agency_lon = feed_lat, feed_lon
+
+            try:
+                ntd_match = match_agency_to_ntd(
+                    agency_name,
+                    agency_lat,
+                    agency_lon,
+                    agency_id=gtfs_agency_id,
+                )
+                ntd_id = ntd_match["NTD_ID"]
+                if ntd_id not in matched_ntd_ids:
+                    matched_ntd_ids.append(ntd_id)
+                logger.info(
+                    "Matched GTFS agency '%s' to NTD ID %s ('%s').",
+                    agency_name,
+                    ntd_id,
+                    ntd_match["Agency_Name"],
+                )
+            except ValueError:
+                logger.warning(
+                    "Could not match GTFS agency '%s' to an NTD record; "
+                    "its trips will fall back to the nearest available facility.",
+                    agency_name,
+                )
+
+        try:
+            depots_gdf = load_ntd_facilities(
+                ntd_ids=matched_ntd_ids if matched_ntd_ids else None
+            )
+        except (FileNotFoundError, ValueError):
+            if matched_ntd_ids:
+                logger.warning(
+                    "No NTD facilities found for matched NTD IDs %s; "
+                    "falling back to all bus facilities.",
+                    matched_ntd_ids,
+                )
+                depots_gdf = load_ntd_facilities()
+            else:
+                raise
+
         # Infer depot locations for each block's first and last stops
-        depot_shapefile = self.depot_path / "Transit_Depot.shp"
-        first_stops_gdf, last_stops_gdf = infer_depot_trip_endpoints(
-            self.trips, self.feed, depot_shapefile
+        first_stops_gdf, last_stops_gdf, depots_df = infer_depot_trip_endpoints(
+            self.trips, self.feed, depots_gdf
         )
 
         # Create stop_times and stops for depot deadhead trips
@@ -798,6 +925,7 @@ class GTFSEnergyPredictor:
             "deadhead_stops": deadhead_stops,
             "first_stops_gdf": first_stops_gdf,
             "last_stops_gdf": last_stops_gdf,
+            "fta_depots": depots_df,
         }
 
     def _route_depot_deadhead(self, metadata: dict[str, Any]) -> None:
@@ -814,12 +942,13 @@ class GTFSEnergyPredictor:
         deadhead_stops = metadata["deadhead_stops"]
         first_stops_gdf = metadata["first_stops_gdf"]
         last_stops_gdf = metadata["last_stops_gdf"]
+        fta_depots = metadata.get("fta_depots")
 
         logger.info("Routing depot deadhead trips...")
 
         # Generate shapes for trips from depot to first stop
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=first_stops_gdf
+            app=self.app, df=first_stops_gdf, start_weekday=self._service_weekday
         )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -830,7 +959,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=last_stops_gdf
+            app=self.app, df=last_stops_gdf, start_weekday=self._service_weekday
         )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
@@ -881,20 +1010,11 @@ class GTFSEnergyPredictor:
         ).round(2)
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td: pd.Timedelta) -> str:
-            if pd.isna(td):
-                return ""
-            total_seconds = int(td.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
-
         deadhead_trip_times["start_time"] = deadhead_trip_times["start_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
         deadhead_trip_times["end_time"] = deadhead_trip_times["end_time"].apply(
-            format_timedelta
+            timedelta_to_gtfs_time
         )
 
         deadhead_trips = deadhead_trips.merge(
@@ -918,6 +1038,19 @@ class GTFSEnergyPredictor:
         )
         deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
 
+        # Accumulate deadhead data for TODS export
+        self._deadhead_trips = pd.concat(
+            [self._deadhead_trips, deadhead_trips], ignore_index=True
+        )
+        self._deadhead_stop_times = pd.concat(
+            [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
+        )
+        self._deadhead_stops = pd.concat(
+            [self._deadhead_stops, deadhead_stops], ignore_index=True
+        )
+        if fta_depots is not None and self._fta_depots.empty:
+            self._fta_depots = fta_depots
+
         # Update internal state
         assert self.feed is not None, "GTFS feed must be loaded"
         self.trips = pd.concat([self.trips, deadhead_trips], ignore_index=True)
@@ -936,6 +1069,37 @@ class GTFSEnergyPredictor:
         )
 
         logger.info(f"Added {len(deadhead_trips)} depot deadhead trips")
+
+    def _shape_start_times(self) -> dict[str, tuple[str, str]]:
+        """
+        Map each shape_id to a representative ``(start_time, start_weekday)`` pair.
+
+        Time-of-day traversal models (e.g. a ``speed_time_of_day`` model)
+        require ``start_time``/``start_weekday`` on every map-match and
+        path-calculation query in order to select the correct speed profile. The
+        departure time of day comes from ``self.trips["start_time"]`` (a GTFS
+        ``HH:MM:SS`` string that may exceed ``24:00:00`` for past-midnight service);
+        the service-day weekday comes from the analysis ``date`` resolved in
+        ``run()``. When several trips share a shape_id, the earliest departure is
+        used as the representative time for that shape.
+
+        Shapes without a usable start time are simply omitted; callers fall back to
+        a neutral default so the query still builds.
+        """
+        if self.trips.empty or "start_time" not in self.trips.columns:
+            return {}
+
+        start_times: dict[str, tuple[str, str]] = {}
+        trips = self.trips[["shape_id", "start_time"]].dropna(subset=["shape_id"])
+        for shape_id, group in trips.groupby("shape_id"):
+            # Earliest GTFS departure for this shape, as a midnight offset.
+            deltas = pd.to_timedelta(group["start_time"], errors="coerce").dropna()
+            if deltas.empty:
+                continue
+            time_pair = gtfs_time_to_query_time(deltas.min(), self._service_weekday)
+            if time_pair is not None:
+                start_times[str(shape_id)] = time_pair
+        return start_times
 
     @staticmethod
     def aggregate_inputs_by_link(trips_ext: pd.DataFrame) -> pd.DataFrame:
@@ -983,7 +1147,10 @@ class GTFSEnergyPredictor:
         logger.info("Matching shapes to road network...")
 
         # Step 1: Upsample all shapes to ~1 Hz
-        shape_groups = [group for _, group in self.shapes.groupby("shape_id")]
+        shape_groups = [
+            group.sort_values("shape_pt_sequence")
+            for _, group in self.shapes.groupby("shape_id")
+        ]
         with mp.Pool(self.n_processes) as pool:
             upsampled_shapes = pool.map(upsample_shape, shape_groups)
 
@@ -1041,12 +1208,22 @@ class GTFSEnergyPredictor:
         else:
             mm_model_name = list(VEHICLE_MODELS.keys())[0]
 
+        # Representative departure time/weekday per shape, required by time-of-day
+        # traversal models. Shapes without a known time fall back to midday so the
+        # query still builds.
+        shape_start_times = self._shape_start_times()
+        default_time = ("12:00:00", self._service_weekday or "monday")
+
         # Build queries for all shapes
-        queries = [
-            self._create_map_match_query(shape_df, model_name=mm_model_name)
-            for shape_df in upsampled_shapes
-        ]
         shape_ids = [df["shape_id"].iloc[0] for df in upsampled_shapes]
+        queries = [
+            self._create_map_match_query(
+                shape_df,
+                model_name=mm_model_name,
+                start_time=shape_start_times.get(str(sid), default_time),
+            )
+            for shape_df, sid in zip(upsampled_shapes, shape_ids)
+        ]
 
         logger.info(f"Running map matching for {len(queries)} shapes...")
 
@@ -1060,6 +1237,7 @@ class GTFSEnergyPredictor:
     def _create_map_match_query(
         shape_df: pd.DataFrame,
         model_name: str | None = None,
+        start_time: tuple[str, str] | None = None,
     ) -> dict[str, Any]:
         """
         Create a CompassApp map matching query from a GTFS shape DataFrame.
@@ -1069,6 +1247,11 @@ class GTFSEnergyPredictor:
             model_name: Optional vehicle model name to use for map matching
                 search parameters. Required when using energy config to override
                 the default model_name.
+            start_time: Optional ``(start_time, start_weekday)`` pair for the
+                map matcher's internal path-recalculation traversal model. Map
+                matching builds that model from ``search_parameters`` (not the
+                top level), so these are nested there. Required by time-of-day
+                models such as a ``speed_time_of_day`` model.
 
         Returns:
             Dictionary suitable for CompassApp.map_match
@@ -1081,8 +1264,14 @@ class GTFSEnergyPredictor:
         query: dict[str, Any] = {
             "trace": trace,
         }
+        search_parameters: dict[str, Any] = {}
         if model_name is not None:
-            query["search_parameters"] = {"model_name": model_name}
+            search_parameters["model_name"] = model_name
+        if start_time is not None:
+            search_parameters["start_time"] = start_time[0]
+            search_parameters["start_weekday"] = start_time[1]
+        if search_parameters:
+            query["search_parameters"] = search_parameters
         return query
 
     def _process_map_match_results(
@@ -1212,16 +1401,25 @@ class GTFSEnergyPredictor:
             model_config = VEHICLE_MODELS[model_name]
             energy_field = model_config["energy_field"]
 
-            # Build queries with model_name parameter
+            # Build queries with model_name parameter. Time-of-day traversal
+            # models need start_time/start_weekday (top-level here) to select the
+            # correct speed profile when evaluating the matched path's energy.
+            shape_start_times = self._shape_start_times()
+            default_time = ("12:00:00", self._service_weekday or "monday")
             shape_id_list = list(shapes_edge_ids.keys())
-            queries: list[dict[str, Any]] = [
-                {
+            queries = []
+            for sid in shape_id_list:
+                query: dict[str, Any] = {
                     "path": shapes_edge_ids[sid],
                     "model_name": model_name,
                     "weights": {"trip_time": 1.0},
                 }
-                for sid in shape_id_list
-            ]
+                start_time, start_weekday = shape_start_times.get(
+                    str(sid), default_time
+                )
+                query["start_time"] = start_time
+                query["start_weekday"] = start_weekday
+                queries.append(query)
 
             # Run calculate path via CompassApp
             assert self.app is not None, "CompassApp must be loaded"
@@ -1372,6 +1570,7 @@ class GTFSEnergyPredictor:
         output_dir: str | Path | None = None,
         save_geometry: bool = True,
         save_inputs: bool = False,
+        save_tods: bool = True,
     ) -> None:
         """
         Save prediction results to CSV files.
@@ -1381,6 +1580,9 @@ class GTFSEnergyPredictor:
                 defaulting to the current working directory if that is also None.
             save_geometry: Whether to save link geometry separately
             save_inputs: Whether to save RouteE input features
+            save_tods: Whether to write TODS supplement files for deadhead trips.
+                Files are written to a ``tods/`` subdirectory. Has no effect if
+                no deadhead trips were added.
 
         Raises:
             RuntimeError: If no predictions have been generated yet
@@ -1431,10 +1633,25 @@ class GTFSEnergyPredictor:
             logger.info(f"Saved trip predictions to {trip_path}")
 
         # Save RouteE inputs
-        if save_inputs and self.routee_inputs is not None:
+        if save_inputs and not self.routee_inputs.empty:
             inputs_df = self.routee_inputs.copy()
             if "geom" in inputs_df.columns:
                 inputs_df = inputs_df.drop(columns="geom")
             inputs_path = output_path / "routee_inputs.csv"
             inputs_df.to_csv(inputs_path, index=False)
             logger.info(f"Saved RouteE inputs to {inputs_path}")
+
+        # Save TODS supplement files for inferred deadhead trips
+        if save_tods and not self._deadhead_trips.empty:
+            assert self.feed is not None, "GTFS feed must be loaded"
+            tods_dir = output_path / "tods"
+            write_tods_deadhead(
+                deadhead_trips=self._deadhead_trips,
+                deadhead_stop_times=self._deadhead_stop_times,
+                deadhead_stops=self._deadhead_stops,
+                shapes=self.shapes,
+                gtfs_stops=self._gtfs_stops,
+                output_dir=tods_dir,
+                fta_depots=self._fta_depots if not self._fta_depots.empty else None,
+            )
+            logger.info(f"Saved TODS supplement files to {tods_dir}")
