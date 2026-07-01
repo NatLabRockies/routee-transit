@@ -364,7 +364,7 @@ def add_HVAC_energy(
     )
 
     # Build lookup: (month, day_of_month) → np.array[24] of hourly power values
-    power_lookup: dict[tuple[int, int], np.ndarray] = {}
+    power_lookup = {}
     for key, grp in avg_power.groupby(["month", "day_of_month"]):
         month_key, day_key = cast(tuple[int, int], key)
         power_lookup[(month_key, day_key)] = grp.sort_values("hour")["Power"].to_numpy()
