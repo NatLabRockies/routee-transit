@@ -267,10 +267,10 @@ class GTFSEnergyPredictor:
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
         scale_to_year : bool, default=False
-            When True (and a per-date HVAC run is being performed), project the
-            feed's typical weekday service patterns onto every uncovered date in
-            a full one-year window so the output spans an entire year regardless
-            of feed coverage.  Synthesized rows are flagged with
+            When True (and no `date` filter is applied), project the feed's typical
+            weekday service patterns onto every uncovered date in a full one-year
+            window so the output spans an entire year regardless of feed coverage.
+            Synthesized rows are flagged with
             ``trip_is_within_gtfs_scope=False`` in the trip-level output.
         save_results : bool, default=True
             Whether to save results to files.

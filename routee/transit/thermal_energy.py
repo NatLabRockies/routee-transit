@@ -379,7 +379,8 @@ def add_HVAC_energy(
         ].drop_duplicates()
         date_service_df["trip_is_within_gtfs_scope"] = True
     else:
-        all_unique = sorted(all_dates_df["date"].unique())
+        all_unique = pd.to_datetime(all_dates_df["date"].dropna().unique()).to_list()
+        all_unique.sort()
         if scale_to_year and all_unique:
             window_start, window_end = _select_full_year_window(all_unique, max_days)
         else:
@@ -406,7 +407,9 @@ def add_HVAC_energy(
             weekday_to_sids: dict[str, list[str]] = {
                 weekday: list(row["service_id"]) for weekday, row in typical.iterrows()
             }
-            covered_dates: set[pd.Timestamp] = set(date_service_df["date"].unique())
+            covered_dates: set[pd.Timestamp] = set(
+                pd.to_datetime(date_service_df["date"]).to_list()
+            )
             all_window_dates = pd.date_range(window_start, window_end, freq="D")
             uncovered_dates = [d for d in all_window_dates if d not in covered_dates]
             projected_rows = []
@@ -424,6 +427,10 @@ def add_HVAC_energy(
                 )
 
     # Join dates to trips via service_id
+    required_cols = {"trip_id", "service_id"}
+    missing = required_cols.difference(trips_df.columns)
+    if missing:
+        raise ValueError(f"trips_df is missing required columns: {sorted(missing)}")
     trips_slim = trips_df[["trip_id", "service_id"]].drop_duplicates()
     date_trips = date_service_df.merge(trips_slim, on="service_id")
 
