@@ -68,9 +68,10 @@ def create_mid_block_deadhead_trips(
         to_stop = block_df["to_trip"].map(first_stop_per_trip).astype(str)
         block_df["route_id"] = "deadhead_" + from_stop + "_to_" + to_stop
 
-        block_df = block_df[
-            ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
-        ]
+        cols = ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
+        if "agency_id" in block_df.columns:
+            cols.append("agency_id")
+        block_df = block_df[cols]
         block_df = block_df.rename(columns=({"deadhead_trip": "trip_id"}))
         dh_dfs.append(block_df)
     deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
@@ -78,7 +79,6 @@ def create_mid_block_deadhead_trips(
     deadhead_trips["route_short_name"] = None
     deadhead_trips["route_type"] = 3
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
-    deadhead_trips["agency_id"] = None
     deadhead_trips["shape_id"] = deadhead_trips["trip_id"]
     deadhead_trips["trip_type"] = "mid_block_deadhead"
 
