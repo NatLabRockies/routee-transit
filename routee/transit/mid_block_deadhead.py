@@ -4,6 +4,23 @@ from geopy.distance import geodesic
 from gtfsblocks import Feed
 
 
+def _empty_mid_block_deadhead_trips(include_agency_id: bool) -> pd.DataFrame:
+    columns = [
+        "trip_id",
+        "route_id",
+        "service_id",
+        "block_id",
+        "shape_id",
+        "route_short_name",
+        "route_type",
+        "route_desc",
+        "trip_type",
+    ]
+    if include_agency_id:
+        columns.insert(5, "agency_id")
+    return pd.DataFrame(columns=columns)
+
+
 def create_mid_block_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
 ) -> pd.DataFrame:
@@ -74,8 +91,11 @@ def create_mid_block_deadhead_trips(
         block_df = block_df[cols]
         block_df = block_df.rename(columns=({"deadhead_trip": "trip_id"}))
         dh_dfs.append(block_df)
-    deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
 
+    if not dh_dfs:
+        return _empty_mid_block_deadhead_trips("agency_id" in trips_df.columns)
+
+    deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
     deadhead_trips["route_short_name"] = deadhead_trips["route_id"]
     deadhead_trips["route_type"] = 3
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
