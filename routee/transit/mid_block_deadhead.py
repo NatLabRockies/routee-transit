@@ -76,7 +76,7 @@ def create_mid_block_deadhead_trips(
         dh_dfs.append(block_df)
     deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
 
-    deadhead_trips["route_short_name"] = None
+    deadhead_trips["route_short_name"] = deadhead_trips["route_id"]
     deadhead_trips["route_type"] = 3
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
     deadhead_trips["shape_id"] = deadhead_trips["trip_id"]

@@ -62,6 +62,10 @@ class TestMidBlockDeadhead(unittest.TestCase):
         # Route ID encodes last stop of from_trip → first stop of to_trip
         # T1 last stop is S2, T2 first stop is S3
         self.assertEqual(deadhead_trips.iloc[0]["route_id"], "deadhead_S2_to_S3")
+        # route_short_name should not be empty
+        self.assertEqual(
+            deadhead_trips.iloc[0]["route_short_name"], "deadhead_S2_to_S3"
+        )
 
     def test_agency_id_propagated_when_present(self) -> None:
         trips_with_agency = self.trips_df.copy()
