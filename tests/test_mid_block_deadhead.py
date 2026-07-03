@@ -89,6 +89,42 @@ class TestMidBlockDeadhead(unittest.TestCase):
         # agency_id column is absent when the input trips have no agency_id
         self.assertNotIn("agency_id", deadhead_trips.columns)
 
+    def test_no_deadheads_returns_empty_dataframe(self) -> None:
+        trips_no_deadheads = self.trips_df.copy()
+        trips_no_deadheads["block_id"] = ["B1", "B2", "B3"]
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_no_deadheads, self.stop_times_df
+        )
+
+        self.assertTrue(deadhead_trips.empty)
+        self.assertListEqual(
+            deadhead_trips.columns.tolist(),
+            [
+                "trip_id",
+                "route_id",
+                "service_id",
+                "block_id",
+                "shape_id",
+                "route_short_name",
+                "route_type",
+                "route_desc",
+                "trip_type",
+            ],
+        )
+
+    def test_no_deadheads_preserves_agency_id_column_when_present(self) -> None:
+        trips_with_agency = self.trips_df.copy()
+        trips_with_agency["agency_id"] = ["A1", "A2", "A3"]
+        trips_with_agency["block_id"] = ["B1", "B2", "B3"]
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_with_agency, self.stop_times_df
+        )
+
+        self.assertTrue(deadhead_trips.empty)
+        self.assertIn("agency_id", deadhead_trips.columns)
+
     def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(
             self.trips_df, self.stop_times_df
