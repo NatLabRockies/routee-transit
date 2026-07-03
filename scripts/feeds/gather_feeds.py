@@ -223,14 +223,15 @@ def compute_agency_metrics(
         trip_info["agency_id"] = SINGLE_AGENCY_PLACEHOLDER
 
     # --- median_trips_per_day ------------------------------------------------
+    service_dates = dataset.get_service_ids_all_dates()
+
     sid_trip_counts = (
         trip_info.groupby(["service_id", "agency_id"])["trip_id"]
         .nunique()
         .reset_index(name="n_trips")
     )
     daily_trips = (
-        dataset.get_service_ids_all_dates()
-        .merge(sid_trip_counts, on="service_id", how="inner")
+        service_dates.merge(sid_trip_counts, on="service_id", how="inner")
         .groupby(["date", "agency_id"])["n_trips"]
         .sum()
         .reset_index()
@@ -286,22 +287,65 @@ def compute_agency_metrics(
             if "shape_id" in shapes_df.columns
             else shapes_df.index.to_series()
         )
+        shape_centers = (
+            pd.DataFrame(
+                {
+                    "shape_id": shape_id_series.to_numpy(),
+                    "shape_pt_lat": shapes_df["shape_pt_lat"].to_numpy(),
+                    "shape_pt_lon": shapes_df["shape_pt_lon"].to_numpy(),
+                }
+            )
+            .groupby("shape_id")[["shape_pt_lat", "shape_pt_lon"]]
+            .mean()
+        )
+        trip_run_counts = (
+            service_dates.groupby("service_id")
+            .size()
+            .rename("trip_run_count")
+            .reset_index()
+        )
+        shape_weights = (
+            trip_info.dropna(subset=["shape_id"])
+            .merge(trip_run_counts, on="service_id", how="left")
+            .assign(trip_run_count=lambda df: df["trip_run_count"].fillna(0))
+            .groupby(["agency_id", "shape_id"], dropna=False)["trip_run_count"]
+            .sum()
+            .rename("shape_weight")
+            .reset_index()
+        )
         for agency_key, group in trip_info.groupby("agency_id"):
-            agency_shape_ids = set(group["shape_id"].dropna())
-            if not agency_shape_ids:
+            weighted_shapes = shape_weights[shape_weights["agency_id"] == agency_key]
+            if weighted_shapes.empty:
                 agency_location[agency_key] = None
                 continue
-            pts = shapes_df[shape_id_series.isin(agency_shape_ids).values]
-            if pts.empty:
+            weighted_centers = weighted_shapes.join(
+                shape_centers, on="shape_id", how="inner"
+            )
+            if weighted_centers.empty:
                 agency_location[agency_key] = None
                 continue
-            min_lat = float(pts["shape_pt_lat"].min())
-            max_lat = float(pts["shape_pt_lat"].max())
-            min_lon = float(pts["shape_pt_lon"].min())
-            max_lon = float(pts["shape_pt_lon"].max())
+            total_weight = float(weighted_centers["shape_weight"].sum())
+            if total_weight <= 0:
+                lat = float(weighted_centers["shape_pt_lat"].mean())
+                lon = float(weighted_centers["shape_pt_lon"].mean())
+            else:
+                lat = float(
+                    (
+                        weighted_centers["shape_pt_lat"]
+                        * weighted_centers["shape_weight"]
+                    ).sum()
+                    / total_weight
+                )
+                lon = float(
+                    (
+                        weighted_centers["shape_pt_lon"]
+                        * weighted_centers["shape_weight"]
+                    ).sum()
+                    / total_weight
+                )
             agency_location[agency_key] = (
-                round(0.5 * (min_lat + max_lat), 6),
-                round(0.5 * (min_lon + max_lon), 6),
+                round(lat, 6),
+                round(lon, 6),
             )
 
     # --- agency lookup: placeholder/real key -> (real_id, agency_name, agency_url) ----
