@@ -499,5 +499,52 @@ class TestNTDMatchingFromCSV(unittest.TestCase):
             self.fail(f"{len(failures)} NTD match failures:\n" + "\n".join(failures))
 
 
+class TestNTDNonMatchesFromCSV(unittest.TestCase):
+    """Agencies that must NOT return a known-wrong NTD match.
+
+    ``ntd-agencies-negative-test.csv`` lists agencies where the matcher
+    previously produced an incorrect NTD ID — either because the agency is not
+    in the NTD at all (private operators, campus/intercity carriers) or because
+    a differently-named nearby agency was picked. The ``ntd_agency_id`` column
+    records that *wrong* id. A correct matcher must either reject the agency or
+    return a different (correct) id, so we assert the wrong id is never returned.
+    """
+
+    _negative_csv = Path(__file__).parent / "ntd-agencies-negative-test.csv"
+
+    def test_no_known_wrong_matches(self) -> None:
+        failures: list[str] = []
+        with open(self._negative_csv, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                wrong_id = row["ntd_agency_id"].strip().zfill(5)
+                agency_name = row["agency_name"].strip()
+                lat = float(row["center_latitude"])
+                lon = float(row["center_longitude"])
+                agency_id = row["agency_id"].strip() or None
+
+                try:
+                    result = match_agency_to_ntd(
+                        agency_name=agency_name,
+                        lat=lat,
+                        lon=lon,
+                        agency_id=agency_id,
+                    )
+                except ValueError:
+                    # Rejected as "not in NTD" — acceptable.
+                    continue
+
+                if result["NTD_ID"] == wrong_id:
+                    failures.append(
+                        f"{agency_name}: returned known-wrong id {wrong_id} "
+                        f"('{result['Agency_Name']}')"
+                    )
+
+        if failures:
+            self.fail(
+                f"{len(failures)} known-wrong NTD matches:\n" + "\n".join(failures)
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
