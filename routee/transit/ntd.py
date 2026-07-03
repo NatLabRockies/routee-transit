@@ -16,7 +16,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
-from rapidfuzz.fuzz import WRatio
+from rapidfuzz.fuzz import WRatio, ratio
 
 # ---------------------------------------------------------------------------
 # NTD facility inventory constants
@@ -54,6 +54,26 @@ _MAX_DISTANCE_KM = (
 _WRATIO_WEIGHT = 0.5
 _IDF_WEIGHT = 0.0
 _PROXIMITY_SCALE_KM = 75.0  # exponential decay scale for distance scoring
+
+# Minimum IDF-weighted query-token coverage (0-100) that the winning candidate
+# must share with the matched NTD name. This rejects false positives for
+# agencies that are not in the NTD at all (e.g. private intercity operators
+# like Megabus/FlixBus or campus shuttles), which typically share no
+# distinctive name tokens with any NTD record and would otherwise be matched
+# to a geographically nearby agency purely on proximity. The lowest observed
+# coverage among known-correct matches is ~22 (an agency whose GTFS name shares
+# only its generic "transit" token with a differently-named NTD record), while
+# non-NTD false positives typically sit at 0-18, so 20 separates them cleanly.
+_MIN_IDF_COVERAGE = 20.0
+
+# Full-string similarity (rapidfuzz ``ratio``, 0-100) above which a match is
+# accepted even when it shares few whole tokens with the NTD name. This
+# preserves legitimate typo/spacing variants (e.g. "Soun Transt" ->
+# "Sound Transit", ratio ~76) while rejecting non-NTD names that only look
+# similar under partial/token matching (e.g. "Beaumont Transit" vs "Riverside
+# Transit" scores WRatio 85 but full-string ratio only ~39). Unlike WRatio,
+# full-string ratio does not reward matching a single shared generic token.
+_STRONG_NAME_THRESHOLD = 70.0
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +361,7 @@ class NTDAgencyMatch(TypedDict):
     y: float
     _name_score: int
     _distance_km: float
+    _idf_coverage: float
 
 
 def match_agency_to_ntd(
@@ -349,6 +370,7 @@ def match_agency_to_ntd(
     lon: float,
     name_threshold: int = _NAME_SCORE_THRESHOLD,
     max_distance_km: float = _MAX_DISTANCE_KM,
+    min_idf_coverage: float = _MIN_IDF_COVERAGE,
     agency_id: str | None = None,
 ) -> NTDAgencyMatch:
     """Fuzzy-match an agency name and location to a row in the NTD agency table.
@@ -370,6 +392,13 @@ def match_agency_to_ntd(
      matches a candidate's NTD ID, that candidate receives a large bonus to
      the combined score.
 
+     To guard against false positives for agencies that are *not* in the NTD
+     (e.g. private intercity carriers or campus shuttle systems), the winning
+     candidate must also share at least ``min_idf_coverage`` of the query's
+     IDF-weighted name tokens with the matched NTD name. When it does not, a
+     ``ValueError`` is raised rather than returning a spurious proximity-only
+     match.
+
     Parameters
     ----------
     agency_name : str
@@ -385,6 +414,11 @@ def match_agency_to_ntd(
     max_distance_km : float
         If the best candidate's centroid is farther than this from ``(lat, lon)``,
         a ``ValueError`` is raised even if the name score is high.
+    min_idf_coverage : float
+        Minimum IDF-weighted query-token coverage (0–100) the winning
+        candidate must share with the matched NTD name. Matches below this
+        threshold are rejected as "not in NTD" to suppress false positives for
+        non-NTD agencies. Set to ``0`` to disable this guard.
     agency_id : str | None
         Optional GTFS ``agency_id``.  When it zero-pads to a valid 5-digit NTD
         ID, the matching candidate gets a strong bonus.
@@ -393,14 +427,15 @@ def match_agency_to_ntd(
     -------
     NTDAgencyMatch
         Row from the NTD agency table for the best match.
-        Includes all original columns plus ``_name_score`` and
-        ``_distance_km``.
+        Includes all original columns plus ``_name_score``, ``_distance_km``,
+        and ``_idf_coverage``.
 
     Raises
     ------
     ValueError
-        If no candidate passes the name threshold, or if the best candidate
-        exceeds ``max_distance_km``.
+        If no candidate passes the name threshold, if the best candidate
+        exceeds ``max_distance_km``, or if the best candidate's IDF-weighted
+        name-token coverage is below ``min_idf_coverage``.
     """
     agencies = _load_ntd_agencies()
 
@@ -448,6 +483,7 @@ def match_agency_to_ntd(
 
     candidates = agencies[mask].copy()
     candidate_name_scores = name_scores[mask]
+    candidate_idf_scores = idf_scores[mask]
 
     # Compute great-circle distance from query point to each candidate centroid
     query_point = (lat, lon)
@@ -477,9 +513,39 @@ def match_agency_to_ntd(
 
     best_pos = int(combined.argmax())
     best_distance_km = float(distances_km[best_pos])
+    best_idf_coverage = float(candidate_idf_scores[best_pos])
+    best_row = candidates.iloc[best_pos]
+
+    # Full-string similarity of the winning candidate (max over official/common
+    # name). Unlike the partial/token WRatio used for ranking, this does not
+    # reward a single shared generic token, so it stays low for non-NTD names.
+    best_full_ratio = max(
+        ratio(agency_name, str(best_row[_OFFICIAL_NAME_COL])),
+        ratio(agency_name, str(best_row[_COMMON_NAME_COL])),
+    )
+
+    # Confidence guard: reject matches whose name overlap is too weak. Agencies
+    # that are not in the NTD (private operators, campus shuttles) typically
+    # share no distinctive tokens with any NTD name and would otherwise be
+    # matched to a nearby agency on proximity alone. A high full-string ratio is
+    # accepted as an escape hatch for typo/spacing variants that have little
+    # token overlap but near-exact character similarity.
+    if (
+        best_idf_coverage < min_idf_coverage
+        and best_full_ratio < _STRONG_NAME_THRESHOLD
+    ):
+        raise ValueError(
+            f"Best NTD match for '{agency_name}' is "
+            f"'{best_row[_OFFICIAL_NAME_COL]}' ({best_row[_COMMON_NAME_COL]}), "
+            f"but the name overlap is too weak (IDF coverage "
+            f"{best_idf_coverage:.0f} < min_idf_coverage={min_idf_coverage:.0f}, "
+            f"full-string ratio {best_full_ratio:.0f} < "
+            f"{_STRONG_NAME_THRESHOLD:.0f}). The agency is likely not present in "
+            f"the NTD (e.g. a private operator or campus system). Lower "
+            f"min_idf_coverage to allow weaker matches."
+        )
 
     if best_distance_km > max_distance_km:
-        best_row = candidates.iloc[best_pos]
         raise ValueError(
             f"Best NTD match for '{agency_name}' is '{best_row[_OFFICIAL_NAME_COL]}' "
             f"({best_row[_COMMON_NAME_COL]}), but its centroid is "
@@ -504,4 +570,5 @@ def match_agency_to_ntd(
         y=float(row["y"]),
         _name_score=int(candidate_name_scores[best_pos]),
         _distance_km=round(best_distance_km, 2),
+        _idf_coverage=round(best_idf_coverage, 1),
     )
