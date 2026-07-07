@@ -1459,8 +1459,8 @@ class GTFSEnergyPredictor:
                 columns=["shape_id"]
             )
 
-            # Optionally add HVAC to trip-level results
-            if add_hvac:
+            # Optionally add HVAC to trip-level results (electric vehicles only)
+            if add_hvac and model_config["unit"] == "kWh":
                 logger.info("Adding HVAC energy impacts...")
                 hvac_energy = add_HVAC_energy(
                     self.feed,
@@ -1470,11 +1470,7 @@ class GTFSEnergyPredictor:
                     scale_to_year=scale_to_year,
                 )
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
-                # Add HVAC energy to powertrain energy for electric vehicles
-                kwh_mask = trip_results["energy_unit"] == "kWh"
-                trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
-                    kwh_mask, "hvac_energy_kWh"
-                ]
+                trip_results["energy_used"] += trip_results["hvac_energy_kWh"]
                 trip_results = trip_results.merge(self.trips, on="trip_id")
             else:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
