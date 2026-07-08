@@ -79,10 +79,23 @@ ORT_BUILD_CONFIG = "RelWithDebInfo"
 ORT_LIB_PATH = "$PIXI_PROJECT_ROOT/build/onnxruntime/build/Linux/RelWithDebInfo"
 
 [tool.pixi.feature.hpc.tasks]
-build_hpc_ort = "bash scripts/hpc/build_ort.sh"
+# Cache the ORT build: skip unless build_ort.sh changes. NOTE: pyproject.toml is
+# deliberately NOT an input — the ORT version/config env vars live here, but
+# listing it would force a full ORT rebuild on every unrelated pyproject edit.
+# If you bump ONNXRUNTIME_TAG/ORT_BUILD_CONFIG above, force a rebuild with
+# `pixi clean cache` or by removing build/onnxruntime.
+build_hpc_ort = { cmd = "bash scripts/hpc/build_ort.sh", inputs = ["scripts/hpc/build_ort.sh"], outputs = ["build/onnxruntime/build/Linux/RelWithDebInfo/libonnxruntime_common.a"] }
 # Build nrel.routee.compass from its PyPI sdist against the static ORT and
 # install it here (version: this project's own dependency constraint).
-install_compass = { cmd = "bash scripts/hpc/install_compass.sh", depends-on = ["build_hpc_ort"] }
+# Cache the install: skip unless install_compass.sh changes or the static ORT
+# is rebuilt (the ORT lib is listed as an input so a fresh ORT reinstalls
+# compass against it). The output marker is compass's compiled extension.
+# NOTE: pyproject.toml is deliberately NOT an input — the compass version is
+# resolved from its dependency constraint here, but listing pyproject.toml
+# would force a reinstall on every unrelated edit. If you bump the compass
+# constraint, force a reinstall with `pixi clean cache` or by removing
+# build/onnxruntime and the installed nrel.routee.compass.
+install_compass = { cmd = "bash scripts/hpc/install_compass.sh", depends-on = ["build_hpc_ort"], inputs = ["scripts/hpc/install_compass.sh", "build/onnxruntime/build/Linux/RelWithDebInfo/libonnxruntime_common.a"], outputs = [".pixi/envs/hpc/lib/python*/site-packages/nrel/routee/compass/routee_compass_py.*.so"] }
 # Full HPC build: ORT + compass wheel + build and install routee-transit.
 build_hpc = { cmd = "maturin develop --uv --release", depends-on = ["install_compass"] }
 # Optional: a distributable routee-transit wheel (tagged installable on this host).
