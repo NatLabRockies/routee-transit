@@ -52,7 +52,7 @@ strict = true
 disallow_untyped_calls = false
 exclude = ["dist/", "build/", ".local", "notebooks/"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-64", "osx-arm64", "linux-64", "win-64"]
 
@@ -63,14 +63,56 @@ python = "3.11.*"
 [tool.pixi.feature.py312.dependencies]
 python = "3.12.*"
 
+[tool.pixi.feature.hpc]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.hpc.dependencies]
+git = "*"
+cmake = ">=3.28,<4"
+uv = "*"
+patchelf = "*"
+
+[tool.pixi.feature.hpc.activation.env]
+ONNXRUNTIME_DIR = "$PIXI_PROJECT_ROOT/build/onnxruntime"
+ONNXRUNTIME_TAG = "v1.20.1"
+ORT_BUILD_CONFIG = "RelWithDebInfo"
+ORT_LIB_PATH = "$PIXI_PROJECT_ROOT/build/onnxruntime/build/Linux/RelWithDebInfo"
+
+[tool.pixi.feature.hpc.tasks]
+# Cache the ORT build: skip unless build_ort.sh changes. NOTE: pyproject.toml is
+# deliberately NOT an input — the ORT version/config env vars live here, but
+# listing it would force a full ORT rebuild on every unrelated pyproject edit.
+# If you bump ONNXRUNTIME_TAG/ORT_BUILD_CONFIG above, force a rebuild with
+# `pixi clean cache` or by removing build/onnxruntime.
+build_hpc_ort = { cmd = "bash scripts/hpc/build_ort.sh", inputs = ["scripts/hpc/build_ort.sh"], outputs = ["build/onnxruntime/build/Linux/RelWithDebInfo/libonnxruntime_common.a"] }
+# Build nrel.routee.compass from its PyPI sdist against the static ORT and
+# install it here (version: this project's own dependency constraint).
+# Cache the install: skip unless install_compass.sh changes or the static ORT
+# is rebuilt (the ORT lib is listed as an input so a fresh ORT reinstalls
+# compass against it). The output marker is compass's compiled extension.
+# NOTE: pyproject.toml is deliberately NOT an input — the compass version is
+# resolved from its dependency constraint here, but listing pyproject.toml
+# would force a reinstall on every unrelated edit. If you bump the compass
+# constraint, force a reinstall with `pixi clean cache` or by removing
+# build/onnxruntime and the installed nrel.routee.compass.
+install_compass = { cmd = "bash scripts/hpc/install_compass.sh", depends-on = ["build_hpc_ort"], inputs = ["scripts/hpc/install_compass.sh", "build/onnxruntime/build/Linux/RelWithDebInfo/libonnxruntime_common.a"], outputs = [".pixi/envs/hpc/lib/python*/site-packages/nrel/routee/compass/routee_compass_py.*.so"] }
+# Full HPC build: ORT + compass wheel + build and install routee-transit.
+build_hpc = { cmd = "maturin develop --uv --release", depends-on = ["install_compass"] }
+# Optional: a distributable routee-transit wheel (tagged installable on this host).
+build_hpc_wheel = { cmd = "maturin build --release --compatibility linux", depends-on = ["build_hpc_ort"] }
+check_hpc = { cmd = "python -c 'import nrel.routee.compass, routee.transit.routee_transit_py; print(\"ok\")'", depends-on = ["build_hpc"] }
+
 [tool.pixi.environments]
-default = { solve-group = "default" }
-py310 = { features = ["py310"] }
-py311 = { features = ["py311"] }
-py312 = { features = ["py312"] }
-dev-py310 = { features = ["py310", "dev"], solve-group = "py310" }
-dev-py311 = { features = ["py311", "dev"], solve-group = "py311" }
-dev-py312 = { features = ["py312", "dev"], solve-group = "py312" }
+default = { features = ["package"], solve-group = "default" }
+py310 = { features = ["py310", "package"] }
+py311 = { features = ["py311", "package"] }
+py312 = { features = ["py312", "package"] }
+dev-py310 = { features = ["py310", "dev", "package"], solve-group = "py310" }
+dev-py311 = { features = ["py311", "dev", "package"], solve-group = "py311" }
+dev-py312 = { features = ["py312", "dev", "package"], solve-group = "py312" }
+# No `package` feature: pixi must not auto-build the editable install here
+# (it would link the downloaded ORT); `build_hpc` installs the package instead.
+hpc = { features = ["dev", "hpc"], solve-group = "default" }
 
 [tool.pixi.feature.dev.tasks]
 fmt_fix = "ruff format"
@@ -87,5 +129,5 @@ ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 gdal = "3.12.*"
 rust = "1.93.*"
 
-[tool.pixi.pypi-dependencies]
+[tool.pixi.feature.package.pypi-dependencies]
 routee-transit = { path = ".", editable = true }
