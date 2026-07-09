@@ -63,7 +63,7 @@ def build_routes_gdf(feed: Feed, predictions: pd.DataFrame) -> gpd.GeoDataFrame:
     )
     most_common_shape = most_common_shape.merge(nested, on="route_id", how="left")
 
-    route_cols = ["route_short_name"]
+    route_cols = ["route_short_name", "agency_id"]
     if "route_color" in feed.routes.columns:
         route_cols += ["route_color"]
     most_common_shape = most_common_shape.merge(
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
         # Run entire pipeline across all service dates
         results = predictor.run(
-            date=None,
+            date="7/9/2026",
             routes=None,
             add_mid_block_deadhead=True,
             add_depot_deadhead=True,
