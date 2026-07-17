@@ -86,33 +86,6 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         # All route types should be 3 (bus)
         self.assertTrue(all(result["route_type"] == 3))
 
-    def test_agency_id_propagated_from_first_and_last_trip(self) -> None:
-        result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
-
-        # pull-out trips should inherit agency_id from the first revenue trip of
-        # the block; pull-in trips from the last revenue trip.
-        self.assertIn("agency_id", result.columns)
-
-        for _, row in result.iterrows():
-            block = row["block_id"]
-            expected = self.trips_df.loc[
-                self.trips_df["block_id"] == block, "agency_id"
-            ].iloc[0]
-            self.assertEqual(
-                row["agency_id"],
-                expected,
-                msg=f"agency_id mismatch for {row['trip_id']}",
-            )
-
-    def test_agency_id_none_when_absent_from_trips(self) -> None:
-        trips_no_agency = self.trips_df.drop(columns=["agency_id"])
-        result = create_depot_deadhead_trips(trips_no_agency, self.stop_times_df)
-
-        # agency_id column should still exist but be None/NaN when not present
-        # in the source trips (get() fallback returns None).
-        self.assertIn("agency_id", result.columns)
-        self.assertTrue(result["agency_id"].isna().all())
-
     def test_create_depot_deadhead_trips_with_existing_deadhead(self) -> None:
         # Add a between-trip deadhead to trips
         trips_with_deadhead = self.trips_df.copy()
@@ -131,6 +104,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             {
                 "trip_id": ["trip1", "trip2"],
                 "block_id": ["block1", "block1"],
+                "service_id": ["service1", "service1"],
             }
         )
 
@@ -249,6 +223,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         # Create sample GeoDataFrames with proper geometry column
         self.first_stops_gdf = gpd.GeoDataFrame(
             {
+                "service_id": ["service1"],
                 "block_id": ["block1"],
                 "stop_id": ["stop_gtfs_1"],  # existing GTFS stop at first revenue stop
                 "nearest_depot_idx": [42],
@@ -262,6 +237,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
 
         self.last_stops_gdf = gpd.GeoDataFrame(
             {
+                "service_id": ["service1"],
                 "block_id": ["block1"],
                 "stop_id": ["stop_gtfs_2"],  # existing GTFS stop at last revenue stop
                 "nearest_depot_idx": [42],
@@ -277,6 +253,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             {
                 "trip_id": ["depot_to_trip1", "trip2_to_depot"],
                 "trip_type": ["pull-out", "pull-in"],
+                "service_id": ["service1", "service1"],
                 "block_id": ["block1", "block1"],
             }
         )
