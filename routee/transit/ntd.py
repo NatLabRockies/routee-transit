@@ -26,6 +26,7 @@ from rapidfuzz.fuzz import WRatio
 # Used to pre-filter and rank NTD facility records before distance matching.
 _DEPOT_FACILITY_TYPES: list[str] = [
     "General Purpose Maintenance Facility/Depot",
+    "Other, Administrative & Maintenance",
     "Combined Administrative and Maintenance Facility (describe in Notes)",
     "Maintenance Facility (Service and Inspection)",
 ]
@@ -80,9 +81,66 @@ def _ntd_agencies_path() -> Path:
 # ---------------------------------------------------------------------------
 
 
+def _geocode_facilities(df: pd.DataFrame) -> pd.DataFrame:
+    """Geocode rows missing lat/lon via their street address using Nominatim.
+
+    Applies a 1.1-second rate limit between requests to comply with Nominatim's
+    usage policy.  Rows whose addresses cannot be resolved are left with
+    ``NaN`` coordinates and will be dropped by the caller's coordinate filter.
+    """
+    from geopy.exc import GeocoderServiceError, GeocoderTimedOut
+    from geopy.extra.rate_limiter import RateLimiter
+    from geopy.geocoders import Nominatim
+
+    missing_mask = df["Latitude"].isna() | df["Longitude"].isna()
+    if not missing_mask.any():
+        return df
+
+    geocoder = Nominatim(user_agent="routee-transit-ntd")
+    geocode = RateLimiter(
+        geocoder.geocode, min_delay_seconds=1.1, error_wait_seconds=5.0
+    )
+
+    df = df.copy()
+    for idx in df.index[missing_mask]:
+        row = df.loc[idx]
+        parts: list[str] = []
+        for field in ("Street Address", "City", "State"):
+            val = row.get(field)
+            if pd.notna(val) and str(val).strip():
+                parts.append(str(val).strip())
+        zip_val = row.get("ZIP Code")
+        if pd.notna(zip_val):
+            try:
+                parts.append(str(int(zip_val)))
+            except (ValueError, TypeError):
+                pass
+        if not parts:
+            continue
+        address = ", ".join(parts)
+        try:
+            location = geocode(address)
+            if location is None and parts:
+                # Street type in NTD may differ from OSM (e.g. "ROAD" vs "Dr").
+                # Retry with the street type suffix stripped so "6570 PORTNER ROAD"
+                # becomes "6570 PORTNER", letting the geocoder resolve the type.
+                street = parts[0]
+                stripped_street = " ".join(street.split()[:-1])
+                if stripped_street:
+                    fallback_parts = [stripped_street] + parts[1:]
+                    location = geocode(", ".join(fallback_parts))
+            if location is not None:
+                df.at[idx, "Latitude"] = float(location.latitude)
+                df.at[idx, "Longitude"] = float(location.longitude)
+        except (GeocoderTimedOut, GeocoderServiceError):
+            pass
+    return df
+
+
 def load_ntd_facilities(
     ntd_id: str | None = None,
     ntd_ids: list[str] | None = None,
+    geocode_missing: bool = True,
 ) -> gpd.GeoDataFrame:
     """Load and filter the NTD facility inventory to bus depot locations.
 
@@ -92,11 +150,20 @@ def load_ntd_facilities(
        ``{MB, RB, CB, TB, PB, DR, VP}``).
     2. Are one of the three depot facility types (general purpose depot,
        combined admin/maintenance, or service-and-inspection facility).
-    3. Have valid latitude/longitude coordinates.
+    3. Have valid latitude/longitude coordinates (geocoded from the street
+       address when ``geocode_missing=True`` and coordinates are absent).
 
     Pass ``ntd_id`` to restrict to a single agency or ``ntd_ids`` for several.
     When both are omitted all bus depot facilities across all agencies are
     returned.  Passing both is an error.
+
+    Note
+    ----
+    About 64 % of bus depot facilities in the NTD inventory are missing
+    lat/lon.  When ``geocode_missing=True`` (the default), the function
+    attempts to resolve street addresses via Nominatim before applying the
+    coordinate filter, so agencies like Transfort (NTD 80011) whose records
+    have no coordinates but have valid addresses are handled automatically.
 
     Parameters
     ----------
@@ -106,6 +173,12 @@ def load_ntd_facilities(
     ntd_ids : list[str] | None
         List of zero-padded 5-digit NTD IDs.  Facilities for all listed
         agencies are returned combined.  Mutually exclusive with ``ntd_id``.
+    geocode_missing : bool
+        When ``True`` (default), facilities that pass the mode/type filters
+        but lack lat/lon are geocoded via Nominatim using their street address
+        before the coordinate filter is applied.  Set to ``False`` to skip
+        geocoding (faster, but may return no results for agencies whose NTD
+        records are missing coordinates).
 
     Returns
     -------
@@ -131,21 +204,35 @@ def load_ntd_facilities(
     # Filter to depot facility types only
     df = df[df["Facility Type"].isin(_DEPOT_FACILITY_TYPES)]
 
+    # Apply NTD ID filter early so geocoding only covers relevant agencies
+    if ntd_ids is not None:
+        normalised = [nid.zfill(5) for nid in ntd_ids]
+        df = df[df["NTD ID"].isin(normalised)]
+
+    # Geocode facilities whose addresses are present but lat/lon are missing
+    if geocode_missing:
+        df = _geocode_facilities(df)
+
     # Filter to valid coordinates
+    missing_after = (df["Latitude"].isna() | df["Longitude"].isna()).sum()
     df = df[df["Latitude"].notna() & df["Longitude"].notna()]
+
+    if df.empty:
+        id_desc = f" for NTD ID(s) {ntd_ids!r}" if ntd_ids is not None else ""
+        geocode_hint = (
+            f"  {missing_after} candidate(s) had no coordinates and geocoding "
+            "failed or was skipped (geocode_missing=False)."
+            if missing_after > 0
+            else ""
+        )
+        raise ValueError(
+            f"No bus depot facilities found in NTD inventory{id_desc}.{geocode_hint}"
+        )
 
     # Attach priority rank (lower = better)
     priority_map = {ft: i for i, ft in enumerate(_DEPOT_FACILITY_TYPES)}
     df = df.copy()
     df["depot_priority"] = df["Facility Type"].map(priority_map)
-
-    if ntd_ids is not None:
-        normalised = [nid.zfill(5) for nid in ntd_ids]
-        df = df[df["NTD ID"].isin(normalised)]
-
-    if df.empty:
-        id_desc = f" for NTD ID(s) {ntd_ids!r}" if ntd_ids is not None else ""
-        raise ValueError(f"No bus depot facilities found in NTD inventory{id_desc}.")
 
     gdf = gpd.GeoDataFrame(
         df.reset_index(drop=True),
