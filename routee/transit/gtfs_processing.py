@@ -166,11 +166,12 @@ def copy_transit_config(
         params: Parameters from generate_compass_dataset
         vehicle_models: Optional list of vehicle models to include. If None, all are included.
     """
-    with importlib.resources.path(
-        "routee.transit.resources", "transit_energy.toml"
-    ) as config_path:
-        with open(config_path, "r") as f:
-            config = tomlkit.load(f)
+    config_text = (
+        importlib.resources.files("routee.transit.resources")
+        .joinpath("transit_energy.toml")
+        .read_text(encoding="utf-8")
+    )
+    config = tomlkit.loads(config_text)
 
     # Filter vehicle_models if requested
     if vehicle_models is not None:

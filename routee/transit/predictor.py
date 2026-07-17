@@ -796,7 +796,8 @@ class GTFSEnergyPredictor:
             [self.feed.stop_times, deadhead_stop_times], ignore_index=True
         )
         self.feed.stops = pd.concat(
-            [self.feed.stops, deadhead_stops], ignore_index=True
+            [df for df in [self.feed.stops, deadhead_stops] if not df.empty],
+            ignore_index=True,
         )
 
         logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
@@ -1024,7 +1025,8 @@ class GTFSEnergyPredictor:
             [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
         )
         self._deadhead_stops = pd.concat(
-            [self._deadhead_stops, deadhead_stops], ignore_index=True
+            [df for df in [self._deadhead_stops, deadhead_stops] if not df.empty],
+            ignore_index=True,
         )
         if fta_depots is not None and self._fta_depots.empty:
             self._fta_depots = fta_depots
