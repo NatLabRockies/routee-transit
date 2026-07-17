@@ -4,18 +4,6 @@ from geopy.distance import geodesic
 from gtfsblocks import Feed
 from shapely.geometry import Point
 
-from routee.transit.ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
-
-# Re-export for backward compatibility
-__all__ = [
-    "load_ntd_facilities",
-    "match_agency_to_ntd",
-    "NTDAgencyMatch",
-    "create_depot_deadhead_trips",
-    "infer_depot_trip_endpoints",
-    "create_depot_deadhead_stops",
-]
-
 
 def create_depot_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
@@ -44,17 +32,8 @@ def create_depot_deadhead_trips(
     )
     trips_with_times = trips_df.merge(trip_start_times, on="trip_id", how="left")
 
-    # Exclude any between-trip deadhead trips that may have been added
-    if "from_trip" in trips_with_times.columns:
-        trips_with_times = trips_with_times.loc[trips_with_times["from_trip"].isna()]
-
     # For each (service_id, block_id) pair, create two deadhead trips: one from
-    # depot to first stop, and one from last stop to depot.  Partitioning by
-    # service_id (not block_id alone) ensures blocks shared across multiple
-    # service calendars get a distinct pull-out/pull-in per service day, so
-    # downstream date-expansion (HVAC annualisation) counts them on the correct
-    # calendars.  The per-block route_id/shape_id is retained so all service days
-    # of a block share one depot O-D geometry (routed once via O-D dedup).
+    # depot to first stop, and one from last stop to depot.
     depot_trips = list()
 
     for (_service_id, block_id), block_trips in trips_with_times.groupby(
