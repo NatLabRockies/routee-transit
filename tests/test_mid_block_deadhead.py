@@ -62,6 +62,10 @@ class TestMidBlockDeadhead(unittest.TestCase):
         # Route ID encodes last stop of from_trip → first stop of to_trip
         # T1 last stop is S2, T2 first stop is S3
         self.assertEqual(deadhead_trips.iloc[0]["route_id"], "deadhead_S2_to_S3")
+        # route_short_name mirrors route_id
+        self.assertEqual(
+            deadhead_trips.iloc[0]["route_short_name"], "deadhead_S2_to_S3"
+        )
 
     def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(
@@ -167,6 +171,66 @@ class TestMidBlockDeadheadServiceIdGrouping(unittest.TestCase):
         # S2 deadhead: T3 last stop S6 -> T4 first stop S7
         self.assertEqual(by_trip.loc["T3_to_T4", "service_id"], "S2")
         self.assertEqual(by_trip.loc["T3_to_T4", "route_id"], "deadhead_S6_to_S7")
+
+
+class TestMidBlockDeadheadAgencyId(unittest.TestCase):
+    """agency_id is inherited from the preceding (from) trip when present."""
+
+    def setUp(self) -> None:
+        # T1 -> T2 on one block; T1 and T2 carry different agencies so the test
+        # can confirm the deadhead inherits the from-trip's (T1) agency.
+        self.trips_df = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2"],
+                "route_id": ["R1", "R1"],
+                "service_id": ["S1", "S1"],
+                "block_id": ["B1", "B1"],
+                "shape_id": ["SH1", "SH2"],
+                "agency_id": ["A1", "A2"],
+            }
+        )
+
+        self.stop_times_df = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T1", "T2", "T2"],
+                "arrival_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                ],
+                "departure_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                ],
+                "stop_id": ["S1", "S2", "S3", "S4"],
+                "stop_sequence": [1, 2, 1, 2],
+            }
+        )
+
+    def test_agency_id_inherited_from_from_trip(self) -> None:
+        deadhead_trips = create_mid_block_deadhead_trips(
+            self.trips_df, self.stop_times_df
+        )
+
+        self.assertEqual(len(deadhead_trips), 1)
+        self.assertIn("agency_id", deadhead_trips.columns)
+        # Deadhead T1_to_T2 inherits the from-trip (T1) agency, not T2's.
+        self.assertEqual(deadhead_trips.iloc[0]["agency_id"], "A1")
+
+    def test_agency_id_absent_when_not_provided(self) -> None:
+        # Drop the agency_id column entirely to mimic a feed without agencies.
+        trips_no_agency = self.trips_df.drop(columns=["agency_id"])
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_no_agency, self.stop_times_df
+        )
+
+        # Trips are still created; no agency_id column is fabricated.
+        self.assertEqual(len(deadhead_trips), 1)
+        self.assertNotIn("agency_id", deadhead_trips.columns)
 
 
 if __name__ == "__main__":
