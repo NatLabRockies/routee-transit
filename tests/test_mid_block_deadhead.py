@@ -95,5 +95,79 @@ class TestMidBlockDeadhead(unittest.TestCase):
         self.assertEqual(ods.iloc[0]["block_id"], "T1_to_T2")
 
 
+class TestMidBlockDeadheadServiceIdGrouping(unittest.TestCase):
+    """A single block ID maps to different trips depending on the service ID.
+
+    Grouping by both ``service_id`` and ``block_id`` must keep the two services
+    separate so deadhead trips are never created across service boundaries.
+    """
+
+    def setUp(self) -> None:
+        # Block B1 is reused by two services with entirely different trips.
+        # S1: T1 -> T2, S2: T3 -> T4. All share block_id B1.
+        self.trips_df = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2", "T3", "T4"],
+                "route_id": ["R1", "R1", "R2", "R2"],
+                "service_id": ["S1", "S1", "S2", "S2"],
+                "block_id": ["B1", "B1", "B1", "B1"],
+                "shape_id": ["SH1", "SH2", "SH3", "SH4"],
+            }
+        )
+
+        self.stop_times_df = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T1", "T2", "T2", "T3", "T3", "T4", "T4"],
+                "arrival_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                ],
+                "departure_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=8, minutes=30),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=9, minutes=30),
+                ],
+                "stop_id": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"],
+                "stop_sequence": [1, 2, 1, 2, 1, 2, 1, 2],
+            }
+        )
+
+    def test_deadhead_trips_are_grouped_by_service_and_block(self) -> None:
+        deadhead_trips = create_mid_block_deadhead_trips(
+            self.trips_df, self.stop_times_df
+        )
+
+        # Exactly one deadhead per service: T1->T2 (S1) and T3->T4 (S2).
+        # Grouping by block_id alone would incorrectly connect trips across the
+        # two services (e.g. T1->T3 or T2->T3).
+        self.assertEqual(len(deadhead_trips), 2)
+
+        trip_ids = set(deadhead_trips["trip_id"])
+        self.assertEqual(trip_ids, {"T1_to_T2", "T3_to_T4"})
+
+        # No cross-service deadhead trips should exist.
+        self.assertNotIn("T2_to_T3", trip_ids)
+        self.assertNotIn("T1_to_T3", trip_ids)
+
+        by_trip = deadhead_trips.set_index("trip_id")
+        # S1 deadhead: T1 last stop S2 -> T2 first stop S3
+        self.assertEqual(by_trip.loc["T1_to_T2", "service_id"], "S1")
+        self.assertEqual(by_trip.loc["T1_to_T2", "route_id"], "deadhead_S2_to_S3")
+        # S2 deadhead: T3 last stop S6 -> T4 first stop S7
+        self.assertEqual(by_trip.loc["T3_to_T4", "service_id"], "S2")
+        self.assertEqual(by_trip.loc["T3_to_T4", "route_id"], "deadhead_S6_to_S7")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -97,6 +97,69 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         self.assertEqual(len(result), 4)
 
 
+class TestCreateDepotDeadheadTripsServiceIdGrouping(unittest.TestCase):
+    """A single block ID maps to different trips depending on the service ID.
+
+    Grouping by both ``service_id`` and ``block_id`` must produce a separate
+    pull-out/pull-in pair for each service running the shared block.
+    """
+
+    def setUp(self) -> None:
+        # Block block1 is reused by two services with different trips.
+        # S1: trip1 -> trip2, S2: trip3 -> trip4. All share block1.
+        self.trips_df = pd.DataFrame(
+            {
+                "trip_id": ["trip1", "trip2", "trip3", "trip4"],
+                "block_id": ["block1", "block1", "block1", "block1"],
+                "service_id": ["service1", "service1", "service2", "service2"],
+                "agency_id": ["agency1", "agency1", "agency1", "agency1"],
+            }
+        )
+
+        self.stop_times_df = pd.DataFrame(
+            {
+                "trip_id": ["trip1", "trip2", "trip3", "trip4"],
+                "arrival_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=9),
+                ],
+            }
+        )
+
+    def test_deadhead_trips_are_grouped_by_service_and_block(self) -> None:
+        result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
+
+        # One pull-out + one pull-in per service = 4 trips. Grouping by block_id
+        # alone would collapse the two services into a single block and yield
+        # only 2 depot deadhead trips.
+        self.assertEqual(len(result), 4)
+
+        trip_ids = set(result["trip_id"])
+        self.assertEqual(
+            trip_ids,
+            {
+                "depot_to_trip1",
+                "trip2_to_depot",
+                "depot_to_trip3",
+                "trip4_to_depot",
+            },
+        )
+
+        by_trip = result.set_index("trip_id")
+        # service1 pull-out/pull-in use service1's first/last trips.
+        self.assertEqual(by_trip.loc["depot_to_trip1", "trip_type"], "pull-out")
+        self.assertEqual(by_trip.loc["depot_to_trip1", "service_id"], "service1")
+        self.assertEqual(by_trip.loc["trip2_to_depot", "trip_type"], "pull-in")
+        self.assertEqual(by_trip.loc["trip2_to_depot", "service_id"], "service1")
+        # service2 pull-out/pull-in use service2's first/last trips.
+        self.assertEqual(by_trip.loc["depot_to_trip3", "trip_type"], "pull-out")
+        self.assertEqual(by_trip.loc["depot_to_trip3", "service_id"], "service2")
+        self.assertEqual(by_trip.loc["trip4_to_depot", "trip_type"], "pull-in")
+        self.assertEqual(by_trip.loc["trip4_to_depot", "service_id"], "service2")
+
+
 class TestInferDepotTripEndpoints(unittest.TestCase):
     def setUp(self) -> None:
         # Create sample trips
