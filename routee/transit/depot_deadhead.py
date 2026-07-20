@@ -32,6 +32,16 @@ def create_depot_deadhead_trips(
     )
     trips_with_times = trips_df.merge(trip_start_times, on="trip_id", how="left")
 
+    # Precompute first/last stop per trip so depot deadhead route IDs can encode
+    # the stop each trip connects to.
+    stop_times_sorted = stop_times_df.sort_values("stop_sequence")
+    first_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
+    )
+    last_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].last().to_dict()
+    )
+
     # For each (service_id, block_id) pair, create two deadhead trips: one from
     # depot to first stop, and one from last stop to depot.
     depot_trips = list()
@@ -43,9 +53,12 @@ def create_depot_deadhead_trips(
         block_trips = block_trips.sort_values(by="arrival_time")
         first_trip = block_trips.iloc[0]
         last_trip = block_trips.iloc[-1]
+        # Revenue stop IDs that the depot trips connect to
+        first_stop_id = first_stop_per_trip.get(first_trip["trip_id"])
+        last_stop_id = last_stop_per_trip.get(last_trip["trip_id"])
         # Create trip from depot to first stop
         from_depot_trip_id = f"depot_to_{first_trip['trip_id']}"
-        from_depot_route = f"from_depot_{block_id}"
+        from_depot_route = f"depot_to_{first_stop_id}"
         from_depot_trip = {
             "trip_id": from_depot_trip_id,
             "trip_type": "pull-out",
@@ -61,7 +74,7 @@ def create_depot_deadhead_trips(
         depot_trips.append(from_depot_trip)
         # Create trip from last stop to depot
         to_depot_trip_id = f"{last_trip['trip_id']}_to_depot"
-        to_depot_route = f"to_depot_{block_id}"
+        to_depot_route = f"{last_stop_id}_to_depot"
         to_depot_trip = {
             "trip_id": to_depot_trip_id,
             "trip_type": "pull-in",

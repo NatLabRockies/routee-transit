@@ -42,6 +42,8 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
                     pd.Timedelta(hours=10),
                     pd.Timedelta(hours=11),
                 ],
+                "stop_id": ["s1a", "s1b", "s2a", "s2b", "s3a", "s4a"],
+                "stop_sequence": [1, 2, 1, 2, 1, 1],
             }
         )
 
@@ -125,6 +127,8 @@ class TestCreateDepotDeadheadTripsServiceIdGrouping(unittest.TestCase):
                     pd.Timedelta(hours=8),
                     pd.Timedelta(hours=9),
                 ],
+                "stop_id": ["s1a", "s2a", "s3a", "s4a"],
+                "stop_sequence": [1, 1, 1, 1],
             }
         )
 
