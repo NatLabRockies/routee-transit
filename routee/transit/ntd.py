@@ -299,6 +299,11 @@ def _tokenize_name(name: str) -> set[str]:
     return set(_TOKEN_RE.findall(name.casefold()))
 
 
+def _normalize_name_for_ratio(name: str) -> str:
+    """Normalize a name for full-string fuzzy matching."""
+    return " ".join(_TOKEN_RE.findall(name.casefold()))
+
+
 def _compute_token_idf(agencies: pd.DataFrame) -> dict[str, float]:
     """Compute IDF-like token weights from official/common agency names."""
     token_document_counts: dict[str, int] = {}
@@ -519,9 +524,16 @@ def match_agency_to_ntd(
     # Full-string similarity of the winning candidate (max over official/common
     # name). Unlike the partial/token WRatio used for ranking, this does not
     # reward a single shared generic token, so it stays low for non-NTD names.
+    normalized_agency_name = _normalize_name_for_ratio(agency_name)
     best_full_ratio = max(
-        ratio(agency_name, str(best_row[_OFFICIAL_NAME_COL])),
-        ratio(agency_name, str(best_row[_COMMON_NAME_COL])),
+        ratio(
+            normalized_agency_name,
+            _normalize_name_for_ratio(str(best_row[_OFFICIAL_NAME_COL])),
+        ),
+        ratio(
+            normalized_agency_name,
+            _normalize_name_for_ratio(str(best_row[_COMMON_NAME_COL])),
+        ),
     )
 
     # Confidence guard: reject matches whose name overlap is too weak. Agencies

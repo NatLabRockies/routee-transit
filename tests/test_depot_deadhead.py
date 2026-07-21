@@ -500,6 +500,14 @@ class TestMatchAgencyToNtd(unittest.TestCase):
         )
         self.assertEqual(result["NTD_ID"], "80006")
 
+    def test_match_agency_to_ntd_denver_normalized_formatting(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="regional transportation district   rtd",
+            lat=39.82,
+            lon=-105.1,
+        )
+        self.assertEqual(result["NTD_ID"], "80006")
+
     def test_token_frequency_downweights_common_words(self) -> None:
         agencies = _load_ntd_agencies()
         token_idf = _compute_token_idf(agencies)
