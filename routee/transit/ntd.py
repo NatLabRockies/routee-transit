@@ -300,7 +300,7 @@ def _tokenize_name(name: str) -> set[str]:
 
 
 def _normalize_name_for_ratio(name: str) -> str:
-    """Normalize to lowercase alphanumeric tokens joined by single spaces."""
+    """Normalize to lowercase alphanumeric tokens, removing punctuation and collapsing whitespace."""
     return " ".join(_TOKEN_RE.findall(name.casefold()))
 
 
