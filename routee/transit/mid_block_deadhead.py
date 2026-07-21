@@ -42,7 +42,7 @@ def create_mid_block_deadhead_trips(
     trips_df = trips_df.merge(
         trip_start, on="trip_id", how="left"
     )  # only look at trips on selected date and route
-    trips_df = trips_df.sort_values(by=["block_id", "arrival_time"])
+    trips_df = trips_df.sort_values(by=["service_id", "block_id", "arrival_time"])
 
     # Precompute last/first stop per trip to build origin-destination route IDs
     stop_times_sorted = stop_times_df.sort_values("stop_sequence")
@@ -53,7 +53,7 @@ def create_mid_block_deadhead_trips(
         stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
     )
 
-    block_gb = trips_df.groupby("block_id")
+    block_gb = trips_df.groupby(["service_id", "block_id"])
     dh_dfs = list()
     for _, block_df in block_gb:
         block_df = block_df.copy()
@@ -67,18 +67,24 @@ def create_mid_block_deadhead_trips(
         from_stop = block_df["trip_id"].map(last_stop_per_trip).astype(str)
         to_stop = block_df["to_trip"].map(first_stop_per_trip).astype(str)
         block_df["route_id"] = "deadhead_" + from_stop + "_to_" + to_stop
-
-        block_df = block_df[
-            ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
+        block_df["route_short_name"] = block_df["route_id"]
+        cols_incl = [
+            "deadhead_trip",
+            "route_id",
+            "route_short_name",
+            "service_id",
+            "block_id",
+            "shape_id",
         ]
+        if "agency_id" in block_df.columns:
+            cols_incl += ["agency_id"]
+        block_df = block_df[cols_incl]
         block_df = block_df.rename(columns=({"deadhead_trip": "trip_id"}))
         dh_dfs.append(block_df)
     deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
 
-    deadhead_trips["route_short_name"] = None
     deadhead_trips["route_type"] = 3
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
-    deadhead_trips["agency_id"] = None
     deadhead_trips["shape_id"] = deadhead_trips["trip_id"]
     deadhead_trips["trip_type"] = "mid_block_deadhead"
 

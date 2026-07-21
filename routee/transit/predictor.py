@@ -796,7 +796,8 @@ class GTFSEnergyPredictor:
             [self.feed.stop_times, deadhead_stop_times], ignore_index=True
         )
         self.feed.stops = pd.concat(
-            [self.feed.stops, deadhead_stops], ignore_index=True
+            [df for df in [self.feed.stops, deadhead_stops] if not df.empty],
+            ignore_index=True,
         )
 
         logger.info(f"Added {len(deadhead_trips)} mid-block deadhead trips")
@@ -1024,7 +1025,8 @@ class GTFSEnergyPredictor:
             [self._deadhead_stop_times, deadhead_stop_times], ignore_index=True
         )
         self._deadhead_stops = pd.concat(
-            [self._deadhead_stops, deadhead_stops], ignore_index=True
+            [df for df in [self._deadhead_stops, deadhead_stops] if not df.empty],
+            ignore_index=True,
         )
         if fta_depots is not None and self._fta_depots.empty:
             self._fta_depots = fta_depots
@@ -1470,10 +1472,19 @@ class GTFSEnergyPredictor:
                     scale_to_year=scale_to_year,
                 )
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
-                trip_results["energy_used"] += trip_results["hvac_energy_kWh"]
-                trip_results = trip_results.merge(self.trips, on="trip_id")
-            else:
-                trip_results = trip_results.merge(self.trips, on="trip_id")
+                missing_hvac = trip_results["hvac_energy_kWh"].isna()
+                if missing_hvac.any():
+                    logger.warning(
+                        "HVAC energy missing for %d of %d electric trips; "
+                        "energy_used reflects powertrain energy only for these.",
+                        int(missing_hvac.sum()),
+                        len(trip_results),
+                    )
+
+                trip_results["energy_used"] += trip_results["hvac_energy_kWh"].fillna(0)
+
+            # Add all base GTFS trip data to the results
+            trip_results = trip_results.merge(self.trips, on="trip_id")
 
             # Compute MPGe (miles per gallon equivalent) — a common efficiency
             # metric across all fuel types using EPA GGE conversion factors
