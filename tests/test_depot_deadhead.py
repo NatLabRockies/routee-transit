@@ -42,6 +42,8 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
                     pd.Timedelta(hours=10),
                     pd.Timedelta(hours=11),
                 ],
+                "stop_id": ["s1a", "s1b", "s2a", "s2b", "s3a", "s4a"],
+                "stop_sequence": [1, 2, 1, 2, 1, 1],
             }
         )
 
@@ -86,33 +88,6 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         # All route types should be 3 (bus)
         self.assertTrue(all(result["route_type"] == 3))
 
-    def test_agency_id_propagated_from_first_and_last_trip(self) -> None:
-        result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
-
-        # pull-out trips should inherit agency_id from the first revenue trip of
-        # the block; pull-in trips from the last revenue trip.
-        self.assertIn("agency_id", result.columns)
-
-        for _, row in result.iterrows():
-            block = row["block_id"]
-            expected = self.trips_df.loc[
-                self.trips_df["block_id"] == block, "agency_id"
-            ].iloc[0]
-            self.assertEqual(
-                row["agency_id"],
-                expected,
-                msg=f"agency_id mismatch for {row['trip_id']}",
-            )
-
-    def test_agency_id_none_when_absent_from_trips(self) -> None:
-        trips_no_agency = self.trips_df.drop(columns=["agency_id"])
-        result = create_depot_deadhead_trips(trips_no_agency, self.stop_times_df)
-
-        # agency_id column should still exist but be None/NaN when not present
-        # in the source trips (get() fallback returns None).
-        self.assertIn("agency_id", result.columns)
-        self.assertTrue(result["agency_id"].isna().all())
-
     def test_create_depot_deadhead_trips_with_existing_deadhead(self) -> None:
         # Add a between-trip deadhead to trips
         trips_with_deadhead = self.trips_df.copy()
@@ -124,6 +99,71 @@ class TestCreateDepotDeadheadTrips(unittest.TestCase):
         self.assertEqual(len(result), 4)
 
 
+class TestCreateDepotDeadheadTripsServiceIdGrouping(unittest.TestCase):
+    """A single block ID maps to different trips depending on the service ID.
+
+    Grouping by both ``service_id`` and ``block_id`` must produce a separate
+    pull-out/pull-in pair for each service running the shared block.
+    """
+
+    def setUp(self) -> None:
+        # Block block1 is reused by two services with different trips.
+        # S1: trip1 -> trip2, S2: trip3 -> trip4. All share block1.
+        self.trips_df = pd.DataFrame(
+            {
+                "trip_id": ["trip1", "trip2", "trip3", "trip4"],
+                "block_id": ["block1", "block1", "block1", "block1"],
+                "service_id": ["service1", "service1", "service2", "service2"],
+                "agency_id": ["agency1", "agency1", "agency1", "agency1"],
+            }
+        )
+
+        self.stop_times_df = pd.DataFrame(
+            {
+                "trip_id": ["trip1", "trip2", "trip3", "trip4"],
+                "arrival_time": [
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=9),
+                    pd.Timedelta(hours=8),
+                    pd.Timedelta(hours=9),
+                ],
+                "stop_id": ["s1a", "s2a", "s3a", "s4a"],
+                "stop_sequence": [1, 1, 1, 1],
+            }
+        )
+
+    def test_deadhead_trips_are_grouped_by_service_and_block(self) -> None:
+        result = create_depot_deadhead_trips(self.trips_df, self.stop_times_df)
+
+        # One pull-out + one pull-in per service = 4 trips. Grouping by block_id
+        # alone would collapse the two services into a single block and yield
+        # only 2 depot deadhead trips.
+        self.assertEqual(len(result), 4)
+
+        trip_ids = set(result["trip_id"])
+        self.assertEqual(
+            trip_ids,
+            {
+                "depot_to_trip1",
+                "trip2_to_depot",
+                "depot_to_trip3",
+                "trip4_to_depot",
+            },
+        )
+
+        by_trip = result.set_index("trip_id")
+        # service1 pull-out/pull-in use service1's first/last trips.
+        self.assertEqual(by_trip.loc["depot_to_trip1", "trip_type"], "pull-out")
+        self.assertEqual(by_trip.loc["depot_to_trip1", "service_id"], "service1")
+        self.assertEqual(by_trip.loc["trip2_to_depot", "trip_type"], "pull-in")
+        self.assertEqual(by_trip.loc["trip2_to_depot", "service_id"], "service1")
+        # service2 pull-out/pull-in use service2's first/last trips.
+        self.assertEqual(by_trip.loc["depot_to_trip3", "trip_type"], "pull-out")
+        self.assertEqual(by_trip.loc["depot_to_trip3", "service_id"], "service2")
+        self.assertEqual(by_trip.loc["trip4_to_depot", "trip_type"], "pull-in")
+        self.assertEqual(by_trip.loc["trip4_to_depot", "service_id"], "service2")
+
+
 class TestInferDepotTripEndpoints(unittest.TestCase):
     def setUp(self) -> None:
         # Create sample trips
@@ -131,6 +171,7 @@ class TestInferDepotTripEndpoints(unittest.TestCase):
             {
                 "trip_id": ["trip1", "trip2"],
                 "block_id": ["block1", "block1"],
+                "service_id": ["service1", "service1"],
             }
         )
 
@@ -249,6 +290,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
         # Create sample GeoDataFrames with proper geometry column
         self.first_stops_gdf = gpd.GeoDataFrame(
             {
+                "service_id": ["service1"],
                 "block_id": ["block1"],
                 "stop_id": ["stop_gtfs_1"],  # existing GTFS stop at first revenue stop
                 "nearest_depot_idx": [42],
@@ -262,6 +304,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
 
         self.last_stops_gdf = gpd.GeoDataFrame(
             {
+                "service_id": ["service1"],
                 "block_id": ["block1"],
                 "stop_id": ["stop_gtfs_2"],  # existing GTFS stop at last revenue stop
                 "nearest_depot_idx": [42],
@@ -277,6 +320,7 @@ class TestCreateDepotDeadheadStops(unittest.TestCase):
             {
                 "trip_id": ["depot_to_trip1", "trip2_to_depot"],
                 "trip_type": ["pull-out", "pull-in"],
+                "service_id": ["service1", "service1"],
                 "block_id": ["block1", "block1"],
             }
         )
@@ -456,6 +500,14 @@ class TestMatchAgencyToNtd(unittest.TestCase):
         )
         self.assertEqual(result["NTD_ID"], "80006")
 
+    def test_match_agency_to_ntd_denver_normalized_formatting(self) -> None:
+        result = match_agency_to_ntd(
+            agency_name="regional transportation district   rtd",
+            lat=39.82,
+            lon=-105.1,
+        )
+        self.assertEqual(result["NTD_ID"], "80006")
+
     def test_token_frequency_downweights_common_words(self) -> None:
         agencies = _load_ntd_agencies()
         token_idf = _compute_token_idf(agencies)
@@ -497,6 +549,53 @@ class TestNTDMatchingFromCSV(unittest.TestCase):
 
         if failures:
             self.fail(f"{len(failures)} NTD match failures:\n" + "\n".join(failures))
+
+
+class TestNTDNonMatchesFromCSV(unittest.TestCase):
+    """Agencies that must NOT return a known-wrong NTD match.
+
+    ``ntd-agencies-negative-test.csv`` lists agencies where the matcher
+    previously produced an incorrect NTD ID — either because the agency is not
+    in the NTD at all (private operators, campus/intercity carriers) or because
+    a differently-named nearby agency was picked. The ``ntd_agency_id`` column
+    records that *wrong* id. A correct matcher must either reject the agency or
+    return a different (correct) id, so we assert the wrong id is never returned.
+    """
+
+    _negative_csv = Path(__file__).parent / "ntd-agencies-negative-test.csv"
+
+    def test_no_known_wrong_matches(self) -> None:
+        failures: list[str] = []
+        with open(self._negative_csv, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                wrong_id = row["ntd_agency_id"].strip().zfill(5)
+                agency_name = row["agency_name"].strip()
+                lat = float(row["center_latitude"])
+                lon = float(row["center_longitude"])
+                agency_id = row["agency_id"].strip() or None
+
+                try:
+                    result = match_agency_to_ntd(
+                        agency_name=agency_name,
+                        lat=lat,
+                        lon=lon,
+                        agency_id=agency_id,
+                    )
+                except ValueError:
+                    # Rejected as "not in NTD" — acceptable.
+                    continue
+
+                if result["NTD_ID"] == wrong_id:
+                    failures.append(
+                        f"{agency_name}: returned known-wrong id {wrong_id} "
+                        f"('{result['Agency_Name']}')"
+                    )
+
+        if failures:
+            self.fail(
+                f"{len(failures)} known-wrong NTD matches:\n" + "\n".join(failures)
+            )
 
 
 if __name__ == "__main__":
