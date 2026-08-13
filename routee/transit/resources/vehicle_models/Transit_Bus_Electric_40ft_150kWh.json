@@ -1,0 +1,40 @@
+{
+  "name": "Transit_Bus_Electric_40ft_150kWh",
+  "type": "bev",
+  "mass_estimate_lbs": 32000,
+  "model_input_file": "Transit_Bus_Electric_40ft_150kWh.bin",
+  "energy_rate_unit": "kilowatt hour/kilometer",
+  "battery_capacity": 150,
+  "battery_capacity_unit": "kilowatt_hours",
+  "real_world_energy_adjustment": 1.0,
+  "a_star_heuristic_energy_rate": 1.5,
+  "input_features": [
+    {
+      "type": "speed",
+      "name": "edge_speed",
+      "unit": "kph"
+    },
+    {
+      "type": "ratio",
+      "name": "edge_grade",
+      "unit": "decimal"
+    }
+  ],
+  "model_type": {
+    "interpolate": {
+      "underlying_model_type": "smartcore",
+      "feature_bounds": {
+        "edge_speed": {
+          "lower_bound": 0,
+          "upper_bound": 160,
+          "num_bins": 101
+        },
+        "edge_grade": {
+          "lower_bound": -0.2,
+          "upper_bound": 0.2,
+          "num_bins": 41
+        }
+      }
+    }
+  }
+}

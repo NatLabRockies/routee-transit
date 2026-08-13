@@ -7,6 +7,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 
 from __future__ import annotations
 
+import gzip
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -33,9 +34,13 @@ from routee.transit.depot_deadhead import (
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
 )
+from routee.transit.compass_config import (
+    copy_custom_vehicle_models,
+    copy_transit_config,
+    read_configured_vehicle_models,
+)
 from routee.transit.gtfs_processing import (
     build_corridor_polygon,
-    copy_transit_config,
     extend_trip_traces,
     timedelta_to_gtfs_time,
     upsample_shape,
@@ -57,6 +62,9 @@ MI_PER_KM = 0.6213712
 # Source: DOE Alternative Fuels Data Center (AFDC) fuel properties
 KWH_PER_GGE = 33.7  # 1 GGE = 33.7 kWh (EPA standard)
 GGE_PER_GALLON_DIESEL = 1.136  # 1 gallon diesel = 1.136 GGE (DOE AFDC)
+# Derived so all energy<->fuel conversions stay mutually consistent:
+# 1 gallon diesel = 1.136 GGE = 1.136 * 33.7 kWh ≈ 38.28 kWh.
+KWH_PER_GALLON_DIESEL = GGE_PER_GALLON_DIESEL * KWH_PER_GGE
 MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
 
 # Vehicle model configuration: maps model names to their CompassApp traversal summary fields.
@@ -65,6 +73,7 @@ MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
 # To add CNG: gge_per_unit = 1.0 (if energy is already reported in GGE)
 # To add hydrogen fuel cell: gge_per_unit ≈ 1.019 per kg (DOE AFDC)
 VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
+    # Stock models shipped with RouteE-Compass (Diesel reports gallons).
     "Transit_Bus_Battery_Electric": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
@@ -74,6 +83,43 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
         "energy_field": "trip_energy_liquid",
         "unit": "gallons_diesel",
         "gge_per_unit": GGE_PER_GALLON_DIESEL,
+    },
+    # Custom models bundled with RouteE-Transit. The powertrain models output
+    # energy in kWh; ``kwh_per_output_unit`` converts that raw kWh into the
+    # reported fuel ``unit`` at prediction time (BEVs stay in kWh; combustion
+    # buses convert to gallons diesel / GGE so downstream code sees fuel units).
+    "Transit_Bus_Electric_40ft": {
+        "energy_field": "trip_energy_electric",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Electric_60ft": {
+        "energy_field": "trip_energy_electric",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Electric_40ft_150kWh": {
+        "energy_field": "trip_energy_electric",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Diesel_40ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
+    },
+    "Transit_Bus_Diesel_60ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
+    },
+    "Transit_Bus_CNG_42ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gge",
+        "gge_per_unit": 1.0,
+        "kwh_per_output_unit": KWH_PER_GGE,
     },
 }
 
@@ -132,6 +178,7 @@ class GTFSEnergyPredictor:
         overwrite: bool = True,
         feed_id: str | None = None,
         dataset_id: str | None = None,
+        speed_factor: float = 1.0,
     ):
         """
         Initialize the GTFSEnergyPredictor.
@@ -152,7 +199,15 @@ class GTFSEnergyPredictor:
                 If None, all supported models are used.
             overwrite: If True (default), regenerate the CompassApp graph and results
                 even if cached outputs already exist in ``output_dir``.
+            speed_factor: Blanket multiplier applied to every road's posted speed
+                limit before energy prediction. Transit buses rarely reach posted
+                limits (frequent stops, dwell time, traffic), so the default of
+                ``1.0`` (use posted limits as-is) tends to assume unrealistically
+                high speeds. Set e.g. ``0.7`` to predict energy as if buses travel
+                at 70% of the posted limit. Requires ``output_dir`` to be set.
         """
+        if speed_factor <= 0:
+            raise ValueError(f"speed_factor must be positive, got {speed_factor}")
         self.gtfs_path = Path(gtfs_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
         self.app = compass_app
@@ -161,6 +216,7 @@ class GTFSEnergyPredictor:
         self.overwrite = overwrite
         self.feed_id = feed_id
         self.dataset_id = dataset_id
+        self.speed_factor = speed_factor
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -509,9 +565,20 @@ class GTFSEnergyPredictor:
                 write_gtfs_stops(params, feed=cast(Feed, self.feed))
 
             def config_hook(params: HookParameters) -> None:
-                copy_transit_config(params, vehicle_models=compass_vehicle_models)
+                copy_transit_config(
+                    params.output_directory, vehicle_models=compass_vehicle_models
+                )
 
-            hooks: list[Callable[[HookParameters], None]] = [gtfs_hook, config_hook]
+            def custom_vehicle_hook(params: HookParameters) -> None:
+                copy_custom_vehicle_models(
+                    params.output_directory, vehicle_models=compass_vehicle_models
+                )
+
+            hooks: list[Callable[[HookParameters], None]] = [
+                gtfs_hook,
+                config_hook,
+                custom_vehicle_hook,
+            ]
         else:
             raise RuntimeError("GTFS Feed must be set before calling load_compass_app")
 
@@ -522,7 +589,28 @@ class GTFSEnergyPredictor:
 
             if config_path.exists() and not self.overwrite:
                 if self.app is None:
+                    # Self-heal: if the cached config predates a requested
+                    # vehicle model (e.g. a model was added after the graph was
+                    # generated), refresh the cheap config + vehicle files in
+                    # place. The road graph is unchanged, so there's no need to
+                    # re-download OSM or rebuild the dataset.
+                    configured = read_configured_vehicle_models(config_path)
+                    missing = set(compass_vehicle_models) - configured
+                    if missing:
+                        logger.info(
+                            f"Cached CompassApp is missing vehicle models "
+                            f"{sorted(missing)}; refreshing config and vehicle "
+                            f"files without rebuilding the graph"
+                        )
+                        copy_transit_config(
+                            cache_dir, vehicle_models=compass_vehicle_models
+                        )
+                        copy_custom_vehicle_models(
+                            cache_dir, vehicle_models=compass_vehicle_models
+                        )
+
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
+                    self._apply_speed_factor(cache_dir)
                     self.app = cast(
                         TransitCompassApp,
                         TransitCompassApp.from_config_file(
@@ -560,6 +648,70 @@ class GTFSEnergyPredictor:
         )
         self._bbox = new_bbox
         logger.info("CompassApp initialized")
+
+        # Apply (or restore) the posted-speed correction factor on the table the
+        # freshly-built graph just wrote, then reload the app so the energy model
+        # reads the corrected speeds.
+        if cache_dir is None:
+            if self.speed_factor != 1.0:
+                logger.warning(
+                    "speed_factor != 1.0 requires output_dir to be set; "
+                    "posted speeds left unchanged"
+                )
+        elif self._apply_speed_factor(cache_dir):
+            self.app = cast(
+                TransitCompassApp,
+                TransitCompassApp.from_config_file(
+                    cache_dir / "transit_energy.toml",
+                    parallelism=self.n_processes,
+                ),
+            )
+
+    def _apply_speed_factor(self, cache_dir: Path) -> bool:
+        """Rewrite the cached posted-speed table to reflect ``self.speed_factor``.
+
+        Transit buses rarely reach posted speed limits (frequent stops, dwell
+        time, traffic), so predicting energy from posted limits assumes
+        unrealistically high speeds. ``speed_factor`` applies a blanket
+        correction (e.g. ``0.7`` to use 70% of the posted limit).
+
+        A pristine copy of the generated table is preserved as
+        ``edges-posted-speed-enumerated.base.txt.gz`` so the active table is
+        always derived from the true posted limits -- never compounding a prior
+        factor -- and a later run with ``speed_factor=1.0`` restores them.
+
+        Returns:
+            True if the active speed table was rewritten (and the app therefore
+            needs reloading), False if no change was necessary.
+        """
+        speed_table = cache_dir / "edges-posted-speed-enumerated.txt.gz"
+        baseline = cache_dir / "edges-posted-speed-enumerated.base.txt.gz"
+
+        # No prior scaling and none requested: leave the true table untouched.
+        if self.speed_factor == 1.0 and not baseline.exists():
+            return False
+
+        if not speed_table.exists():
+            logger.warning(
+                f"Posted-speed table not found at {speed_table}; "
+                f"speed_factor={self.speed_factor} not applied"
+            )
+            return False
+
+        # Preserve the true posted speeds the first time we scale this cache.
+        if not baseline.exists():
+            shutil.copy2(speed_table, baseline)
+
+        with gzip.open(baseline, "rt") as f:
+            base_speeds = [float(line) for line in f if line.strip()]
+        with gzip.open(speed_table, "wt") as f:
+            f.write("\n".join(f"{s * self.speed_factor:.4f}" for s in base_speeds))
+            f.write("\n")
+        logger.info(
+            f"Applied speed_factor={self.speed_factor} to "
+            f"{len(base_speeds)} edges in {speed_table.name}"
+        )
+        return True
 
     def filter_trips(
         self,
@@ -710,6 +862,18 @@ class GTFSEnergyPredictor:
             "deadhead_ods": deadhead_ods,
         }
 
+    def _deadhead_routing_model(self) -> str:
+        """Return a loaded vehicle model name to use for deadhead path routing.
+
+        Deadhead routing only optimizes ``trip_time`` (energy is not part of the
+        objective), so any model loaded into the CompassApp works; per-model
+        energy is computed later in ``predict_energy``. Using the first requested
+        vehicle model guarantees the name exists in the loaded app.
+        """
+        if self.vehicle_models:
+            return self.vehicle_models[0]
+        return next(iter(VEHICLE_MODELS))
+
     def _route_mid_block_deadhead(self, metadata: dict[str, Any]) -> None:
         """
         Route mid-block deadhead trips using the loaded CompassApp.
@@ -728,7 +892,10 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for unique O-D pairs
         deadhead_shapes, od_mapping = create_deadhead_shapes(
-            app=self.app, df=deadhead_ods, start_weekday=self._service_weekday
+            app=self.app,
+            df=deadhead_ods,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
 
         # Assign shape_id to each trip based on O-D mapping
@@ -940,7 +1107,10 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from depot to first stop
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=first_stops_gdf, start_weekday=self._service_weekday
+            app=self.app,
+            df=first_stops_gdf,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -951,7 +1121,10 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=last_stops_gdf, start_weekday=self._service_weekday
+            app=self.app,
+            df=last_stops_gdf,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
@@ -1421,9 +1594,15 @@ class GTFSEnergyPredictor:
                 route = result.get("route", {})
                 summary = route.get("traversal_summary", {})
 
-                # Extract energy value from traversal summary
+                # Extract energy value from traversal summary. Powertrain models
+                # report kWh; convert to the reported fuel unit (gallons diesel,
+                # GGE, ...) so downstream consumers get consistent fuel units.
                 energy_entry = summary.get(energy_field, {})
                 energy_value = energy_entry.get("value", 0.0)
+                kwh_per_output_unit = float(
+                    model_config.get("kwh_per_output_unit", 1.0)
+                )
+                energy_used = float(energy_value) / kwh_per_output_unit
 
                 # Extract distance
                 distance_entry = summary.get("edge_distance", {})
@@ -1432,7 +1611,7 @@ class GTFSEnergyPredictor:
                 energy_records.append(
                     {
                         "shape_id": sid,
-                        "energy_used": float(energy_value),
+                        "energy_used": energy_used,
                         "miles": float(distance_value),
                         "vehicle": model_name,
                         "energy_unit": model_config["unit"],
@@ -1461,8 +1640,10 @@ class GTFSEnergyPredictor:
                 columns=["shape_id"]
             )
 
-            # Optionally add HVAC to trip-level results (electric vehicles only)
-            if add_hvac and model_config["unit"] == "kWh":
+            # Optionally add HVAC to trip-level results (electric vehicles only).
+            # Gate on the electric energy field rather than the unit, since
+            # combustion models may also report energy in kWh.
+            if add_hvac and model_config["energy_field"] == "trip_energy_electric":
                 logger.info("Adding HVAC energy impacts...")
                 hvac_energy = add_HVAC_energy(
                     self.feed,

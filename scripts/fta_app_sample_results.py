@@ -122,8 +122,10 @@ if __name__ == "__main__":
     # Configuration
     n_proc = 8
     routee_vehicle_models = [
-        "Transit_Bus_Battery_Electric",
-        "Transit_Bus_Diesel",
+        "Transit_Bus_Electric_40ft",
+        "Transit_Bus_Electric_60ft",
+        "Transit_Bus_Diesel_40ft",
+        "Transit_Bus_Diesel_60ft",
     ]
 
     # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432
@@ -133,7 +135,7 @@ if __name__ == "__main__":
     #     "--feed_ids", "mdb-179", "mdb-205", "mdb-247", "mdb-267"
     # ])
 
-    db_root = package_root().parents[1] / "reports" / "fta_demo_070726"
+    db_root = package_root().parents[1] / "reports" / "fta_demo_071326"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -162,10 +164,10 @@ if __name__ == "__main__":
 
         # Run entire pipeline across all service dates
         results = predictor.run(
-            date="7/9/2026",
+            date=None,
             routes=None,
-            add_mid_block_deadhead=True,
-            add_depot_deadhead=True,
+            add_mid_block_deadhead=False,
+            add_depot_deadhead=False,
             add_hvac=True,
             save_results=False,
             scale_to_year=True,
@@ -178,8 +180,12 @@ if __name__ == "__main__":
         _date_cols = {"date", "hvac_energy_kWh", "trip_is_within_gtfs_scope"}
         _avg_cols = [c for c in results.columns if c in {"energy_used", "mpge"}]
         _grp_cols = [c for c in results.columns if c not in _date_cols | set(_avg_cols)]
-        trip_counts = results.groupby("trip_id").agg(trip_count=("date", "nunique")).reset_index()
-        results = results.groupby(_grp_cols, as_index=False, dropna=False)[_avg_cols].mean()
+        trip_counts = (
+            results.groupby("trip_id").agg(trip_count=("date", "nunique")).reset_index()
+        )
+        results = results.groupby(_grp_cols, as_index=False, dropna=False)[
+            _avg_cols
+        ].mean()
 
         # Reintroduce trip_count: number of times each trip runs
         results = results.merge(trip_counts, on="trip_id", how="left")
