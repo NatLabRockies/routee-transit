@@ -115,11 +115,15 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
         "gge_per_unit": GGE_PER_GALLON_DIESEL,
         "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
     },
-    "Transit_Bus_CNG_42ft": {
+    "Transit_Bus_CNG_40ft": {
         "energy_field": "trip_energy_liquid",
-        "unit": "gge",
-        "gge_per_unit": 1.0,
-        "kwh_per_output_unit": KWH_PER_GGE,
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_CNG_60ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
     },
 }
 

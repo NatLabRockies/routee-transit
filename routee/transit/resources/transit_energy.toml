@@ -106,7 +106,8 @@ vehicle_input_files = [
     "vehicles/Transit_Bus_Electric_40ft_150kWh.json",
     "vehicles/Transit_Bus_Diesel_40ft.json",
     "vehicles/Transit_Bus_Diesel_60ft.json",
-    "vehicles/Transit_Bus_CNG_42ft.json",
+    "vehicles/Transit_Bus_CNG_40ft.json",
+    "vehicles/Transit_Bus_CNG_60ft.json",
 ]
 stop_edge_mapping_input_file = "gtfs_stops.csv"
 

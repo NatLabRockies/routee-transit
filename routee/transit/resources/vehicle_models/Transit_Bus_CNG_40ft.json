@@ -1,8 +1,8 @@
 {
-  "name": "Transit_Bus_CNG_42ft",
+  "name": "Transit_Bus_CNG_40ft",
   "type": "ice",
   "mass_estimate_lbs": 30000,
-  "model_input_file": "Transit_Bus_CNG_42ft.bin",
+  "model_input_file": "Transit_Bus_CNG_40ft.bin",
   "energy_rate_unit": "kilowatt hour/kilometer",
   "real_world_energy_adjustment": 1.0,
   "a_star_heuristic_energy_rate": 1.5,
