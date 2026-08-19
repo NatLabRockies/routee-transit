@@ -1,10 +1,10 @@
 {
-  "name": "Transit_Bus_Electric_60ft",
+  "name": "Transit_Bus_Electric_60ft_600kWh",
   "type": "bev",
   "mass_estimate_lbs": 40000,
-  "model_input_file": "Transit_Bus_Electric_60ft.bin",
+  "model_input_file": "Transit_Bus_Electric_60ft_600kWh.bin",
   "energy_rate_unit": "kilowatt hour/kilometer",
-  "battery_capacity": 500,
+  "battery_capacity": 600,
   "battery_capacity_unit": "kilowatt_hours",
   "real_world_energy_adjustment": 1.0,
   "a_star_heuristic_energy_rate": 1.5,
