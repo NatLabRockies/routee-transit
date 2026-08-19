@@ -101,9 +101,8 @@ type = "transit_energy"
 vehicle_input_files = [
     "vehicles/Transit_Bus_Battery_Electric.json",
     "vehicles/Transit_Bus_Diesel.json",
-    "vehicles/Transit_Bus_Electric_40ft.json",
-    "vehicles/Transit_Bus_Electric_60ft.json",
-    "vehicles/Transit_Bus_Electric_40ft_150kWh.json",
+    "vehicles/Transit_Bus_Electric_40ft_300kWh.json",
+    "vehicles/Transit_Bus_Electric_60ft_600kWh.json",
     "vehicles/Transit_Bus_Diesel_40ft.json",
     "vehicles/Transit_Bus_Diesel_60ft.json",
     "vehicles/Transit_Bus_CNG_40ft.json",

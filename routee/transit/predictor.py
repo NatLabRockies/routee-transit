@@ -88,17 +88,12 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
     # energy in kWh; ``kwh_per_output_unit`` converts that raw kWh into the
     # reported fuel ``unit`` at prediction time (BEVs stay in kWh; combustion
     # buses convert to gallons diesel / GGE so downstream code sees fuel units).
-    "Transit_Bus_Electric_40ft": {
+    "Transit_Bus_Electric_40ft_300kWh": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
         "gge_per_unit": 1.0 / KWH_PER_GGE,
     },
-    "Transit_Bus_Electric_60ft": {
-        "energy_field": "trip_energy_electric",
-        "unit": "kWh",
-        "gge_per_unit": 1.0 / KWH_PER_GGE,
-    },
-    "Transit_Bus_Electric_40ft_150kWh": {
+    "Transit_Bus_Electric_60ft_600kWh": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
         "gge_per_unit": 1.0 / KWH_PER_GGE,
