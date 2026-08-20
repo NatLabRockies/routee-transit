@@ -12,9 +12,37 @@ import logging
 import shutil
 from pathlib import Path
 
+import geopandas as gpd
 import tomlkit
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_grade_table(output_directory: Path, edges: "gpd.GeoDataFrame") -> None:
+    """
+    Rewrite the enumerated grade table with missing grades filled as 0.0.
+
+    USGS/OSMnx elevation coverage can be incomplete near the corridor edge,
+    leaving some edges with a NaN grade. RouteE-Compass writes those as empty
+    rows that fail to parse when the app loads ("invalid float literal"). This
+    replaces any NaN grade with a flat 0.0 so the dataset stays loadable.
+
+    Args:
+        output_directory: Directory where the Compass dataset is being written.
+        edges: The generated edges GeoDataFrame (must include a ``grade``
+            column and be in ``edge_id`` order, matching how Compass wrote the
+            table).
+    """
+    if "grade" not in edges.columns:
+        return
+
+    grade_path = output_directory / "edges-grade-enumerated.txt.gz"
+    n_missing = int(edges["grade"].isna().sum())
+    if n_missing == 0:
+        return
+
+    edges["grade"].fillna(0.0).to_csv(grade_path, index=False, header=False)
+    logger.info(f"Filled {n_missing} missing edge grade(s) with 0.0 in {grade_path}")
 
 
 def copy_transit_config(
