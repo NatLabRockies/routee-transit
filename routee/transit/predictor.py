@@ -38,6 +38,7 @@ from routee.transit.compass_config import (
     copy_custom_vehicle_models,
     copy_transit_config,
     read_configured_vehicle_models,
+    sanitize_grade_table,
 )
 from routee.transit.gtfs_processing import (
     build_corridor_polygon,
@@ -573,10 +574,14 @@ class GTFSEnergyPredictor:
                     params.output_directory, vehicle_models=compass_vehicle_models
                 )
 
+            def grade_hook(params: HookParameters) -> None:
+                sanitize_grade_table(params.output_directory, params.edges)
+
             hooks: list[Callable[[HookParameters], None]] = [
                 gtfs_hook,
                 config_hook,
                 custom_vehicle_hook,
+                grade_hook,
             ]
         else:
             raise RuntimeError("GTFS Feed must be set before calling load_compass_app")
@@ -657,7 +662,12 @@ class GTFSEnergyPredictor:
                     "speed_factor != 1.0 requires output_dir to be set; "
                     "posted speeds left unchanged"
                 )
-        elif self._apply_speed_factor(cache_dir):
+        else:
+            # Always reload from the hook-written config so the in-memory app
+            # picks up the [map_matching] section and custom vehicle models the
+            # generate hooks wrote to disk; the from_graph app alone omits them,
+            # which makes every map-match query error.
+            self._apply_speed_factor(cache_dir)
             self.app = cast(
                 TransitCompassApp,
                 TransitCompassApp.from_config_file(
@@ -1349,9 +1359,10 @@ class GTFSEnergyPredictor:
                 "Call load_compass_app() first."
             )
 
-        # Determine model_name for map matching search parameters
-        # (needed when using energy config which requires a model_name
-        # for the internal path recalculation during map matching)
+        # Map matching needs a model_name present in the generated config's
+        # vehicle set (copy_transit_config filters it to the requested models).
+        # The vehicle doesn't affect the matched geometry, so use the first
+        # configured model; per-vehicle energy is handled in predict_energy.
         if self.vehicle_models is not None:
             if isinstance(self.vehicle_models, str):
                 mm_model_name = self.vehicle_models
@@ -1443,7 +1454,35 @@ class GTFSEnergyPredictor:
         gdf = match_result_to_geopandas(results)
 
         if gdf.empty:
-            logger.warning("No map matching results returned")
+            # match_result_to_geopandas silently drops any result carrying an
+            # "error" key, so an empty gdf usually means every query errored.
+            # Surface a breakdown of why so failures aren't invisible.
+            results_list = [results] if isinstance(results, dict) else results
+            n_total = len(results_list)
+            errored = [r for r in results_list if isinstance(r, dict) and "error" in r]
+            no_path = [
+                r
+                for r in results_list
+                if isinstance(r, dict)
+                and "error" not in r
+                and r.get("matched_path") is None
+            ]
+            logger.warning(
+                "No map matching results returned: %d/%d queries errored, "
+                "%d succeeded but had no matched_path",
+                len(errored),
+                n_total,
+                len(no_path),
+            )
+            # Log a few distinct error messages so the root cause is visible.
+            distinct_errors: dict[str, int] = {}
+            for r in errored:
+                msg = str(r.get("error"))
+                distinct_errors[msg] = distinct_errors.get(msg, 0) + 1
+            for msg, count in sorted(
+                distinct_errors.items(), key=lambda kv: kv[1], reverse=True
+            )[:5]:
+                logger.warning("  map-match error (x%d): %s", count, msg)
             return pd.DataFrame()
 
         # Add shape_id to each result
