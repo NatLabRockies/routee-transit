@@ -122,10 +122,12 @@ if __name__ == "__main__":
     # Configuration
     n_proc = 8
     routee_vehicle_models = [
-        "Transit_Bus_Electric_40ft",
-        "Transit_Bus_Electric_60ft",
+        "Transit_Bus_Electric_40ft_300kWh",
+        "Transit_Bus_Electric_60ft_600kWh",
         "Transit_Bus_Diesel_40ft",
         "Transit_Bus_Diesel_60ft",
+        "Transit_Bus_CNG_40ft",
+        "Transit_Bus_CNG_60ft",
     ]
 
     # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     #     "--feed_ids", "mdb-179", "mdb-205", "mdb-247", "mdb-267"
     # ])
 
-    db_root = package_root().parents[1] / "reports" / "fta_demo_071326"
+    db_root = package_root().parents[1] / "reports" / "fta_results_blocks_test"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -166,10 +168,10 @@ if __name__ == "__main__":
         results = predictor.run(
             date=None,
             routes=None,
-            add_mid_block_deadhead=False,
-            add_depot_deadhead=False,
+            add_mid_block_deadhead=True,
+            add_depot_deadhead=True,
             add_hvac=True,
-            save_results=False,
+            save_results=True,
             scale_to_year=True,
         )
 
@@ -191,7 +193,7 @@ if __name__ == "__main__":
         results = results.merge(trip_counts, on="trip_id", how="left")
 
         results["scenario"] = "median"
-        results.to_csv(output_directory / "trip_energy_predictions.csv", index=False)
+        results.to_csv(output_directory / "trip_energy_predictions_agg.csv", index=False)
 
         logger.info(f"Finished {len(results)} energy predictions for trips in {d_id}")
 

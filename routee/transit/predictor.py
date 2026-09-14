@@ -1583,6 +1583,15 @@ class GTFSEnergyPredictor:
                 edges.append(edge_entry)
             shapes_edge_ids[str(shape_id)] = edges
 
+        # Geometry is identical across vehicles, so keep a single copy and build
+        # the per-vehicle link tables from a geometry-free base. This stops link
+        # memory from scaling with the number of vehicle models.
+        if "geometry" in link_results.columns:
+            self.energy_predictions["link_geometry"] = link_results[
+                ["edge_id", "shape_id", "geometry"]
+            ].copy()
+        link_results_slim = link_results.drop(columns="geometry", errors="ignore")
+
         # Run run_calculate_path for each vehicle model
         all_link_results: list[pd.DataFrame] = []
         all_trip_results: list[pd.DataFrame] = []
@@ -1663,7 +1672,7 @@ class GTFSEnergyPredictor:
             energy_by_shape = pd.DataFrame(energy_records)
 
             # Build link-level results (map-match data + vehicle label)
-            model_link_results = link_results.copy()
+            model_link_results = link_results_slim.copy()
             model_link_results["vehicle"] = model_name
             # Merge shape-level energy onto link results for per-link context
             model_link_results = model_link_results.merge(
@@ -1738,6 +1747,27 @@ class GTFSEnergyPredictor:
         logger.info("Energy prediction complete")
         return self.energy_predictions
 
+    def _attach_link_geometry(self, link_df: pd.DataFrame) -> pd.DataFrame:
+        """Re-attach the single stored map-match geometry to a slim link table.
+
+        Link-level predictions are stored without the vehicle-invariant geometry
+        so memory doesn't scale with the number of vehicle models. This merges
+        the one shared geometry copy back on demand, returning a GeoDataFrame.
+        """
+        geometry = self.energy_predictions.get("link_geometry")
+        if (
+            geometry is None
+            or "geometry" in link_df.columns
+            or "edge_id" not in link_df.columns
+        ):
+            return link_df
+        merged = link_df.merge(
+            geometry.drop_duplicates(subset=["edge_id", "shape_id"]),
+            on=["edge_id", "shape_id"],
+            how="left",
+        )
+        return gpd.GeoDataFrame(merged, geometry="geometry", crs="EPSG:4326")
+
     def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
         Get link-level energy predictions.
@@ -1754,7 +1784,7 @@ class GTFSEnergyPredictor:
                 f"No link-level predictions found for '{key}'. "
                 "Call predict_energy() before accessing results."
             )
-        return self.energy_predictions[key]
+        return self._attach_link_geometry(self.energy_predictions[key])
 
     def get_trip_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
@@ -1813,7 +1843,7 @@ class GTFSEnergyPredictor:
 
         # Save link-level predictions
         if "link" in self.energy_predictions:
-            link_df = self.energy_predictions["link"].copy()
+            link_df = self._attach_link_geometry(self.energy_predictions["link"]).copy()
 
             # Optionally save geometry separately
             if save_geometry and "geom" in link_df.columns:
