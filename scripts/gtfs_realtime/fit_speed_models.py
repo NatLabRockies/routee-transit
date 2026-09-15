@@ -39,7 +39,7 @@ from sklearn.ensemble import (
 )
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit, RandomizedSearchCV
 from sklearn.preprocessing import OneHotEncoder
 
 logging.basicConfig(
@@ -71,6 +71,29 @@ TARGET = "mph_moving"
 SPEED_FLOOR_MPH = 1.0  # below this is likely GPS noise / dwell misattribution
 SPEED_CEIL_MPH = 65.0  # above this is implausible for transit buses
 IQR_MULTIPLIER = 1.5  # per-road IQR fence
+
+# FHWA-style functional-class grouping for the OSM `highway` tag: coarsens the
+# ~15 raw subtypes into a small, closed vocabulary that's more consistent across
+# agencies/regions with differing OSM tagging conventions (used by the tuned
+# HGB model in fit_and_evaluate_models).
+HIGHWAY_TO_FUNCTIONAL_CLASS: dict[str, str] = {
+    "motorway": "freeway",
+    "motorway_link": "freeway",
+    "trunk": "freeway",
+    "trunk_link": "freeway",
+    "primary": "principal_arterial",
+    "primary_link": "principal_arterial",
+    "secondary": "minor_arterial",
+    "secondary_link": "minor_arterial",
+    "tertiary": "collector",
+    "tertiary_link": "collector",
+    "unclassified": "collector",
+    "residential": "local",
+    "living_street": "local",
+    "busway": "local",
+    "service": "local",
+}
+FUNCTIONAL_CLASS_DEFAULT = "local"
 
 
 def _resolve_input(data_dir: Path) -> Path:
@@ -231,12 +254,19 @@ def build_feature_matrix(
     df: pd.DataFrame,
     encoder: OneHotEncoder | None = None,
     fit: bool = False,
+    categorical_features: list[str] | None = None,
 ) -> tuple[np.ndarray, OneHotEncoder]:
-    """Build the feature matrix X from an aggregated DataFrame."""
+    """Build the feature matrix X from an aggregated DataFrame.
+
+    *categorical_features* defaults to ``CATEGORICAL_FEATURES``; pass a
+    different list (e.g. ``["functional_class"]``) to swap in an alternative
+    categorical encoding without touching the numeric/temporal features.
+    """
+    categorical_features = categorical_features or CATEGORICAL_FEATURES
     num_cols = NUMERIC_FEATURES + TEMPORAL_FEATURES
     X_num = df[num_cols].values.astype(float)
 
-    cat_data = df[CATEGORICAL_FEATURES].fillna("unknown").values
+    cat_data = df[categorical_features].fillna("unknown").values
     if encoder is None:
         encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
     if fit:
@@ -262,7 +292,13 @@ def evaluate_model(
     return {"model": name, "r2": r2, "rmse_mph": rmse, "mae_mph": mae}
 
 
-def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
+def main(
+    data_dirs: list[Path],
+    output_dir: Path | None = None,
+    tune_hgb: bool = True,
+    tune_n_iter: int = 25,
+    tune_cv_splits: int = 4,
+) -> None:
     # --- Determine output directory -------------------------------------------
     if output_dir is None:
         output_dir = data_dirs[0] if len(data_dirs) == 1 else Path("reports/realtime")
@@ -288,6 +324,42 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
         len(df),
     )
 
+    fit_and_evaluate_models(
+        df,
+        agency_names,
+        output_dir,
+        tune_hgb=tune_hgb,
+        tune_n_iter=tune_n_iter,
+        tune_cv_splits=tune_cv_splits,
+    )
+
+
+def fit_and_evaluate_models(
+    df: pd.DataFrame,
+    agency_names: list[str],
+    output_dir: Path,
+    tune_hgb: bool = True,
+    tune_n_iter: int = 25,
+    tune_cv_splits: int = 4,
+) -> pd.DataFrame | None:
+    """Aggregate cleaned per-trip link speeds, fit models, and save all outputs.
+
+    *df* must already be cleaned (``load_and_clean`` / ``remove_outliers`` /
+    ``add_temporal_features`` applied) with one row per trip-link observation.
+    Shared by both the JSONL-scrape pipeline (``main`` below) and the gtfsrt.io
+    archive pipeline (``fit_archive_speed_models.py``), which differ only in how
+    they load and clean the raw per-trip data.
+
+    If *tune_hgb*, also fits a Histogram Gradient Boosting model using a
+    coarser FHWA-style ``functional_class`` feature (in place of raw ``highway``)
+    and a spatial (``GroupKFold`` by road_id) hyperparameter search — the
+    feature-engineering and tuning steps recommended in the model summary.
+
+    Returns the results DataFrame, or ``None`` if there was too little data to
+    train on.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # --- Aggregate to (road x hour x weekday/weekend) -------------------------
     agg = aggregate_to_road_hour(df)
     agg_target = "mph_moving_mean"
@@ -298,7 +370,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
 
     if len(agg) < 50:
         log.error("Too few rows (%d) — cannot train models.", len(agg))
-        return
+        return None
 
     # --- Build features -------------------------------------------------------
     y = agg[agg_target].values
@@ -426,6 +498,79 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
         evaluate_model("Histogram Gradient Boosting", y_test, y_pred_hgb, w_test)
     )
 
+    # --- 4. Tuned Histogram Gradient Boosting (feature engineering + CV) ------
+    # Feature engineering: coarsen the raw OSM `highway` tag (~15 subtypes,
+    # some very sparse) to a small FHWA-style functional_class hierarchy that's
+    # more consistent across agencies with different OSM tagging conventions.
+    # Tuning: spatial (GroupKFold by road_id) search so hyperparameters are
+    # chosen for generalization to unseen roads, matching the final eval split.
+    y_pred_hgb_tuned: np.ndarray | None = None
+    tuned_cat_names: list[str] = []
+    hgb_tuned = None
+    hgb_tuned_best_params: dict | None = None
+    X_tuned_train = None
+    if tune_hgb:
+        log.info(
+            "Fitting tuned Histogram Gradient Boosting (functional_class "
+            "feature + spatial GroupKFold search, n_iter=%d, cv=%d folds) …",
+            tune_n_iter,
+            tune_cv_splits,
+        )
+        agg["functional_class"] = (
+            agg["highway"]
+            .map(HIGHWAY_TO_FUNCTIONAL_CLASS)
+            .fillna(FUNCTIONAL_CLASS_DEFAULT)
+        )
+        X_tuned_full, tuned_encoder = build_feature_matrix(
+            agg, categorical_features=["functional_class"], fit=True
+        )
+        tuned_cat_names = list(
+            tuned_encoder.get_feature_names_out(["functional_class"])
+        )
+        X_tuned_train, X_tuned_test = X_tuned_full[train_idx], X_tuned_full[test_idx]
+
+        param_distributions = {
+            "max_iter": [100, 200, 300, 500, 800],
+            "max_depth": [3, 4, 5, 6, 8, None],
+            "learning_rate": [0.01, 0.03, 0.05, 0.1, 0.2],
+            "min_samples_leaf": [5, 10, 20, 30, 50],
+            "l2_regularization": [0.0, 0.1, 0.5, 1.0],
+            "max_leaf_nodes": [15, 31, 63, 127, None],
+        }
+        # Search unweighted (avoids sample_weight/metadata-routing pitfalls in
+        # CV scoring), then refit the winning params with observation weights
+        # to stay consistent with the other models.
+        search = RandomizedSearchCV(
+            estimator=HistGradientBoostingRegressor(random_state=42),
+            param_distributions=param_distributions,
+            n_iter=tune_n_iter,
+            scoring="r2",
+            cv=GroupKFold(n_splits=tune_cv_splits),
+            n_jobs=-1,
+            random_state=42,
+            refit=False,
+        )
+        search.fit(X_tuned_train, y_train, groups=groups[train_idx])
+        hgb_tuned_best_params = search.best_params_
+        log.info("  Best params: %s", search.best_params_)
+        log.info("  Best CV R² (unweighted): %.4f", search.best_score_)
+
+        hgb_tuned = HistGradientBoostingRegressor(
+            random_state=42, **search.best_params_
+        )
+        hgb_tuned.fit(X_tuned_train, y_train, sample_weight=w_train)
+        y_pred_hgb_tuned = hgb_tuned.predict(X_tuned_test)
+        results.append(
+            evaluate_model(
+                "Histogram Gradient Boosting (tuned, functional_class)",
+                y_test,
+                y_pred_hgb_tuned,
+                w_test,
+            )
+        )
+    else:
+        log.info("Skipping HGB tuning (tune_hgb=False)")
+
     # --- Results summary table ------------------------------------------------
     results_df = pd.DataFrame(results)
     log.info("\n%s", results_df.to_string(index=False))
@@ -445,11 +590,21 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     log.info("Aggregated training data saved → %s", agg_path)
 
     # --- Save test-set predictions (used by visualize_speed_models.py) --------
-    test_meta_cols = ["road_id", "hour", "is_weekday", "highway", "maxspeed_mph",
-                      "lanes", "grade", "grade_abs", "link_length_km", "n_trips"]
+    test_meta_cols = [
+        "road_id",
+        "hour",
+        "is_weekday",
+        "highway",
+        "maxspeed_mph",
+        "lanes",
+        "grade",
+        "grade_abs",
+        "link_length_km",
+        "n_trips",
+    ]
     if "agency" in agg.columns:
         test_meta_cols = ["agency"] + test_meta_cols
-    for col in ["n_stops", "scheduled_speed_mph"]:
+    for col in ["n_stops", "scheduled_speed_mph", "functional_class"]:
         if col in agg.columns:
             test_meta_cols.append(col)
     test_df = agg.iloc[test_idx][test_meta_cols].copy().reset_index(drop=True)
@@ -458,6 +613,8 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     test_df["pred_lr"] = y_pred_lr
     test_df["pred_rf"] = y_pred_rf
     test_df["pred_hgb"] = y_pred_hgb
+    if y_pred_hgb_tuned is not None:
+        test_df["pred_hgb_tuned"] = y_pred_hgb_tuned
     test_preds_path = output_dir / "test_predictions.csv"
     test_df.to_csv(test_preds_path, index=False)
     log.info("Test predictions saved → %s", test_preds_path)
@@ -465,9 +622,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     # --- Save predictions for ALL rows (train + test) for full-network map ---
     # Compute HGB predictions on training rows so every road can be visualized.
     y_pred_hgb_train = hgb.predict(X_train)
-    y_pred_baseline_train = np.where(
-        sl_train > 0, sl_train * k_opt, fallback_speed
-    )
+    y_pred_baseline_train = np.where(sl_train > 0, sl_train * k_opt, fallback_speed)
     y_pred_lr_train = lr.predict(X_train_imp)
     y_pred_rf_train = rf.predict(X_train_imp)
 
@@ -477,11 +632,15 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     train_df["pred_lr"] = y_pred_lr_train
     train_df["pred_rf"] = y_pred_rf_train
     train_df["pred_hgb"] = y_pred_hgb_train
+    if hgb_tuned is not None:
+        train_df["pred_hgb_tuned"] = hgb_tuned.predict(X_tuned_train)
 
     test_df["split"] = "test"
     train_df["split"] = "train"
     all_preds_path = output_dir / "all_predictions.csv"
-    pd.concat([train_df, test_df], ignore_index=True).to_csv(all_preds_path, index=False)
+    pd.concat([train_df, test_df], ignore_index=True).to_csv(
+        all_preds_path, index=False
+    )
     log.info("All predictions saved → %s", all_preds_path)
 
     # Also record train-set road IDs (for backward-compat context layer on the folium map)
@@ -518,6 +677,7 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     |----------|----------|
     | Road attributes | `maxspeed_mph`, `lanes`, `grade`, `grade_abs`, `link_length_km` |
     | Road type | `highway` (one-hot: {", ".join(cat_names)}) |
+    | Road type (tuned model) | `functional_class` (one-hot: {", ".join(tuned_cat_names) if tuned_cat_names else "n/a"}) |
     | Temporal | `hour`, `is_weekday`, `is_peak` |
 
     ## Model Performance
@@ -537,7 +697,33 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
     - The spatial hold-out split (entire roads held out) is deliberately harder
       than random splitting and better reflects real generalization to new
       agencies/cities where no realtime data exists.
+    """)
 
+    if tune_hgb and hgb_tuned is not None:
+        untuned_r2 = next(
+            r["r2"] for r in results if r["model"] == "Histogram Gradient Boosting"
+        )
+        tuned_r2 = next(r["r2"] for r in results if "tuned" in r["model"])
+        functional_classes = ", ".join(
+            dict.fromkeys(HIGHWAY_TO_FUNCTIONAL_CLASS.values())
+        )
+        summary += textwrap.dedent(f"""
+        ### Hyperparameter Tuning & Feature Engineering (Tuned HGB)
+
+        - **Feature engineering**: raw `highway` (one-hot, {len(cat_names)} levels)
+          replaced with a coarser FHWA-style `functional_class`
+          ({len(tuned_cat_names)} levels: {functional_classes}) to reduce
+          sparsity in rare highway subtypes and normalize across agencies'
+          differing OSM tagging conventions.
+        - **Hyperparameter search**: `RandomizedSearchCV` ({tune_n_iter} samples,
+          `GroupKFold` by road_id, {tune_cv_splits} folds) over max_iter,
+          max_depth, learning_rate, min_samples_leaf, l2_regularization,
+          max_leaf_nodes.
+        - **Best params**: `{hgb_tuned_best_params}`
+        - **vs. untuned HGB**: R² {untuned_r2:.4f} \u2192 {tuned_r2:.4f}
+        """)
+
+    summary += textwrap.dedent("""
     ### Top Features (Random Forest importance)
     """)
     for feat, imp in fi.head(8).items():
@@ -571,6 +757,8 @@ def main(data_dirs: list[Path], output_dir: Path | None = None) -> None:
         f.write(summary)
     log.info("Summary report saved → %s", summary_path)
 
+    return results_df
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fit speed prediction models")
@@ -587,6 +775,30 @@ if __name__ == "__main__":
         default=None,
         help="Directory for model outputs (default: first data-dir, or reports/realtime for multi-agency)",
     )
+    parser.add_argument(
+        "--no-tune-hgb",
+        dest="tune_hgb",
+        action="store_false",
+        help="Skip the tuned HGB model (feature engineering + hyperparameter search)",
+    )
+    parser.add_argument(
+        "--tune-n-iter",
+        type=int,
+        default=25,
+        help="Number of RandomizedSearchCV samples for HGB tuning (default: 25)",
+    )
+    parser.add_argument(
+        "--tune-cv-splits",
+        type=int,
+        default=4,
+        help="Number of spatial GroupKFold splits for HGB tuning (default: 4)",
+    )
     args = parser.parse_args()
     dirs = args.data_dirs if args.data_dirs else DEFAULT_DATA_DIRS
-    main(dirs, args.output_dir)
+    main(
+        dirs,
+        args.output_dir,
+        tune_hgb=args.tune_hgb,
+        tune_n_iter=args.tune_n_iter,
+        tune_cv_splits=args.tune_cv_splits,
+    )

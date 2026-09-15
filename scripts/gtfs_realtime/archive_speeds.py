@@ -292,48 +292,35 @@ def _gcs_get(object_name: str) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-def _select_schedule_digest(schedule_url: str, dates: list[str]) -> str:
-    """Pick the schedule snapshot prefix live on the requested dates.
-
-    Chooses the digest with the latest ``date_retrieved`` <= the earliest
-    requested date; falls back to the earliest snapshot when all snapshots
-    postdate the requested window (trip_ids are stable across versions).
-    """
+def _list_schedule_digests(schedule_url: str) -> list[tuple[str, str]]:
+    """All schedule snapshot ``(date_retrieved, prefix)`` pairs, sorted by date."""
     b64 = _b64url(schedule_url)
     digest_prefixes, _ = _gcs_list(f"schedules/base64url={b64}/")
     if not digest_prefixes:
         raise RuntimeError(f"No schedule snapshots archived for {schedule_url}")
-
-    snapshots: list[tuple[str, str]] = []  # (date_retrieved, prefix)
+    snapshots: list[tuple[str, str]] = []
     for prefix in digest_prefixes:
         meta = json.loads(_gcs_get(prefix + "metadata.json").decode())
         snapshots.append((meta.get("date_retrieved", ""), prefix))
     snapshots.sort()
+    return snapshots
 
-    earliest_requested = min(dates)
+
+def _digest_for_date(snapshots: list[tuple[str, str]], date: str) -> str:
+    """Pick the snapshot prefix live on *date*.
+
+    Chooses the digest with the latest ``date_retrieved`` <= *date*; falls back
+    to the earliest snapshot when *date* predates every snapshot (trip_ids are
+    usually still recoverable from the oldest available schedule).
+    """
     chosen = snapshots[0][1]
     for retrieved, prefix in snapshots:
         # date_retrieved is ISO (e.g. 2026-07-19T05:11:39Z); compare date part.
-        if retrieved[:10] <= earliest_requested:
+        if retrieved[:10] <= date:
             chosen = prefix
         else:
             break
     return chosen
-
-
-def _latest_schedule_digest(schedule_url: str) -> str:
-    """Prefix of the most recently retrieved schedule snapshot for a feed."""
-    b64 = _b64url(schedule_url)
-    digest_prefixes, _ = _gcs_list(f"schedules/base64url={b64}/")
-    if not digest_prefixes:
-        raise RuntimeError(f"No schedule snapshots archived for {schedule_url}")
-    best_prefix, best_dt = digest_prefixes[0], ""
-    for prefix in digest_prefixes:
-        meta = json.loads(_gcs_get(prefix + "metadata.json").decode())
-        dt = meta.get("date_retrieved", "")
-        if dt >= best_dt:
-            best_dt, best_prefix = dt, prefix
-    return best_prefix
 
 
 def agency_network_bbox(
@@ -350,7 +337,7 @@ def agency_network_bbox(
     if cache_file.exists():
         return tuple(json.loads(cache_file.read_text()))  # type: ignore[return-value]
 
-    digest = _latest_schedule_digest(agency.schedule_url)
+    digest = _list_schedule_digests(agency.schedule_url)[-1][1]
     raw = _gcs_get(f"{digest}shapes.parquet")
     s = pq.read_table(
         io.BytesIO(raw), columns=["shape_pt_lat", "shape_pt_lon"]
@@ -412,17 +399,21 @@ def fetch_network(agency: Agency, out_root: Path) -> None:
     )
 
 
-def prepare_static(agency: Agency, dates: list[str], out_root: Path) -> Path:
-    """Download the period-correct schedule snapshot into ``<out>/static/``."""
-    static_dir = out_root / agency.slug / "static"
-    static_dir.mkdir(parents=True, exist_ok=True)
+def prepare_static(agency: Agency, digest_prefix: str, out_root: Path) -> Path:
+    """Materialise one schedule snapshot into ``<out>/static/<digest>/``.
 
-    digest_prefix = _select_schedule_digest(agency.schedule_url, dates)
-    log.info(
-        "[%s] static snapshot: %s",
-        agency.slug,
-        digest_prefix.split("_feed_digest=")[-1].rstrip("/")[:22],
+    Keyed by digest (not by requested dates) and skipped when already present,
+    so re-running the analysis for new dates reuses previously fetched eras.
+    """
+    digest_label = (
+        digest_prefix.split("_feed_digest=")[-1].rstrip("/").replace(":", "_")
     )
+    static_dir = out_root / agency.slug / "static" / digest_label
+    if all((static_dir / f"{name}.txt").exists() for name in _STATIC_FILES):
+        return static_dir
+
+    static_dir.mkdir(parents=True, exist_ok=True)
+    log.info("[%s] static snapshot: %s", agency.slug, digest_label[:22])
     for name in _STATIC_FILES:
         raw = _gcs_get(f"{digest_prefix}{name}.parquet")
         df = pq.read_table(io.BytesIO(raw)).to_pandas()
@@ -535,10 +526,28 @@ def _peek_trip_match_rate(vp_path: Path, trips_df: pd.DataFrame) -> tuple[float,
 
 
 def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
-    """Full pipeline for one agency across the requested dates."""
+    """Full pipeline for one agency across the requested dates.
+
+    Agencies revise their static GTFS (and often renumber trip_ids) several
+    times a year, so a multi-week sample spanning months can straddle several
+    schedule "eras". Each date is matched to the schedule snapshot that was
+    live on it (rather than using one snapshot for the whole run), so later
+    weeks aren't wrongly skipped as a trip_id mismatch against a stale schedule.
+    """
     log.info("=== %s (%s) — %d day(s) ===", agency.name, agency.slug, len(dates))
-    static_dir = prepare_static(agency, dates, out_root)
-    trips_df, _shapes_df, stop_times_df, stops_df = load_static(static_dir)
+    snapshots = _list_schedule_digests(agency.schedule_url)
+    era_for_date = {d: _digest_for_date(snapshots, d) for d in dates}
+    n_eras = len(set(era_for_date.values()))
+    if n_eras > 1:
+        log.info("[%s] requested dates span %d schedule era(s)", agency.slug, n_eras)
+
+    era_static: dict[str, tuple] = {}
+
+    def _static_for(digest: str):
+        if digest not in era_static:
+            static_dir = prepare_static(agency, digest, out_root)
+            era_static[digest] = load_static(static_dir)
+        return era_static[digest]
 
     # Trip_id match pre-check BEFORE any OSM/Overpass download: skip mismatched
     # days, and skip the whole feed (no OSM download) when none are usable.
@@ -547,6 +556,7 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
         vp_path = download_vp_day(agency, date, out_root)
         if vp_path is None:
             continue
+        trips_df = _static_for(era_for_date[date])[0]
         match_rate, n_rt_trips = _peek_trip_match_rate(vp_path, trips_df)
         if n_rt_trips == 0:
             log.warning("[%s] %s: no RT trips \u2014 skipping", agency.slug, date)
@@ -582,6 +592,7 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
     n_days = 0
 
     for date in usable_dates:
+        trips_df, _shapes_df, stop_times_df, stops_df = _static_for(era_for_date[date])
         vp_path = download_vp_day(agency, date, out_root)
         rt_df, match_rate, _ = build_rt_df(vp_path, trips_df)
         n_trips = rt_df["trip_id"].nunique()

@@ -13,18 +13,20 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --mem=120G
 #SBATCH --time=12:00:00
 #SBATCH --output=gtfsrt_archive_runs/logs/fetch-networks-%j.out
 # Set your allocation if the cluster requires one:
-##SBATCH --account=<your_account>
-##SBATCH --partition=shared
+#SBATCH --account=teta
+#SBATCH --partition=shared
 
 set -euo pipefail
 
-# Run from the repo root so the ./cache (elevation) and out-root are consistent
-# between this stage and the analysis stage.
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Run from the repo root. Use SLURM_SUBMIT_DIR (the directory `sbatch` was run
+# from) rather than deriving from BASH_SOURCE: SLURM copies the submitted script
+# into a spool directory before running it, so BASH_SOURCE[0] does NOT point at
+# the repo and `cd`-ing from it lands somewhere unwritable.
+REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$REPO_ROOT"
 mkdir -p gtfsrt_archive_runs/logs
 

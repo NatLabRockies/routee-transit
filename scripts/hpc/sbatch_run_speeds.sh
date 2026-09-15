@@ -18,17 +18,17 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --mem=120G
 #SBATCH --time=24:00:00
 #SBATCH --array=0-10
 #SBATCH --output=gtfsrt_archive_runs/logs/speeds-%A_%a.out
 # Set your allocation if the cluster requires one:
-##SBATCH --account=<your_account>
+##SBATCH --account=teta
 ##SBATCH --partition=shared
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$REPO_ROOT"
 mkdir -p gtfsrt_archive_runs/logs
 
