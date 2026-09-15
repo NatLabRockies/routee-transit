@@ -4,6 +4,23 @@ from geopy.distance import geodesic
 from gtfsblocks import Feed
 
 
+def _empty_mid_block_deadhead_trips(include_agency_id: bool) -> pd.DataFrame:
+    columns = [
+        "trip_id",
+        "route_id",
+        "service_id",
+        "block_id",
+        "shape_id",
+        "route_short_name",
+        "route_type",
+        "route_desc",
+        "trip_type",
+    ]
+    if include_agency_id:
+        columns.insert(5, "agency_id")
+    return pd.DataFrame(columns=columns)
+
+
 def create_mid_block_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
 ) -> pd.DataFrame:
@@ -68,17 +85,20 @@ def create_mid_block_deadhead_trips(
         to_stop = block_df["to_trip"].map(first_stop_per_trip).astype(str)
         block_df["route_id"] = "deadhead_" + from_stop + "_to_" + to_stop
 
-        block_df = block_df[
-            ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
-        ]
+        cols = ["deadhead_trip", "route_id", "service_id", "block_id", "shape_id"]
+        if "agency_id" in block_df.columns:
+            cols.append("agency_id")
+        block_df = block_df[cols]
         block_df = block_df.rename(columns=({"deadhead_trip": "trip_id"}))
         dh_dfs.append(block_df)
-    deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
 
-    deadhead_trips["route_short_name"] = None
+    if not dh_dfs:
+        return _empty_mid_block_deadhead_trips("agency_id" in trips_df.columns)
+
+    deadhead_trips = pd.concat(dh_dfs).reset_index(drop=True)
+    deadhead_trips["route_short_name"] = deadhead_trips["route_id"]
     deadhead_trips["route_type"] = 3
     deadhead_trips["route_desc"] = "Deadhead_from_" + deadhead_trips["trip_id"]
-    deadhead_trips["agency_id"] = None
     deadhead_trips["shape_id"] = deadhead_trips["trip_id"]
     deadhead_trips["trip_type"] = "mid_block_deadhead"
 

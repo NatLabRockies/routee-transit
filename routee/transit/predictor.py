@@ -172,6 +172,10 @@ class GTFSEnergyPredictor:
         # from its ``date`` argument; used to stamp deadhead routing queries for
         # time-of-day traversal models. None when no date filter is applied.
         self._service_weekday: str | None = None
+        # The specific service date used to filter trips (as a Timestamp), or None
+        # when no date filter was applied.  Passed to add_HVAC_energy() so that
+        # single-date runs only model HVAC for that one day.
+        self._service_date: pd.Timestamp | None = None
         self.energy_predictions: dict[str, pd.DataFrame] = {}
         self._bbox: tuple[float, float, float, float] | None = None
 
@@ -216,19 +220,6 @@ class GTFSEnergyPredictor:
             right_index=True,
         )
 
-        # Add number of times each trip is run
-        sid_counts = (
-            self.feed.get_service_ids_all_dates()
-            .groupby("service_id")["date"]
-            .count()
-            .rename("trip_count")
-        )
-        self.trips = self.trips.merge(
-            sid_counts,
-            left_on="service_id",
-            right_index=True,
-        )
-
     def run(
         self,
         *,
@@ -240,6 +231,7 @@ class GTFSEnergyPredictor:
         add_depot_deadhead: bool = False,
         # Energy prediction options
         add_hvac: bool = True,
+        scale_to_year: bool = False,
         save_results: bool = True,
     ) -> pd.DataFrame:
         """
@@ -274,6 +266,12 @@ class GTFSEnergyPredictor:
             (see ``add_mid_block_deadhead``).
         add_hvac : bool, default=True
             Whether to add HVAC energy consumption based on ambient temperature.
+        scale_to_year : bool, default=False
+            When True (and no `date` filter is applied), project the feed's typical
+            weekday service patterns onto every uncovered date in a full one-year
+            window so the output spans an entire year regardless of feed coverage.
+            Synthesized rows are flagged with
+            ``trip_is_within_gtfs_scope=False`` in the trip-level output.
         save_results : bool, default=True
             Whether to save results to files.
 
@@ -331,8 +329,10 @@ class GTFSEnergyPredictor:
             self._service_weekday = (
                 pd.Timestamp(date.replace("/", "-")).day_name().lower()
             )
+            self._service_date = pd.Timestamp(date.replace("/", "-"))
         else:
             self._service_weekday = None
+            self._service_date = None
 
         if date is not None or routes is not None:
             self.filter_trips(
@@ -376,7 +376,7 @@ class GTFSEnergyPredictor:
             self._route_depot_deadhead(depot_metadata)
 
         # Step 6: Predict energy using CompassApp
-        self.predict_energy(add_hvac=add_hvac)
+        self.predict_energy(add_hvac=add_hvac, scale_to_year=scale_to_year)
 
         # Step 7: Save results if requested
         if save_results:
@@ -771,15 +771,6 @@ class GTFSEnergyPredictor:
             how="left",
         )
 
-        # Add trip count column to deadhead trips, let it be the same as the service trips
-        # before or after the deadhead trip
-        deadhead_trips["before_trip"] = deadhead_trips["trip_id"].apply(
-            lambda x: x.split("_to_")[0]
-        )
-        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
-        deadhead_trips["trip_count"] = deadhead_trips["before_trip"].map(trip_counts)
-        deadhead_trips = deadhead_trips.drop(columns=["before_trip"])
-
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
             [self._deadhead_trips, deadhead_trips], ignore_index=True
@@ -1024,19 +1015,6 @@ class GTFSEnergyPredictor:
             on="trip_id",
             how="left",
         )
-
-        # Add trip count column to deadhead trips, let it be the same as the service trips
-        # before or after the deadhead trip
-        deadhead_trips["before_or_after_trip"] = deadhead_trips["trip_id"].apply(
-            lambda x: (
-                x.split("depot_to_")[1] if "depot_to_" in x else x.split("_to_depot")[0]
-            )
-        )
-        trip_counts = self.trips.set_index("trip_id")["trip_count"].to_dict()
-        deadhead_trips["trip_count"] = deadhead_trips["before_or_after_trip"].map(
-            trip_counts
-        )
-        deadhead_trips = deadhead_trips.drop(columns=["before_or_after_trip"])
 
         # Accumulate deadhead data for TODS export
         self._deadhead_trips = pd.concat(
@@ -1309,6 +1287,7 @@ class GTFSEnergyPredictor:
     def predict_energy(
         self,
         add_hvac: bool = False,
+        scale_to_year: bool = False,
     ) -> dict[str, pd.DataFrame]:
         """
         Predict energy consumption by map matching once, then running
@@ -1483,13 +1462,20 @@ class GTFSEnergyPredictor:
             # Optionally add HVAC to trip-level results
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
-                hvac_energy = add_HVAC_energy(self.feed, self.trips, self.output_dir)
+                hvac_energy = add_HVAC_energy(
+                    self.feed,
+                    self.trips,
+                    self.output_dir,
+                    service_date=self._service_date,
+                    scale_to_year=scale_to_year,
+                )
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
                 # Add HVAC energy to powertrain energy for electric vehicles
                 kwh_mask = trip_results["energy_unit"] == "kWh"
                 trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
                     kwh_mask, "hvac_energy_kWh"
                 ]
+                trip_results = trip_results.merge(self.trips, on="trip_id")
             else:
                 trip_results = trip_results.merge(self.trips, on="trip_id")
 

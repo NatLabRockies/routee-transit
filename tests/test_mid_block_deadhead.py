@@ -62,6 +62,68 @@ class TestMidBlockDeadhead(unittest.TestCase):
         # Route ID encodes last stop of from_trip → first stop of to_trip
         # T1 last stop is S2, T2 first stop is S3
         self.assertEqual(deadhead_trips.iloc[0]["route_id"], "deadhead_S2_to_S3")
+        # route_short_name should not be empty
+        self.assertEqual(
+            deadhead_trips.iloc[0]["route_short_name"], "deadhead_S2_to_S3"
+        )
+
+    def test_agency_id_propagated_when_present(self) -> None:
+        trips_with_agency = self.trips_df.copy()
+        trips_with_agency["agency_id"] = ["A1", "A1", "A2"]
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_with_agency, self.stop_times_df
+        )
+
+        # T1 and T2 are in the same block; the deadhead trip T1_to_T2 should
+        # inherit agency_id from T1 (the preceding revenue trip).
+        self.assertIn("agency_id", deadhead_trips.columns)
+        self.assertEqual(deadhead_trips.iloc[0]["agency_id"], "A1")
+
+    def test_agency_id_absent_when_not_in_trips(self) -> None:
+        # trips_df has no agency_id column — function must not crash
+        deadhead_trips = create_mid_block_deadhead_trips(
+            self.trips_df, self.stop_times_df
+        )
+
+        # agency_id column is absent when the input trips have no agency_id
+        self.assertNotIn("agency_id", deadhead_trips.columns)
+
+    def test_no_deadheads_returns_empty_dataframe(self) -> None:
+        trips_no_deadheads = self.trips_df.copy()
+        trips_no_deadheads["block_id"] = ["B1", "B2", "B3"]
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_no_deadheads, self.stop_times_df
+        )
+
+        self.assertTrue(deadhead_trips.empty)
+        self.assertListEqual(
+            deadhead_trips.columns.tolist(),
+            [
+                "trip_id",
+                "route_id",
+                "service_id",
+                "block_id",
+                "shape_id",
+                "route_short_name",
+                "route_type",
+                "route_desc",
+                "trip_type",
+            ],
+        )
+
+    def test_no_deadheads_preserves_agency_id_column_when_present(self) -> None:
+        trips_with_agency = self.trips_df.copy()
+        trips_with_agency["agency_id"] = ["A1", "A2", "A3"]
+        trips_with_agency["block_id"] = ["B1", "B2", "B3"]
+
+        deadhead_trips = create_mid_block_deadhead_trips(
+            trips_with_agency, self.stop_times_df
+        )
+
+        self.assertTrue(deadhead_trips.empty)
+        self.assertIn("agency_id", deadhead_trips.columns)
 
     def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(

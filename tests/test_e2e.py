@@ -78,18 +78,9 @@ def test_e2e_uta() -> None:
 
     # Verify HVAC energy calculation if present
     if "scenario" in trip_results.columns:
-        winter_results = trip_results[trip_results["scenario"] == "winter"]
-        summer_results = trip_results[trip_results["scenario"] == "summer"]
-
-        assert not winter_results.empty, "Winter scenario results should not be empty"
-        assert not summer_results.empty, "Summer scenario results should not be empty"
-
-        assert (winter_results["energy_used"] > 0).all(), (
-            "Winter energy should be positive"
-        )
-        assert (summer_results["energy_used"] > 0).all(), (
-            "Summer energy should be positive"
-        )
+        tmy_results = trip_results[trip_results["scenario"] == "TMY"]
+        assert not tmy_results.empty, "TMY scenario results should not be empty"
+        assert (tmy_results["energy_used"] > 0).all(), "TMY energy should be positive"
 
     # Link-level predictions
     link_results = predictor.get_link_predictions()
