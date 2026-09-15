@@ -168,17 +168,24 @@ def clean_trip_df(trip_rt_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_compass_app(
-    shapes_df: pd.DataFrame,
+    shapes_df: pd.DataFrame | None = None,
     buffer_deg: float = 0.05,
+    bbox: tuple[float, float, float, float] | None = None,
 ) -> tuple[CompassApp, pd.DataFrame]:
     """Build a CompassApp from the bounding box of GTFS shapes.
 
     Parameters
     ----------
-    shapes_df : pd.DataFrame
+    shapes_df : pd.DataFrame | None
         GTFS shapes DataFrame with columns 'shape_pt_lat' and 'shape_pt_lon'.
+        Required unless *bbox* is given.
     buffer_deg : float
-        Buffer in degrees to add around the bounding box.
+        Buffer in degrees to add around the bounding box (ignored when *bbox*
+        is supplied — pass a pre-buffered bbox).
+    bbox : tuple | None
+        Explicit ``(west, south, east, north)`` bounding box. When provided,
+        it is used verbatim (so callers can pass a stable, date-independent box
+        that reuses the osmnx download cache across runs).
 
     Returns
     -------
@@ -189,18 +196,21 @@ def build_compass_app(
         indexed by Compass edge_id (int). Grade columns are populated by
         Compass, which downloads SRTM elevation data during ``from_graph``.
     """
-    min_lat = shapes_df["shape_pt_lat"].min()
-    max_lat = shapes_df["shape_pt_lat"].max()
-    min_lon = shapes_df["shape_pt_lon"].min()
-    max_lon = shapes_df["shape_pt_lon"].max()
+    if bbox is None:
+        if shapes_df is None:
+            raise ValueError("build_compass_app requires shapes_df or bbox")
+        min_lat = shapes_df["shape_pt_lat"].min()
+        max_lat = shapes_df["shape_pt_lat"].max()
+        min_lon = shapes_df["shape_pt_lon"].min()
+        max_lon = shapes_df["shape_pt_lon"].max()
 
-    bbox = (
-        min_lon - buffer_deg,
-        min_lat - buffer_deg,
-        max_lon + buffer_deg,
-        max_lat + buffer_deg,
-    )
-    print(f"Building CompassApp from GTFS shapes bounding box: {bbox}")
+        bbox = (
+            min_lon - buffer_deg,
+            min_lat - buffer_deg,
+            max_lon + buffer_deg,
+            max_lat + buffer_deg,
+        )
+    print(f"Building CompassApp from bounding box: {bbox}")
 
     graph = ox.graph_from_bbox(bbox=bbox, network_type="drive")
 

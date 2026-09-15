@@ -131,6 +131,7 @@ ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 [tool.pixi.dependencies]
 gdal = "3.12.*"
 rust = "1.93.*"
+pyarrow = ">=14.0"
 
 [tool.pixi.feature.package.pypi-dependencies]
 routee-transit = { path = ".", editable = true }

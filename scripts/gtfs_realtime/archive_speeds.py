@@ -14,13 +14,26 @@ For each agency we download the schedule snapshot (``_feed_digest``) that was li
 on the requested dates, materialise it as a standard ``static/`` GTFS directory,
 download the requested VP days, and run per-trip link-speed estimation.
 
+The work is split into two stages so the Overpass-heavy network download is done
+once and the analysis can be re-run later for different dates:
+
+- ``--stage networks``: prefetch + cache each agency's OSM network (uses a stable,
+  date-independent bbox so the analysis stage reuses the cache). Run sequentially
+  to stay gentle on Overpass.
+- ``--stage analyze``: estimate speeds for ``--dates`` or ``--sample-weeks N``,
+  reusing the cached networks (no Overpass). Output is a parquet dataset
+  partitioned as ``link_observations/agency=<slug>/date=<date>.parquet`` — a
+  tidy per-link-per-trip table ready for speed-model fitting.
+
 Example::
 
-    LD_PRELOAD="$PWD/.devtools/libcompat_glibc.so" \
-        .pixi/envs/dev-py312/bin/python scripts/gtfs_realtime/archive_speeds.py \
-        --agency dayton --dates 2026-07-14,2026-07-15
+    # Stage 1 (once): fetch all agency networks
+    .pixi/envs/hpc/bin/python scripts/gtfs_realtime/archive_speeds.py \
+        --stage networks --agency all
 
-(The LD_PRELOAD shim is only needed on hosts with glibc < 2.38; see repo notes.)
+    # Stage 2 (re-runnable): 3 weeks per agency, model-ready parquet
+    .pixi/envs/hpc/bin/python scripts/gtfs_realtime/archive_speeds.py \
+        --stage analyze --agency all --sample-weeks 3
 """
 
 from __future__ import annotations
@@ -30,6 +43,8 @@ import base64
 import io
 import json
 import logging
+import math
+import os
 import sys
 import time
 import urllib.parse
@@ -38,13 +53,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import osmnx as ox
 import pandas as pd
 import pyarrow.parquet as pq
 
 # Make sibling library importable when run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from realtime_speeds import (  # noqa: E402
-    aggregate_speeds_across_trips,
+from realtime_speeds import (
     build_compass_app,
     get_link_speeds_for_trip,
 )
@@ -61,6 +76,10 @@ _GCS_OBJ = f"https://storage.googleapis.com/{BUCKET}"
 # GTFS files we materialise from the schedule parquet snapshot.
 _STATIC_FILES = ("trips", "shapes", "stops", "stop_times")
 
+# Skip a day when fewer than this fraction of distinct RT trip_ids resolve to
+# static trips.txt (some feeds publish RT trip_ids in a different id space).
+MIN_TRIP_MATCH_RATE = 0.5
+
 
 @dataclass(frozen=True)
 class Agency:
@@ -72,7 +91,7 @@ class Agency:
     schedule_url: str  # static GTFS producer URL
 
 
-# Four bus agencies present in the gtfsrt.io archive with both VP and schedules.
+# Bus agencies present in the gtfsrt.io archive with both VP and schedules.
 AGENCIES: dict[str, Agency] = {
     "dayton": Agency(
         "dayton",
@@ -98,6 +117,48 @@ AGENCIES: dict[str, Agency] = {
         "https://cleverapi.bigbluebus.com/gtfsrt/vehicles",
         "http://gtfs.bigbluebus.com/current.zip",
     ),
+    "actransit": Agency(
+        "actransit",
+        "AC Transit",
+        "https://api.actransit.org/transit/gtfsrt/vehicles",
+        "https://api.actransit.org/transit/gtfs/download",
+    ),
+    "broward": Agency(
+        "broward",
+        "Broward County Transit",
+        "https://bctmyride-buspas.com:8080/GTFS/VehiclePositions",
+        "https://www.broward.org/bct/documents/google_transit.zip",
+    ),
+    "cats": Agency(
+        "cats",
+        "Charlotte Area Transit System",
+        "https://gtfsrealtime.ridetransit.org/GTFSRealTime/Vehicle/VehiclePositions.pb",
+        "https://gtfsrealtime.ridetransit.org/GTFSStatic/api/GTFSDownload/GTFS.zip",
+    ),
+    "gcrta": Agency(
+        "gcrta",
+        "Greater Cleveland RTA",
+        "https://gtfs-rt.gcrta.vontascloud.com/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb",
+        "https://www.riderta.com/sites/default/files/gtfs/latest/google_transit.zip",
+    ),
+    "metro-transit-mpls": Agency(
+        "metro-transit-mpls",
+        "Metro Transit (Minneapolis)",
+        "https://svc.metrotransit.org/mtgtfs/vehiclepositions.pb",
+        "https://svc.metrotransit.org/mtgtfs/gtfs.zip",
+    ),
+    "metro-transit-madison": Agency(
+        "metro-transit-madison",
+        "Metro Transit (Madison)",
+        "https://metromap.cityofmadison.com/gtfsrt/vehicles",
+        "http://transitdata.cityofmadison.com/GTFS/mmt_gtfs.zip",
+    ),
+    "wrta-youngstown": Agency(
+        "wrta-youngstown",
+        "Western Reserve Transit Authority (Youngstown)",
+        "https://myvalleystops.wrtaonline.com/infopoint/GTFS-Realtime.ashx?Type=VehiclePosition",
+        "https://myvalleystops.wrtaonline.com/InfoPoint/gtfs-zip.ashx",
+    ),
 }
 
 
@@ -109,6 +170,85 @@ AGENCIES: dict[str, Agency] = {
 def _b64url(url: str) -> str:
     """gtfsrt.io key: urlsafe base64 of the producer URL, no padding."""
     return base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+
+
+# Overpass endpoint(s). Default is the main instance (the only one reachable from
+# restricted HPC egress); set ROUTEE_OVERPASS_URLS (comma-separated) to rotate
+# through additional reachable mirrors. Matches the predictor's convention.
+_DEFAULT_OVERPASS_ENDPOINTS = ("https://overpass-api.de/api",)
+
+
+def _overpass_endpoints() -> list[str]:
+    env = os.environ.get("ROUTEE_OVERPASS_URLS", "").strip()
+    if env:
+        return [u.strip() for u in env.split(",") if u.strip()]
+    return list(_DEFAULT_OVERPASS_ENDPOINTS)
+
+
+def configure_osmnx(cache_dir: Path) -> None:
+    """Enable a persistent OSM cache and respect Overpass rate limits.
+
+    Caching means a bbox downloaded once is reused on retries/re-runs, so we hit
+    Overpass as little as possible; rate limiting makes osmnx pause per the
+    server's advertised status instead of hammering it.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    ox.settings.use_cache = True
+    ox.settings.cache_folder = str(cache_dir)
+    ox.settings.overpass_rate_limit = True
+    ox.settings.requests_timeout = 180
+    ox.settings.overpass_url = _overpass_endpoints()[0]
+
+
+def _build_compass_app_safe(
+    bbox: tuple[float, float, float, float], slug: str, base_wait: float = 30.0
+):
+    """Build the CompassApp for *bbox*, rotating endpoints and backing off on failure.
+
+    Uses the osmnx download cache, so once a bbox has been fetched (e.g. by the
+    network-prefetch stage) later calls reuse it without touching Overpass.
+    """
+    endpoints = _overpass_endpoints()
+    retries = max(5, len(endpoints) + 1)
+    last_exc: Exception | None = None
+    for attempt in range(1, retries + 1):
+        endpoint = endpoints[(attempt - 1) % len(endpoints)]
+        ox.settings.overpass_url = endpoint
+        try:
+            return build_compass_app(bbox=bbox)
+        except Exception as exc:
+            last_exc = exc
+            msg = str(exc).lower()
+            transient = any(
+                k in msg
+                for k in (
+                    "overpass",
+                    "connection",
+                    "refused",
+                    "timed out",
+                    "timeout",
+                    "max retries",
+                    "429",
+                    "rate",
+                    "temporarily",
+                )
+            )
+            if attempt == retries or not transient:
+                raise
+            wait = base_wait * attempt
+            log.warning(
+                "[%s] OSM download failed on %s (attempt %d/%d): %s \u2014 "
+                "rotating endpoint, retrying in %.0fs",
+                slug,
+                endpoint,
+                attempt,
+                retries,
+                type(exc).__name__,
+                wait,
+            )
+            time.sleep(wait)
+    assert last_exc is not None
+    raise last_exc
 
 
 def _http_get(url: str, timeout: int = 120, retries: int = 3) -> bytes:
@@ -181,6 +321,97 @@ def _select_schedule_digest(schedule_url: str, dates: list[str]) -> str:
     return chosen
 
 
+def _latest_schedule_digest(schedule_url: str) -> str:
+    """Prefix of the most recently retrieved schedule snapshot for a feed."""
+    b64 = _b64url(schedule_url)
+    digest_prefixes, _ = _gcs_list(f"schedules/base64url={b64}/")
+    if not digest_prefixes:
+        raise RuntimeError(f"No schedule snapshots archived for {schedule_url}")
+    best_prefix, best_dt = digest_prefixes[0], ""
+    for prefix in digest_prefixes:
+        meta = json.loads(_gcs_get(prefix + "metadata.json").decode())
+        dt = meta.get("date_retrieved", "")
+        if dt >= best_dt:
+            best_dt, best_prefix = dt, prefix
+    return best_prefix
+
+
+def agency_network_bbox(
+    agency: Agency, out_root: Path, buffer_deg: float = 0.05, round_to: float = 0.01
+) -> tuple[float, float, float, float]:
+    """Stable ``(west, south, east, north)`` OSM bbox for an agency.
+
+    Derived from the *latest* schedule snapshot's shapes and rounded to
+    ``round_to`` degrees so it is date-independent and identical across runs —
+    which lets the analysis stage reuse the network fetched by the prefetch
+    stage (same bbox -> same osmnx cache key). Cached to ``network_bbox.json``.
+    """
+    cache_file = out_root / agency.slug / "network_bbox.json"
+    if cache_file.exists():
+        return tuple(json.loads(cache_file.read_text()))  # type: ignore[return-value]
+
+    digest = _latest_schedule_digest(agency.schedule_url)
+    raw = _gcs_get(f"{digest}shapes.parquet")
+    s = pq.read_table(
+        io.BytesIO(raw), columns=["shape_pt_lat", "shape_pt_lon"]
+    ).to_pandas()
+    lat = pd.to_numeric(s["shape_pt_lat"], errors="coerce").dropna()
+    lon = pd.to_numeric(s["shape_pt_lon"], errors="coerce").dropna()
+    west = math.floor(lon.min() / round_to) * round_to - buffer_deg
+    south = math.floor(lat.min() / round_to) * round_to - buffer_deg
+    east = math.ceil(lon.max() / round_to) * round_to + buffer_deg
+    north = math.ceil(lat.max() / round_to) * round_to + buffer_deg
+    bbox = (round(west, 4), round(south, 4), round(east, 4), round(north, 4))
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(list(bbox)))
+    return bbox
+
+
+def agency_vp_date_range(agency: Agency) -> tuple[str, str]:
+    """(date_min, date_max) of an agency's archived vehicle positions."""
+    inv = json.loads(_gcs_get("inventory.json").decode())
+    for d in inv:
+        if d.get("feed_type") == "vehicle_positions" and d.get("url") == agency.vp_url:
+            return d["date_min"], d["date_max"]
+    raise RuntimeError(f"{agency.slug}: no vehicle_positions entry in inventory")
+
+
+def sample_weeks(date_min: str, date_max: str, n_weeks: int = 3) -> list[str]:
+    """Return the dates of *n_weeks* full Mon–Sun weeks spread across a range.
+
+    Weeks are anchored at evenly spaced fractions of the available span so
+    they land at different times of year when the range is long, and cluster
+    (de-duplicated) when it is short.
+    """
+    start, end = pd.Timestamp(date_min), pd.Timestamp(date_max)
+    span = max((end - start).days - 6, 0)  # leave room for a 7-day week
+    fracs = [0.5] if n_weeks == 1 else [i / (n_weeks - 1) for i in range(n_weeks)]
+    out: list[str] = []
+    for f in fracs:
+        anchor = start + pd.Timedelta(days=round(f * span))
+        monday = anchor - pd.Timedelta(days=anchor.dayofweek)
+        if monday < start:
+            monday += pd.Timedelta(days=7)
+        for k in range(7):
+            day = monday + pd.Timedelta(days=k)
+            if start <= day <= end:
+                out.append(day.strftime("%Y-%m-%d"))
+    return sorted(set(out))
+
+
+def fetch_network(agency: Agency, out_root: Path) -> None:
+    """Stage 1: warm the OSM + elevation caches for an agency (date-independent)."""
+    log.info("=== fetch network: %s (%s) ===", agency.name, agency.slug)
+    bbox = agency_network_bbox(agency, out_root)
+    _, edge_attr_df = _build_compass_app_safe(bbox, agency.slug)
+    log.info(
+        "[%s] network cached — %d edges, bbox=%s",
+        agency.slug,
+        len(edge_attr_df),
+        bbox,
+    )
+
+
 def prepare_static(agency: Agency, dates: list[str], out_root: Path) -> Path:
     """Download the period-correct schedule snapshot into ``<out>/static/``."""
     static_dir = out_root / agency.slug / "static"
@@ -208,9 +439,9 @@ def load_static(static_dir: Path):
     stop_times_df = pd.read_csv(
         static_dir / "stop_times.txt", dtype={"trip_id": str, "stop_id": str}
     )
-    stops_df = pd.read_csv(
-        static_dir / "stops.txt", dtype={"stop_id": str}
-    ).set_index("stop_id")
+    stops_df = pd.read_csv(static_dir / "stops.txt", dtype={"stop_id": str}).set_index(
+        "stop_id"
+    )
     log.info(
         "loaded static: %d trips, %d shape points, %d stops",
         len(trips_df),
@@ -248,12 +479,28 @@ def download_vp_day(agency: Agency, date: str, out_root: Path) -> Path | None:
     return dest
 
 
-def build_rt_df(parquet_paths: list[Path], trips_df: pd.DataFrame) -> pd.DataFrame:
-    """Load VP parquet into the frame shape expected by ``get_link_speeds_for_trip``."""
-    frames = [pq.read_table(p).to_pandas() for p in parquet_paths]
-    df = pd.concat(frames, ignore_index=True)
+def build_rt_df(
+    vp_path: Path, trips_df: pd.DataFrame
+) -> tuple[pd.DataFrame, float, int]:
+    """Load a day's VP parquet into the pipeline frame and report trip_id match rate.
 
+    Returns ``(df, match_rate, n_rt_trips)`` where *df* is filtered to trips present
+    in static trips.txt and *match_rate* is the fraction of distinct RT trip_ids
+    that resolved to static \u2014 used to skip feeds/days whose RT trip_ids live in a
+    different id space than the static schedule.
+    """
+    df = pq.read_table(vp_path).to_pandas()
     df["trip_id"] = df["trip_id"].astype(str)
+
+    rt_ids = (
+        df["trip_id"]
+        .replace({"": np.nan, "None": np.nan, "nan": np.nan})
+        .dropna()
+        .unique()
+    )
+    n_rt_trips = len(rt_ids)
+    matched = int(np.isin(rt_ids, trips_df.index.values).sum())
+    match_rate = matched / n_rt_trips if n_rt_trips else 0.0
 
     # Zero lat/lon are sentinels for missing fixes.
     zero = (df["latitude"] == 0) | (df["longitude"] == 0)
@@ -268,7 +515,18 @@ def build_rt_df(parquet_paths: list[Path], trips_df: pd.DataFrame) -> pd.DataFra
         )
 
     df = df[df["trip_id"].isin(trips_df.index)]
-    return df
+    return df, match_rate, n_rt_trips
+
+
+def _peek_trip_match_rate(vp_path: Path, trips_df: pd.DataFrame) -> tuple[float, int]:
+    """Fraction of distinct RT trip_ids present in static (reads only trip_id)."""
+    ids = pq.read_table(vp_path, columns=["trip_id"]).to_pandas()["trip_id"].astype(str)
+    rt_ids = ids.replace({"": np.nan, "None": np.nan, "nan": np.nan}).dropna().unique()
+    n = len(rt_ids)
+    if not n:
+        return 0.0, 0
+    matched = int(np.isin(rt_ids, trips_df.index.values).sum())
+    return matched / n, n
 
 
 # ---------------------------------------------------------------------------
@@ -280,28 +538,64 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
     """Full pipeline for one agency across the requested dates."""
     log.info("=== %s (%s) — %d day(s) ===", agency.name, agency.slug, len(dates))
     static_dir = prepare_static(agency, dates, out_root)
-    trips_df, shapes_df, stop_times_df, stops_df = load_static(static_dir)
+    trips_df, _shapes_df, stop_times_df, stops_df = load_static(static_dir)
 
-    log.info("[%s] building CompassApp from shapes bbox…", agency.slug)
-    app, edge_attr_df = build_compass_app(shapes_df)
-    log.info("[%s] CompassApp ready — %d edges", agency.slug, len(edge_attr_df))
-
-    agency_dir = out_root / agency.slug
-    day_frames: list[pd.DataFrame] = []
-
+    # Trip_id match pre-check BEFORE any OSM/Overpass download: skip mismatched
+    # days, and skip the whole feed (no OSM download) when none are usable.
+    usable_dates: list[str] = []
     for date in dates:
         vp_path = download_vp_day(agency, date, out_root)
         if vp_path is None:
             continue
-        rt_df = build_rt_df([vp_path], trips_df)
-        n_trips = rt_df["trip_id"].nunique()
-        log.info("[%s] %s: %d trips", agency.slug, date, n_trips)
-        if n_trips == 0:
+        match_rate, n_rt_trips = _peek_trip_match_rate(vp_path, trips_df)
+        if n_rt_trips == 0:
+            log.warning("[%s] %s: no RT trips \u2014 skipping", agency.slug, date)
             continue
+        if match_rate < MIN_TRIP_MATCH_RATE:
+            log.warning(
+                "[%s] %s: only %.0f%% of %d RT trip_ids match static (< %.0f%%) \u2014 "
+                "skipping day (RT trip_id space likely differs from static)",
+                agency.slug,
+                date,
+                100 * match_rate,
+                n_rt_trips,
+                100 * MIN_TRIP_MATCH_RATE,
+            )
+            continue
+        usable_dates.append(date)
+
+    if not usable_dates:
+        log.warning(
+            "[%s] no days with sufficient trip_id match \u2014 skipping feed "
+            "(no OSM download)",
+            agency.slug,
+        )
+        return
+
+    bbox = agency_network_bbox(agency, out_root)
+    log.info("[%s] building CompassApp (bbox=%s)…", agency.slug, bbox)
+    app, edge_attr_df = _build_compass_app_safe(bbox, agency.slug)
+    log.info("[%s] CompassApp ready \u2014 %d edges", agency.slug, len(edge_attr_df))
+
+    obs_root = out_root / "link_observations" / f"agency={agency.slug}"
+    obs_root.mkdir(parents=True, exist_ok=True)
+    n_days = 0
+
+    for date in usable_dates:
+        vp_path = download_vp_day(agency, date, out_root)
+        rt_df, match_rate, _ = build_rt_df(vp_path, trips_df)
+        n_trips = rt_df["trip_id"].nunique()
+        log.info(
+            "[%s] %s: %d trips (%.0f%% of RT matched static)",
+            agency.slug,
+            date,
+            n_trips,
+            100 * match_rate,
+        )
 
         t0 = time.time()
         results: list[pd.DataFrame] = []
-        for route_id, route_rt in rt_df.groupby("route_id"):
+        for _route_id, route_rt in rt_df.groupby("route_id"):
             for tid in route_rt["trip_id"].unique():
                 res = get_link_speeds_for_trip(
                     tid,
@@ -320,34 +614,29 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
             continue
 
         day_df = pd.concat(results, ignore_index=True)
-        day_df["date"] = date
-        day_csv = agency_dir / f"realtime_link_speeds_{date}.csv"
-        day_df.to_csv(day_csv, index=False)
-        day_frames.append(day_df)
+        # Geometry -> WKT so each row is plain columnar parquet; agency/date come
+        # from the hive-partitioned path, not duplicated as columns.
+        if "geom" in day_df.columns:
+            day_df["geom"] = day_df["geom"].apply(
+                lambda g: g.wkt if g is not None else None
+            )
+        out_path = obs_root / f"date={date}" / "part.parquet"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        day_df.to_parquet(out_path, index=False)
+        n_days += 1
         log.info(
-            "[%s] %s: %d link rows → %s (%.1fs)",
+            "[%s] %s: %d link observations → %s (%.1fs)",
             agency.slug,
             date,
             len(day_df),
-            day_csv.name,
+            out_path.relative_to(out_root),
             time.time() - t0,
         )
 
-    if not day_frames:
+    if n_days == 0:
         log.warning("[%s] no usable data across all dates", agency.slug)
-        return
-
-    all_df = pd.concat(day_frames, ignore_index=True)
-    aggregated = aggregate_speeds_across_trips(all_df)
-    if not aggregated.empty:
-        agg_csv = agency_dir / "realtime_link_speeds_aggregated.csv"
-        aggregated.to_csv(agg_csv, index=False)
-        log.info(
-            "[%s] aggregated %d links → %s",
-            agency.slug,
-            len(aggregated),
-            agg_csv.name,
-        )
+    else:
+        log.info("[%s] wrote %d day(s) of link observations", agency.slug, n_days)
 
 
 def _parse_dates(spec: str) -> list[str]:
@@ -364,12 +653,27 @@ def main() -> None:
     parser.add_argument(
         "--agency",
         required=True,
-        help="agency slug, or 'all'. Options: " + ", ".join(AGENCIES),
+        help="agency slug, comma-separated slugs, or 'all'. Options: "
+        + ", ".join(AGENCIES),
+    )
+    parser.add_argument(
+        "--stage",
+        choices=["networks", "analyze", "both"],
+        default="both",
+        help="networks=prefetch OSM networks only (Overpass-heavy, run once); "
+        "analyze=estimate speeds reusing cached networks; both (default)",
     )
     parser.add_argument(
         "--dates",
-        required=True,
-        help="comma-separated YYYY-MM-DD list, or START:END inclusive range",
+        default=None,
+        help="comma-separated YYYY-MM-DD list or START:END range (analyze stage)",
+    )
+    parser.add_argument(
+        "--sample-weeks",
+        type=int,
+        default=None,
+        help="analyze stage: auto-pick N full weeks spread across each agency's "
+        "archived date range (alternative to --dates)",
     )
     parser.add_argument(
         "--out-root",
@@ -378,21 +682,53 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    dates = _parse_dates(args.dates)
     out_root = Path(args.out_root)
+    configure_osmnx(out_root / ".osmnx_cache")
 
     if args.agency == "all":
         selected = list(AGENCIES.values())
-    elif args.agency in AGENCIES:
-        selected = [AGENCIES[args.agency]]
     else:
-        parser.error(f"unknown agency '{args.agency}'. Options: {', '.join(AGENCIES)}")
+        slugs = [s.strip() for s in args.agency.split(",") if s.strip()]
+        unknown = [s for s in slugs if s not in AGENCIES]
+        if unknown:
+            parser.error(f"unknown agency {unknown}. Options: {', '.join(AGENCIES)}")
+        selected = [AGENCIES[s] for s in slugs]
 
-    for agency in selected:
-        try:
-            run_agency(agency, dates, out_root)
-        except Exception:
-            log.exception("[%s] run failed", agency.slug)
+    # Stage 1: prefetch networks — sequential and gentle so Overpass isn't hammered.
+    if args.stage in ("networks", "both"):
+        for i, agency in enumerate(selected):
+            if i:
+                time.sleep(5)
+            try:
+                fetch_network(agency, out_root)
+            except Exception:
+                log.exception("[%s] network fetch failed", agency.slug)
+
+    # Stage 2: analysis — reuses cached networks (no Overpass), safe to parallelize
+    # across agencies via a SLURM array.
+    if args.stage in ("analyze", "both"):
+        if not args.dates and not args.sample_weeks:
+            parser.error("analyze stage requires --dates or --sample-weeks")
+        for i, agency in enumerate(selected):
+            if i:
+                time.sleep(5)
+            try:
+                if args.sample_weeks:
+                    dmin, dmax = agency_vp_date_range(agency)
+                    dates = sample_weeks(dmin, dmax, args.sample_weeks)
+                    log.info(
+                        "[%s] sampled %d days (%d weeks) across %s..%s",
+                        agency.slug,
+                        len(dates),
+                        args.sample_weeks,
+                        dmin,
+                        dmax,
+                    )
+                else:
+                    dates = _parse_dates(args.dates)
+                run_agency(agency, dates, out_root)
+            except Exception:
+                log.exception("[%s] run failed", agency.slug)
 
 
 if __name__ == "__main__":
