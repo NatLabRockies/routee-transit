@@ -171,6 +171,53 @@ def compute_transit_speed_features(
     return df[ordered_cols]
 
 
+def patch_vehicle_speed_feature(
+    vehicles_dir: Path,
+    vehicle_names: list[str],
+    speed_feature_name: str = TRANSIT_SPEED_FEATURE_NAME,
+) -> None:
+    """Repoint each named vehicle's own energy-rate model at ``transit_speed``.
+
+    ``vehicles_dir`` also holds every OTHER bundled vehicle model shipped by
+    ``nrel.routee.compass`` (Mazda 3, Ford Focus, Tesla, etc.) copied in by
+    ``generate_compass_dataset``'s "copying vehicle configuration files" step
+    — only the transit bus model(s) actually selected via ``vehicle_models``
+    should be touched, so ``vehicle_names`` scopes the patch to those.
+
+    The ``speed_feature_name`` override on the ``transit_energy`` traversal
+    model only affects the wrapper's OWN stop-penalty kinetic-energy calc
+    (see ``TransitIceEnergyModel``/``TransitBevEnergyModel`` in Rust) — the
+    vehicle's underlying per-mile energy-rate model (smartcore/ONNX,
+    interpolated by speed + grade) reads its OWN ``input_features`` list,
+    which hardcodes ``"name": "edge_speed"`` in the bundled vehicle JSON
+    templates (from the ``nrel.routee.compass`` package). Without this patch,
+    the ML transit speed only affects stop penalties, not the primary energy
+    consumption rate. Must run AFTER vehicle JSON files are copied into
+    ``vehicles_dir`` (e.g. by ``generate_compass_dataset``'s "copying vehicle
+    configuration files" step, which runs before hooks).
+    """
+    for vehicle_path in sorted(vehicles_dir.glob("*.json")):
+        if vehicle_path.stem not in vehicle_names:
+            continue
+        vehicle = json.loads(vehicle_path.read_text())
+        changed = False
+        for feature in vehicle.get("input_features", []):
+            if feature.get("type") == "speed" and feature.get("name") == "edge_speed":
+                feature["name"] = speed_feature_name
+                changed = True
+        feature_bounds = (
+            vehicle.get("model_type", {})
+            .get("interpolate", {})
+            .get("feature_bounds", {})
+        )
+        if "edge_speed" in feature_bounds:
+            feature_bounds[speed_feature_name] = feature_bounds.pop("edge_speed")
+            changed = True
+        if changed:
+            vehicle_path.write_text(json.dumps(vehicle, indent=2))
+            logger.info(f"Repointed {vehicle_path.name} at '{speed_feature_name}'")
+
+
 def write_transit_speed_model(
     params: HookParameters,
     feed: Feed,
@@ -232,17 +279,40 @@ def write_routing_config(
     transit_energy_toml_path: Path, routing_toml_path: Path
 ) -> None:
     """Copy the (not-yet-speed-model-wired) ``transit_energy.toml`` aside for
-    use by map matching and deadhead routing.
+    use by map matching and deadhead routing, pointed at its own untouched
+    snapshot of the vehicle JSON files.
 
     Those steps only need cost-comparable candidate paths, not accurate
     predicted speeds — running the ``transit_speed`` ONNX model (and its 19
     per-edge ``custom`` feature loaders) on every edge explored during search
     is pure overhead there, and the ONNX session's internal mutex serializes
     every call across threads (see ``TransitSpeedModelService`` in Rust),
-    making it a severe bottleneck under parallel search. Must run BEFORE
-    ``insert_transit_speed_config`` mutates ``transit_energy_toml_path``.
+    making it a severe bottleneck under parallel search. The vehicle files are
+    snapshotted into ``vehicles_routing/`` (rather than sharing
+    ``vehicles/``) because ``patch_vehicle_speed_feature`` later repoints the
+    latter at ``transit_speed`` for the main config — a feature this
+    lightweight config never computes. Must run BEFORE
+    ``insert_transit_speed_config``/``patch_vehicle_speed_feature`` mutate
+    ``transit_energy_toml_path``/``vehicles/``.
     """
-    shutil.copy(transit_energy_toml_path, routing_toml_path)
+    output_directory = transit_energy_toml_path.parent
+    routing_vehicles_dir = output_directory / "vehicles_routing"
+    shutil.copytree(
+        output_directory / "vehicles", routing_vehicles_dir, dirs_exist_ok=True
+    )
+
+    with open(transit_energy_toml_path, "r") as f:
+        config = tomlkit.load(f)
+    models = config.get("search", {}).get("traversal", {}).get("models", [])
+    for model in models:
+        if model.get("type") == "transit_energy":
+            model["vehicle_input_files"] = [
+                f"vehicles_routing/{Path(p).name}"
+                for p in model.get("vehicle_input_files", [])
+            ]
+
+    with open(routing_toml_path, "w") as f:
+        tomlkit.dump(config, f)
     logger.info(f"Wrote lightweight routing config to {routing_toml_path}")
 
 

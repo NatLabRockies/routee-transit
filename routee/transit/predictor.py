@@ -48,6 +48,7 @@ from routee.transit.mid_block_deadhead import (
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.speed_model import (
     insert_transit_speed_config,
+    patch_vehicle_speed_feature,
     write_routing_config,
     write_transit_speed_model,
 )
@@ -573,6 +574,12 @@ class GTFSEnergyPredictor:
                         manifest_path=manifest_path,
                     )
                     insert_transit_speed_config(transit_energy_toml_path, model_blocks)
+                    # Repoint the (now-shared-with-main-config-only) vehicle
+                    # files' own speed input at transit_speed, so it drives
+                    # the primary energy-rate calc, not just stop penalties.
+                    patch_vehicle_speed_feature(
+                        params.output_directory / "vehicles", compass_vehicle_models
+                    )
 
                 hooks.append(speed_model_hook)
         else:
