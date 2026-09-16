@@ -46,6 +46,7 @@ if __name__ == "__main__":
     ]
     input_directory = sample_inputs_path() / "saltlake/gtfs"
     output_directory = HERE / "../reports/saltlake"
+    speed_model_directory = HERE / "../reports/realtime_archive"
 
     start_time = time.time()
 
@@ -54,6 +55,8 @@ if __name__ == "__main__":
         n_processes=n_proc,
         vehicle_models=routee_vehicle_models,
         output_dir=output_directory,
+        speed_model_dir=speed_model_directory,
+        overwrite=True,
     )
 
     # Run entire pipeline with one method call
