@@ -21,6 +21,7 @@ Usage
 """
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -91,6 +92,8 @@ def main(
     tune_hgb: bool = True,
     tune_n_iter: int = 25,
     tune_cv_splits: int = 4,
+    tuned_model_keys: list[str] | None = None,
+    tuned_fixed_params: dict[str, dict] | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -116,6 +119,8 @@ def main(
         tune_hgb=tune_hgb,
         tune_n_iter=tune_n_iter,
         tune_cv_splits=tune_cv_splits,
+        tuned_model_keys=tuned_model_keys,
+        tuned_fixed_params=tuned_fixed_params,
     )
 
 
@@ -158,6 +163,19 @@ if __name__ == "__main__":
         default=4,
         help="Number of spatial GroupKFold splits for HGB tuning (default: 4)",
     )
+    parser.add_argument(
+        "--tuned-models",
+        default=None,
+        help="Comma-separated subset of tuned models to fit: hgb,rf,gbr "
+        "(default: all three)",
+    )
+    parser.add_argument(
+        "--fixed-params-json",
+        default=None,
+        help="JSON dict of {model_key: {param: value}} to skip the "
+        "RandomizedSearchCV step and refit directly with known params, e.g. "
+        '\'{"rf": {"n_estimators": 300, "max_depth": 8}}\'',
+    )
     args = parser.parse_args()
 
     if args.agency == "all":
@@ -177,4 +195,8 @@ if __name__ == "__main__":
         tune_hgb=args.tune_hgb,
         tune_n_iter=args.tune_n_iter,
         tune_cv_splits=args.tune_cv_splits,
+        tuned_model_keys=args.tuned_models.split(",") if args.tuned_models else None,
+        tuned_fixed_params=json.loads(args.fixed_params_json)
+        if args.fixed_params_json
+        else None,
     )
