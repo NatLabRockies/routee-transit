@@ -253,6 +253,7 @@ class GTFSEnergyPredictor:
         add_hvac: bool = True,
         scale_to_year: bool = False,
         save_results: bool = True,
+        include_stop_penalty: bool = True,
     ) -> pd.DataFrame:
         """
         Run the complete energy prediction pipeline with a single method call.
@@ -294,6 +295,9 @@ class GTFSEnergyPredictor:
             ``trip_is_within_gtfs_scope=False`` in the trip-level output.
         save_results : bool, default=True
             Whether to save results to files.
+        include_stop_penalty : bool, default=True
+            Whether to include the GTFS-stop kinetic-energy penalty
+            (deceleration/re-acceleration at each stop) in energy predictions.
 
         Returns
         -------
@@ -396,7 +400,11 @@ class GTFSEnergyPredictor:
             self._route_depot_deadhead(depot_metadata)
 
         # Step 6: Predict energy using CompassApp
-        self.predict_energy(add_hvac=add_hvac, scale_to_year=scale_to_year)
+        self.predict_energy(
+            add_hvac=add_hvac,
+            scale_to_year=scale_to_year,
+            include_stop_penalty=include_stop_penalty,
+        )
 
         # Step 7: Save results if requested
         if save_results:
@@ -1405,6 +1413,7 @@ class GTFSEnergyPredictor:
         self,
         add_hvac: bool = False,
         scale_to_year: bool = False,
+        include_stop_penalty: bool = True,
     ) -> dict[str, pd.DataFrame]:
         """
         Predict energy consumption by map matching once, then running
@@ -1509,6 +1518,7 @@ class GTFSEnergyPredictor:
                     "path": shapes_edge_ids[sid],
                     "model_name": model_name,
                     "weights": {"trip_time": 1.0},
+                    "include_stop_penalty": include_stop_penalty,
                 }
                 start_time, start_weekday = shape_start_times.get(
                     str(sid), default_time
