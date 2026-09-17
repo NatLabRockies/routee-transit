@@ -29,7 +29,7 @@ Bus model. We'll include deadhead trips and estimated HVAC energy.
 """
 predictor = GTFSEnergyPredictor(
     gtfs_path=input_directory,
-    vehicle_models=["Transit_Bus_Battery_Electric"],
+    vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
     output_dir=output_directory,
 )
 

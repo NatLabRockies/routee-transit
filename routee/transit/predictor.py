@@ -161,7 +161,7 @@ class GTFSEnergyPredictor:
         >>> predictor.add_mid_block_deadhead()
         >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
         >>> predictor.get_link_level_inputs()
-        >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
+        >>> results = predictor.predict_energy(["Transit_Bus_Electric_40ft_300kWh"])
 
     For extending with custom network data:
         >>> class CustomNetworkPredictor(GTFSEnergyPredictor):
@@ -207,7 +207,7 @@ class GTFSEnergyPredictor:
             output_dir: Directory for saving results and caching the CompassApp graph.
                 If None, results are not persisted to disk.
             vehicle_models: List of vehicle model names to use for energy prediction
-                (e.g., ``["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"]``).
+                (e.g., ``["Transit_Bus_Electric_40ft_300kWh", "Transit_Bus_Diesel_40ft"]``).
                 If None, all supported models are used.
             overwrite: If True (default), regenerate the CompassApp graph and results
                 even if cached outputs already exist in ``output_dir``.
@@ -354,7 +354,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh", "Transit_Bus_Diesel_40ft"],
         ... )
         >>> results = predictor.run()
 
@@ -362,7 +362,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         ...     output_dir="reports/saltlake",
         ... )
         >>> results = predictor.run(date="2023-08-02", routes=["205", "209"])
@@ -371,7 +371,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         ... )
         >>> results = predictor.run(
         ...     add_mid_block_deadhead=False,
@@ -1376,10 +1376,7 @@ class GTFSEnergyPredictor:
         # The vehicle doesn't affect the matched geometry, so use the first
         # configured model; per-vehicle energy is handled in predict_energy.
         if self.vehicle_models is not None:
-            if isinstance(self.vehicle_models, str):
-                mm_model_name = self.vehicle_models
-            else:
-                mm_model_name = list(self.vehicle_models)[0]
+            mm_model_name = self.vehicle_models[0]
         else:
             mm_model_name = list(VEHICLE_MODELS.keys())[0]
 
@@ -1550,8 +1547,6 @@ class GTFSEnergyPredictor:
 
         if self.vehicle_models is None:
             vehicle_models_list = list(VEHICLE_MODELS.keys())
-        elif isinstance(self.vehicle_models, str):
-            vehicle_models_list = [self.vehicle_models]
         else:
             vehicle_models_list = list(self.vehicle_models)
 

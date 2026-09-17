@@ -18,7 +18,7 @@ from routee.transit import GTFSEnergyPredictor
 # Create predictor - vehicle_models and output_dir are set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    vehicle_models=["Transit_Bus_Diesel", "Transit_Bus_Battery_Electric"],
+    vehicle_models=["Transit_Bus_Diesel_40ft", "Transit_Bus_Electric_40ft_300kWh"],
 )
 
 # Run the complete workflow with a single method call
@@ -52,8 +52,8 @@ Two pre-trained transit bus models are bundled with RouteE-Transit and are acces
 
 | Model Name | Energy Unit |
 |---|---|
-| `Transit_Bus_Battery_Electric` | kWh |
-| `Transit_Bus_Diesel` | gallons_diesel |
+| `Transit_Bus_Electric_40ft_300kWh` | kWh |
+| `Transit_Bus_Diesel_40ft` | gallons_diesel |
 
 Both models are implemented as RouteE-Compass traversal models in Rust and predict energy based on speed, road grade, and distance.
 
