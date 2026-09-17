@@ -3,8 +3,6 @@ This script runs the full RouteE-Transit energy prediction pipeline for a few ag
 to provide sample inputs for the FTA app.
 """
 
-import subprocess
-
 import geopandas as gpd
 import pandas as pd
 from gtfsblocks import Feed
@@ -122,18 +120,30 @@ if __name__ == "__main__":
     # Configuration
     n_proc = 8
     routee_vehicle_models = [
-        "Transit_Bus_Electric_40ft",
-        "Transit_Bus_Electric_60ft",
+        "Transit_Bus_Electric_40ft_300kWh",
+        "Transit_Bus_Electric_60ft_600kWh",
         "Transit_Bus_Diesel_40ft",
         "Transit_Bus_Diesel_60ft",
     ]
 
-    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432
-    # subprocess.run([
-    #     "python", "scripts/feeds/gather_feeds.py",
-    #     "--db_root", "reports/fta_demo_070726",
-    #     "--feed_ids", "mdb-179", "mdb-205", "mdb-247", "mdb-267"
-    # ])
+    # Set to True to (re)download the GTFS feeds before running predictions
+    gather_feeds = False
+    if gather_feeds:
+        import subprocess
+
+        subprocess.run(
+            [
+                "python",
+                "scripts/feeds/gather_feeds.py",
+                "--db_root",
+                "reports/fta_demo_070726",
+                "--feed_ids",
+                "mdb-179",
+                "mdb-205",
+                "mdb-247",
+                "mdb-267",
+            ]
+        )
 
     db_root = package_root().parents[1] / "reports" / "fta_demo_071326"
     feeds_path = db_root / "feeds.csv"
