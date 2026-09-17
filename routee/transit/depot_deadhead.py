@@ -4,18 +4,6 @@ from geopy.distance import geodesic
 from gtfsblocks import Feed
 from shapely.geometry import Point
 
-from routee.transit.ntd import NTDAgencyMatch, load_ntd_facilities, match_agency_to_ntd
-
-# Re-export for backward compatibility
-__all__ = [
-    "load_ntd_facilities",
-    "match_agency_to_ntd",
-    "NTDAgencyMatch",
-    "create_depot_deadhead_trips",
-    "infer_depot_trip_endpoints",
-    "create_depot_deadhead_stops",
-]
-
 
 def create_depot_deadhead_trips(
     trips_df: pd.DataFrame, stop_times_df: pd.DataFrame
@@ -38,30 +26,39 @@ def create_depot_deadhead_trips(
     pd.DataFrame: DataFrame with created deadhead trips.
     """
 
-    block_ids = trips_df["block_id"].dropna().unique().tolist()
-
     # Get earliest start time for each trip and merge then in to trips DF
     trip_start_times = (
         stop_times_df.groupby("trip_id")["arrival_time"].min().reset_index()
     )
     trips_with_times = trips_df.merge(trip_start_times, on="trip_id", how="left")
 
-    # For each block id, create two deadhead trips: one from depot to first stop,
-    # and one from last stop to depot.
+    # Precompute first/last stop per trip so depot deadhead route IDs can encode
+    # the stop each trip connects to.
+    stop_times_sorted = stop_times_df.sort_values("stop_sequence")
+    first_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].first().to_dict()
+    )
+    last_stop_per_trip = (
+        stop_times_sorted.groupby("trip_id")["stop_id"].last().to_dict()
+    )
+
+    # For each (service_id, block_id) pair, create two deadhead trips: one from
+    # depot to first stop, and one from last stop to depot.
     depot_trips = list()
 
-    for block_id in block_ids:
-        block_trips = trips_with_times[trips_with_times["block_id"] == block_id]
-        # Exclude any between-trip deadhead trips that may have been added
-        if "from_trip" in block_trips.columns:
-            block_trips = block_trips.loc[block_trips["from_trip"].isna()]
+    for (_service_id, block_id), block_trips in trips_with_times.groupby(
+        ["service_id", "block_id"], sort=False
+    ):
         # Ensure trips have been sorted in chronological order
         block_trips = block_trips.sort_values(by="arrival_time")
         first_trip = block_trips.iloc[0]
         last_trip = block_trips.iloc[-1]
+        # Revenue stop IDs that the depot trips connect to
+        first_stop_id = first_stop_per_trip.get(first_trip["trip_id"])
+        last_stop_id = last_stop_per_trip.get(last_trip["trip_id"])
         # Create trip from depot to first stop
         from_depot_trip_id = f"depot_to_{first_trip['trip_id']}"
-        from_depot_route = f"from_depot_{block_id}"
+        from_depot_route = f"depot_to_{first_stop_id}"
         from_depot_trip = {
             "trip_id": from_depot_trip_id,
             "trip_type": "pull-out",
@@ -77,7 +74,7 @@ def create_depot_deadhead_trips(
         depot_trips.append(from_depot_trip)
         # Create trip from last stop to depot
         to_depot_trip_id = f"{last_trip['trip_id']}_to_depot"
-        to_depot_route = f"to_depot_{block_id}"
+        to_depot_route = f"{last_stop_id}_to_depot"
         to_depot_trip = {
             "trip_id": to_depot_trip_id,
             "trip_type": "pull-in",
@@ -130,19 +127,25 @@ def infer_depot_trip_endpoints(
     stop_times_df = feed.stop_times
     stops_df = feed.stops
     blocks_trips_stops = stop_times_df.merge(
-        trips_df[["trip_id", "block_id"]], on="trip_id", how="right"
+        trips_df[["trip_id", "block_id", "service_id"]], on="trip_id", how="right"
     )
     blocks_trips_stops = blocks_trips_stops.merge(stops_df, on="stop_id", how="left")
 
-    blocks_trips_stops = blocks_trips_stops.sort_values(by=["block_id", "arrival_time"])
-    first_stops = blocks_trips_stops.groupby("block_id").first().reset_index()
-    last_stops = blocks_trips_stops.groupby("block_id").last().reset_index()
+    blocks_trips_stops = blocks_trips_stops.sort_values(
+        by=["service_id", "block_id", "arrival_time"]
+    )
+    first_stops = (
+        blocks_trips_stops.groupby(["service_id", "block_id"]).first().reset_index()
+    )
+    last_stops = (
+        blocks_trips_stops.groupby(["service_id", "block_id"]).last().reset_index()
+    )
 
     first_stops = first_stops[
-        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+        ["service_id", "block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
     ]
     last_stops = last_stops[
-        ["block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
+        ["service_id", "block_id", "stop_id", "arrival_time", "stop_lat", "stop_lon"]
     ]
 
     first_stops["geometry"] = first_stops.apply(
@@ -323,6 +326,7 @@ def create_depot_deadhead_stops(
     deadhead_trips_df_from_depot = deadhead_trips_df_from_depot.merge(
         from_depot[
             [
+                "service_id",
                 "block_id",
                 "stop_id",
                 "nearest_depot_idx",
@@ -330,7 +334,7 @@ def create_depot_deadhead_stops(
                 "arrival_time",
             ]
         ],
-        on="block_id",
+        on=["service_id", "block_id"],
     )
 
     deadhead_trips_df_to_depot = deadhead_trips_df[
@@ -339,6 +343,7 @@ def create_depot_deadhead_stops(
     deadhead_trips_df_to_depot = deadhead_trips_df_to_depot.merge(
         to_depot[
             [
+                "service_id",
                 "block_id",
                 "stop_id",
                 "nearest_depot_idx",
@@ -346,7 +351,7 @@ def create_depot_deadhead_stops(
                 "arrival_time",
             ]
         ],
-        on="block_id",
+        on=["service_id", "block_id"],
     )
     deadhead_trips_df = pd.concat(
         [deadhead_trips_df_from_depot, deadhead_trips_df_to_depot], ignore_index=True

@@ -1,0 +1,9 @@
+dataset_id,agency_id,agency_name,agency_url,n_routes,median_trips_per_day,avg_trip_duration_minutes,avg_trip_distance_miles,center_latitude,center_longitude,ntd_agency_id,ntd_agency_name,ntd_agency_common_name
+mdb-2297-202605200002,1657,Megabus,https://us.megabus.com/?utm_source=google&utm_medium=maps&utm_campaign=tds-maps&utm_id=tds-maps,1,2.0,225.0,219.3,43.416018,-72.132715,10154,Marble Valley Regional Transit District,The Bus
+mdb-106-202602260002,73,Beaumont Transit,https://www.beaumontca.gov/index.aspx?NID=90,9,126.0,34.1,13.7,34.008055,-117.049842,90031,Riverside Transit Agency,Riverside Transit Agency (RTA)
+mdb-2064-202604300109,0,BARTA,https://www.bartabus.com/,20,854.0,31.2,6.3,40.409645,-75.972265,30077,Borough of Pottstown,Pottstown Area Rapid Transit (PART)
+mdb-537-202603240041,5085,Link413,https://bit.ly/link413,3,16.0,90.3,40.9,42.505343,-72.929053,10182,Mission Hill Link Inc,Mission Hill Link
+mdb-233-202602120001,BC,Birnie Bus,http://www.birniebus.com/,13,36.0,66.7,28.3,43.1113,-75.503945,20940,Madison County,Madison Transit System (MTS)
+mdb-2299-202512120036,4953,Blue Apple Bus Company,https://blueapplebus.com/,1,41.0,72.1,41.3,42.200193,-71.14432,10122,"Jalbert Leasing, Inc.",C&J Bus Lines
+mdb-2330-202601300001,249,Bustang Outrider,http://ridebustang.com/,8,18.0,256.5,178.0,38.896921,-105.592522,80170,Town of Breckenridge,Free Ride
+tld-4298-202605120012,1427,Capital Area Transit,https://www.cattransit.com/,29,594.0,46.5,10.0,40.302875,-77.094675,30095,County of Lebanon Transit Authority,Lebanon Transit (LT)

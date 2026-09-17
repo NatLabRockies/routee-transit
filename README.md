@@ -11,7 +11,7 @@ from routee.transit import GTFSEnergyPredictor
 # Create predictor by specifying GTFS input and vehicle model(s)
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    vehicle_models=["Transit_Bus_Battery_Electric"],
+    vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
 )
 
 # Run analysis with a single method call

@@ -64,8 +64,8 @@ RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — p
 
 | Model name | Output unit |
 |---|---|
-| `Transit_Bus_Battery_Electric` | kWh |
-| `Transit_Bus_Diesel` | gallons diesel |
+| `Transit_Bus_Electric_40ft_300kWh` | kWh |
+| `Transit_Bus_Diesel_40ft` | gallons diesel |
 
 In RouteE-Transit 0.3.0, both models simply apply a kinetic energy stop penalty at GTFS stop locations (modeled as 0.5mv²). Future release will refine the physical and thermal models used to account for the impacts of stops. Results are also expressed in miles-per-gallon equivalent (MPGe) using EPA/DOE GGE conversion factors for cross-fuel comparison.
 
@@ -90,7 +90,7 @@ from routee.transit import GTFSEnergyPredictor
 # Initialize predictor — vehicle_models and output_dir are set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    vehicle_models=["Transit_Bus_Battery_Electric"],
+    vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
     output_dir="reports/my_agency",  # optional; enables result caching
 )
 
