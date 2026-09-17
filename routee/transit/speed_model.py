@@ -40,6 +40,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger("speed_model")
 
 TRANSIT_SPEED_FEATURE_NAME = "transit_speed"
+DEFAULT_SPEED_MODEL_DIR = (
+    Path(__file__).parent / "resources" / "speed_models" / "random-forest"
+)
 
 
 def _parse_maxspeed_mph(val: object) -> float:

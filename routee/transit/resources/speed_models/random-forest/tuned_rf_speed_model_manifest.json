@@ -1,0 +1,96 @@
+{
+  "target": "mph_moving_mean (observation-weighted mean moving speed, mph)",
+  "input_order": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "scheduled_speed_mph",
+    "hour",
+    "is_weekday",
+    "is_peak",
+    "functional_class_collector",
+    "functional_class_freeway",
+    "functional_class_local",
+    "functional_class_minor_arterial",
+    "functional_class_principal_arterial",
+    "maxspeed_mph_was_missing",
+    "lanes_was_missing",
+    "grade_was_missing",
+    "grade_abs_was_missing",
+    "link_length_km_was_missing",
+    "n_stops_was_missing",
+    "scheduled_speed_mph_was_missing"
+  ],
+  "static_per_edge_features": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "scheduled_speed_mph",
+    "functional_class"
+  ],
+  "per_query_temporal_features": [
+    "hour",
+    "is_weekday",
+    "is_peak"
+  ],
+  "categorical_feature": {
+    "name": "functional_class",
+    "one_hot_columns": [
+      "functional_class_collector",
+      "functional_class_freeway",
+      "functional_class_local",
+      "functional_class_minor_arterial",
+      "functional_class_principal_arterial"
+    ],
+    "highway_to_functional_class": {
+      "motorway": "freeway",
+      "motorway_link": "freeway",
+      "trunk": "freeway",
+      "trunk_link": "freeway",
+      "primary": "principal_arterial",
+      "primary_link": "principal_arterial",
+      "secondary": "minor_arterial",
+      "secondary_link": "minor_arterial",
+      "tertiary": "collector",
+      "tertiary_link": "collector",
+      "unclassified": "collector",
+      "residential": "local",
+      "living_street": "local",
+      "busway": "local",
+      "service": "local"
+    },
+    "default": "local"
+  },
+  "feature_medians": {
+    "maxspeed_mph": 25.0,
+    "lanes": 2.0,
+    "grade": 0.0,
+    "grade_abs": 0.005342678432683739,
+    "link_length_km": 0.19933250896183619,
+    "n_stops": 1.0,
+    "scheduled_speed_mph": 13.006556329823326,
+    "hour": 15.0,
+    "is_weekday": 1.0,
+    "is_peak": 0.0,
+    "functional_class_collector": 0.0,
+    "functional_class_freeway": 0.0,
+    "functional_class_local": 1.0,
+    "functional_class_minor_arterial": 0.0,
+    "functional_class_principal_arterial": 0.0
+  },
+  "missing_indicator_features": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "scheduled_speed_mph"
+  ]
+}

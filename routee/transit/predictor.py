@@ -52,6 +52,7 @@ from routee.transit.mid_block_deadhead import (
 )
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.speed_model import (
+    DEFAULT_SPEED_MODEL_DIR,
     insert_transit_speed_config,
     patch_vehicle_speed_feature,
     write_routing_config,
@@ -216,13 +217,11 @@ class GTFSEnergyPredictor:
                 If None, all supported models are used.
             overwrite: If True (default), regenerate the CompassApp graph and results
                 even if cached outputs already exist in ``output_dir``.
-            speed_model_dir: Directory containing a tuned speed model bundle from
-                ``scripts/gtfs_realtime/fit_speed_models.py`` +
-                ``export_speed_model_onnx.py`` (expects
-                ``tuned_{key}_speed_model.onnx`` + ``_manifest.json``, default key
-                ``"rf"``). If set, energy predictions use this ML-predicted
-                per-edge, per-query transit speed instead of the default
-                OSM-derived speed.
+            speed_model_dir: Optional directory containing a tuned speed model
+                bundle from ``scripts/gtfs_realtime/fit_speed_models.py`` +
+                ``export_speed_model_onnx.py``. When omitted, uses the bundled
+                random-forest baseline model. A supplied directory overrides
+                that baseline for specialized applications.
         """
         self.gtfs_path = Path(gtfs_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
@@ -232,7 +231,9 @@ class GTFSEnergyPredictor:
         self.overwrite = overwrite
         self.feed_id = feed_id
         self.dataset_id = dataset_id
-        self.speed_model_dir = Path(speed_model_dir) if speed_model_dir else None
+        self.speed_model_dir = (
+            Path(speed_model_dir) if speed_model_dir else DEFAULT_SPEED_MODEL_DIR
+        )
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -243,7 +244,6 @@ class GTFSEnergyPredictor:
         # Lightweight CompassApp (no transit_speed ONNX model / custom feature
         # loaders) used for map matching and deadhead routing, which only need
         # cost-comparable candidate paths, not accurate speed predictions.
-        # Falls back to self.app when no speed_model_dir is configured.
         self.routing_app: TransitCompassApp | None = None
         # Lower-case weekday name for the analysis service date, derived in run()
         # from its ``date`` argument; used to stamp deadhead routing queries for
