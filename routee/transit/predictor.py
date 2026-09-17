@@ -7,7 +7,6 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 
 from __future__ import annotations
 
-import gzip
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -197,7 +196,7 @@ class GTFSEnergyPredictor:
         feed_id: str | None = None,
         dataset_id: str | None = None,
         speed_model_dir: str | Path | None = None,
-    ):
+    ) -> None:
         """
         Initialize the GTFSEnergyPredictor.
 
@@ -694,7 +693,6 @@ class GTFSEnergyPredictor:
                         )
 
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
-                    self._apply_speed_factor(cache_dir)
                     self.app = cast(
                         TransitCompassApp,
                         TransitCompassApp.from_config_file(
@@ -741,21 +739,11 @@ class GTFSEnergyPredictor:
         self._bbox = new_bbox
         logger.info("CompassApp initialized")
 
-        # Apply (or restore) the posted-speed correction factor on the table the
-        # freshly-built graph just wrote, then reload the app so the energy model
-        # reads the corrected speeds.
-        if cache_dir is None:
-            if self.speed_factor != 1.0:
-                logger.warning(
-                    "speed_factor != 1.0 requires output_dir to be set; "
-                    "posted speeds left unchanged"
-                )
-        else:
+        if cache_dir is not None:
             # Always reload from the hook-written config so the in-memory app
             # picks up the [map_matching] section and custom vehicle models the
             # generate hooks wrote to disk; the from_graph app alone omits them,
             # which makes every map-match query error.
-            self._apply_speed_factor(cache_dir)
             self.app = cast(
                 TransitCompassApp,
                 TransitCompassApp.from_config_file(
@@ -763,52 +751,6 @@ class GTFSEnergyPredictor:
                     parallelism=self.n_processes,
                 ),
             )
-
-    def _apply_speed_factor(self, cache_dir: Path) -> bool:
-        """Rewrite the cached posted-speed table to reflect ``self.speed_factor``.
-
-        Transit buses rarely reach posted speed limits (frequent stops, dwell
-        time, traffic), so predicting energy from posted limits assumes
-        unrealistically high speeds. ``speed_factor`` applies a blanket
-        correction (e.g. ``0.7`` to use 70% of the posted limit).
-
-        A pristine copy of the generated table is preserved as
-        ``edges-posted-speed-enumerated.base.txt.gz`` so the active table is
-        always derived from the true posted limits -- never compounding a prior
-        factor -- and a later run with ``speed_factor=1.0`` restores them.
-
-        Returns:
-            True if the active speed table was rewritten (and the app therefore
-            needs reloading), False if no change was necessary.
-        """
-        speed_table = cache_dir / "edges-posted-speed-enumerated.txt.gz"
-        baseline = cache_dir / "edges-posted-speed-enumerated.base.txt.gz"
-
-        # No prior scaling and none requested: leave the true table untouched.
-        if self.speed_factor == 1.0 and not baseline.exists():
-            return False
-
-        if not speed_table.exists():
-            logger.warning(
-                f"Posted-speed table not found at {speed_table}; "
-                f"speed_factor={self.speed_factor} not applied"
-            )
-            return False
-
-        # Preserve the true posted speeds the first time we scale this cache.
-        if not baseline.exists():
-            shutil.copy2(speed_table, baseline)
-
-        with gzip.open(baseline, "rt") as f:
-            base_speeds = [float(line) for line in f if line.strip()]
-        with gzip.open(speed_table, "wt") as f:
-            f.write("\n".join(f"{s * self.speed_factor:.4f}" for s in base_speeds))
-            f.write("\n")
-        logger.info(
-            f"Applied speed_factor={self.speed_factor} to "
-            f"{len(base_speeds)} edges in {speed_table.name}"
-        )
-        return True
 
     def filter_trips(
         self,
