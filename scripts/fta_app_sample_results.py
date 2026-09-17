@@ -33,8 +33,8 @@ def build_routes_gdf(feed: Feed, predictions: pd.DataFrame) -> gpd.GeoDataFrame:
     )
 
     def _build_energy_dicts(group: pd.DataFrame) -> pd.Series:
-        mean_energy_used: dict[str, dict] = {}
-        efficiency: dict[str, dict] = {}
+        mean_energy_used: dict[str, dict[str, str | float]] = {}
+        efficiency: dict[str, dict[str, str | float]] = {}
         for _, row in group.iterrows():
             vehicle = str(row["vehicle"])
             unit = str(row["energy_unit"])
