@@ -56,7 +56,8 @@ def build_routes_gdf(feed: Feed, predictions: pd.DataFrame) -> gpd.GeoDataFrame:
 
     nested = (
         energy_by_route.groupby("route_id")
-        .apply(_build_energy_dicts, include_groups=False)
+        # pandas-stubs' apply overloads don't account for the include_groups kwarg
+        .apply(_build_energy_dicts, include_groups=False)  # type: ignore[call-overload]
         .reset_index()
     )
     most_common_shape = most_common_shape.merge(nested, on="route_id", how="left")
