@@ -41,8 +41,8 @@ if __name__ == "__main__":
     # Configuration
     n_proc = 8
     routee_vehicle_models = [
-        "Transit_Bus_Battery_Electric",
-        "Transit_Bus_Diesel",
+        "Transit_Bus_Electric_40ft_300kWh",
+        "Transit_Bus_Diesel_40ft",
     ]
     input_directory = sample_inputs_path() / "saltlake/gtfs"
     output_directory = HERE / "../reports/saltlake"

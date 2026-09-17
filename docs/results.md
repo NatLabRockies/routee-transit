@@ -8,7 +8,7 @@ RouteE-Transit Energy predictions are stored within the `energy_predictions` att
 The RouteE-Transit results file (trip_energy_predictions.csv) includes the following columns:
 * `trip_id`: GTFS trip ID
 * `miles`: distance of trip in miles (calculated from GTFS shapes)
-* `vehicle`: name of the vehicle model used to generate energy prediction (e.g., `Transit_Bus_Battery_Electric`)
+* `vehicle`: name of the vehicle model used to generate energy prediction (e.g., `Transit_Bus_Electric_40ft_300kWh`)
 * `energy_used`: estimated total energy consumed during this trip, including HVAC energy for electric vehicles
 * `energy_unit`: unit of energy consumption for this trip
 * `route_id`: GTFS route ID
