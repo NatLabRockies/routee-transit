@@ -1,4 +1,4 @@
-"""Tests for GTFS stop feature functions in aggregate_speeds.py.
+"""Tests for GTFS stop feature functions in realtime_speeds.py.
 
 Uses a synthetic 4-edge straight route along lat=40.0 so all projections and
 distance-weighted speed calculations can be verified analytically.
@@ -19,12 +19,13 @@ import unittest
 
 import geopandas as gpd
 import pandas as pd
-from aggregate_speeds import (
+from shapely.geometry import LineString
+
+from scripts.gtfs_realtime.realtime_speeds import (
     aggregate_gtfs_features_by_edge,
     compute_scheduled_speeds_between_stops,
     project_stops_to_route,
 )
-from shapely.geometry import LineString
 
 # ---------------------------------------------------------------------------
 # Shared geometry helpers
