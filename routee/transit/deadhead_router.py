@@ -155,6 +155,7 @@ def create_deadhead_shapes(
     min_distance_m: float = 200.0,
     start_weekday: str | None = None,
     time_col: str = "departure_time",
+    model_name: str = "Transit_Bus_Battery_Electric",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute deadhead route shapes for unique origin-destination pairs.
@@ -188,6 +189,11 @@ def create_deadhead_shapes(
         (offset from the service day's midnight). When present, the departure time
         of the first trip seen for each unique O-D pair is attached to that pair's
         query as ``start_time``/``start_weekday``. (default: ``"departure_time"``)
+    model_name : str, optional
+        Vehicle model name used to build the routing traversal model. Deadhead
+        routing only optimizes ``trip_time``, so this only needs to be a model
+        that is loaded in ``app``; it does not affect the resulting geometry.
+        (default: ``"Transit_Bus_Battery_Electric"``)
 
     Notes
     -----
@@ -265,7 +271,7 @@ def create_deadhead_shapes(
                 "origin_y": row["origin_y"],
                 "destination_x": row["dest_x"],
                 "destination_y": row["dest_y"],
-                "model_name": "Transit_Bus_Battery_Electric",
+                "model_name": model_name,
                 "weights": {"trip_time": 1.0},
             }
             # Time-of-day traversal models (e.g. speed_time_of_day) require

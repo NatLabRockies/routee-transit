@@ -4,15 +4,12 @@ if TYPE_CHECKING:
     from nrel.routee.compass.io.generate_dataset import HookParameters
 
 import datetime
-import importlib.resources
 import logging
 import multiprocessing as mp
 from functools import partial
-from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import tomlkit
 from geopy.distance import great_circle
 from gtfsblocks import Feed
 from pandas.api.typing import NaTType
@@ -154,43 +151,6 @@ def write_gtfs_stops(params: "HookParameters", feed: Feed) -> None:
     output_path = params.output_directory / "gtfs_stops.csv"
     stop_edge_df.to_csv(output_path, index=False)
     logger.info(f"Wrote {len(stop_edge_df)} stop-edge mappings to {output_path}")
-
-
-def copy_transit_config(
-    params: "HookParameters", vehicle_models: list[str] | None = None
-) -> None:
-    """
-    Hook to copy the transit_energy.toml from package resources to the output directory.
-
-    Args:
-        params: Parameters from generate_compass_dataset
-        vehicle_models: Optional list of vehicle models to include. If None, all are included.
-    """
-    config_text = (
-        importlib.resources.files("routee.transit.resources")
-        .joinpath("transit_energy.toml")
-        .read_text(encoding="utf-8")
-    )
-    config = tomlkit.loads(config_text)
-
-    # Filter vehicle_models if requested
-    if vehicle_models is not None:
-        vehicle_set = set(vehicle_models)
-        search = config.get("search", {})
-        traversal = search.get("traversal", {})
-        models = traversal.get("models", [])
-        for model in models:
-            if model.get("type") == "transit_energy" and "vehicle_input_files" in model:
-                model["vehicle_input_files"] = [
-                    p
-                    for p in model["vehicle_input_files"]
-                    if Path(p).stem in vehicle_set
-                ]
-
-    output_path = params.output_directory / "transit_energy.toml"
-    with open(output_path, "w") as f:
-        tomlkit.dump(config, f)
-    logger.info(f"Copied transit_energy.toml to {output_path}")
 
 
 def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
