@@ -7,6 +7,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 
 from __future__ import annotations
 
+import json
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -19,11 +20,18 @@ import shutil
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
+import tomlkit
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 from routee.transit.compass_app import TransitCompassApp
+from routee.transit.compass_config import (
+    copy_custom_vehicle_models,
+    copy_transit_config,
+    read_configured_vehicle_models,
+    sanitize_grade_table,
+)
 from routee.transit.deadhead_router import (
     create_deadhead_shapes,
     gtfs_time_to_query_time,
@@ -32,12 +40,6 @@ from routee.transit.depot_deadhead import (
     create_depot_deadhead_stops,
     create_depot_deadhead_trips,
     infer_depot_trip_endpoints,
-)
-from routee.transit.compass_config import (
-    copy_custom_vehicle_models,
-    copy_transit_config,
-    read_configured_vehicle_models,
-    sanitize_grade_table,
 )
 from routee.transit.gtfs_processing import (
     build_corridor_polygon,
@@ -73,6 +75,49 @@ GGE_PER_GALLON_DIESEL = 1.136  # 1 gallon diesel = 1.136 GGE (DOE AFDC)
 # 1 gallon diesel = 1.136 GGE = 1.136 * 33.7 kWh ≈ 38.28 kWh.
 KWH_PER_GALLON_DIESEL = GGE_PER_GALLON_DIESEL * KWH_PER_GGE
 MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
+
+
+def _speed_model_cache_is_valid(cache_dir: Path, speed_model_dir: Path) -> bool:
+    """Return whether a cached CompassApp contains the requested speed model."""
+    source_model = speed_model_dir / "tuned_rf_speed_model.onnx"
+    source_manifest = speed_model_dir / "tuned_rf_speed_model_manifest.json"
+    cached_model = cache_dir / "transit_speed_model.onnx"
+    cached_manifest = cache_dir / "transit_speed_model_manifest.json"
+    routing_config = cache_dir / "transit_routing.toml"
+    routing_vehicles = cache_dir / "vehicles_routing"
+
+    required = (
+        source_model,
+        source_manifest,
+        cached_model,
+        cached_manifest,
+        routing_config,
+    )
+    if not all(path.is_file() for path in required) or not routing_vehicles.is_dir():
+        return False
+    if source_model.read_bytes() != cached_model.read_bytes():
+        return False
+    if source_manifest.read_bytes() != cached_manifest.read_bytes():
+        return False
+
+    manifest = json.loads(source_manifest.read_text())
+    temporal = set(manifest["per_query_temporal_features"])
+    feature_files = (
+        cache_dir / f"transit_speed_feature__{name}.txt"
+        for name in manifest["input_order"]
+        if name not in temporal
+    )
+    if not all(path.is_file() for path in feature_files):
+        return False
+
+    config = tomlkit.loads((cache_dir / "transit_energy.toml").read_text())
+    models = config.get("search", {}).get("traversal", {}).get("models", [])
+    return any(model.get("type") == "transit_speed" for model in models) and any(
+        model.get("type") == "transit_energy"
+        and model.get("speed_feature_name") == "transit_speed"
+        for model in models
+    )
+
 
 # Vehicle model configuration: maps model names to their CompassApp traversal summary fields.
 # "gge_per_unit" converts one unit of the fuel into gasoline gallon equivalents (GGE),
@@ -671,7 +716,15 @@ class GTFSEnergyPredictor:
             config_path = cache_dir / config_file
 
             if config_path.exists() and not self.overwrite:
-                if self.app is None:
+                cache_has_requested_speed_model = _speed_model_cache_is_valid(
+                    cache_dir, self.speed_model_dir
+                )
+                if not cache_has_requested_speed_model:
+                    logger.info(
+                        "Cached CompassApp is missing or has a stale transit "
+                        "speed model; rebuilding the cache"
+                    )
+                elif self.app is None:
                     # Self-heal: if the cached config predates a requested
                     # vehicle model (e.g. a model was added after the graph was
                     # generated), refresh the cheap config + vehicle files in
