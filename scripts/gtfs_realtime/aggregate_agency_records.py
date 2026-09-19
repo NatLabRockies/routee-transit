@@ -56,9 +56,7 @@ def _load_static_gtfs(
         gtfs_root / "static/trips.txt",
         dtype={"trip_id": str, "shape_id": str},
     ).set_index("trip_id")
-    shapes_df = pd.read_csv(
-        gtfs_root / "static/shapes.txt", dtype={"shape_id": str}
-    )
+    shapes_df = pd.read_csv(gtfs_root / "static/shapes.txt", dtype={"shape_id": str})
     log.info(
         "Loaded static GTFS: %d trips, %d shape points", len(trips_df), len(shapes_df)
     )
@@ -181,9 +179,7 @@ def run_single_day(path_to_json: Path | os.PathLike) -> None:
             route_rt["trip_id"].nunique(),
             time.time() - route_start,
         )
-        log.info(
-            "Finished %d of %d routes", ix + 1, rt_df["route_id"].nunique()
-        )
+        log.info("Finished %d of %d routes", ix + 1, rt_df["route_id"].nunique())
 
     file_date = path_to_json.stem.split("_")[-1]
     all_csvs = list(gtfs_root.glob("realtime_speeds_*.csv"))
