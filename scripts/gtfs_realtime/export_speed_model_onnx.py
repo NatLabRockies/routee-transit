@@ -32,6 +32,7 @@ from typing import TypedDict
 
 import joblib
 import numpy as np
+import numpy.typing as npt
 import onnxruntime as ort
 import pandas as pd
 from skl2onnx import convert_sklearn
@@ -70,7 +71,7 @@ class SpeedModelManifest(TypedDict):
 
 def build_inference_matrix(
     agg: pd.DataFrame, manifest: SpeedModelManifest
-) -> np.ndarray:
+) -> npt.NDArray[np.float32]:
     """Assemble the model's input matrix from an aggregated training DataFrame.
 
     Mirrors what the Rust side will do per-edge/per-query: numeric + temporal

@@ -968,4 +968,5 @@ def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame
         road_props = valid.groupby("road_id")[road_prop_cols].first().reset_index()
         aggregated = aggregated.merge(road_props, on="road_id", how="left")
 
-    return cast(pd.DataFrame, aggregated)
+    result: pd.DataFrame = aggregated
+    return result

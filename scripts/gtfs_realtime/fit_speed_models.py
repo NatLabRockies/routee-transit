@@ -30,10 +30,11 @@ import json
 import logging
 import textwrap
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import Any, TypedDict
 
 import joblib
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from sklearn.ensemble import (
     GradientBoostingRegressor,
@@ -101,6 +102,7 @@ FUNCTIONAL_CLASS_DEFAULT = "local"
 # A tuned estimator's hyperparameter values (e.g. max_depth=None, learning_rate=0.05).
 HyperParamValue = int | float | str | None
 # sklearn ships no type stubs, so its estimator classes/instances are unavoidably Any.
+FloatArray = npt.NDArray[np.float64]
 
 
 class ModelMetrics(TypedDict):
@@ -153,7 +155,8 @@ def load_and_clean(csv_path: Path, agency_label: str | None = None) -> pd.DataFr
         df["agency"] = agency_label
         df["road_id"] = agency_label + "_" + df["road_id"].astype(str)
 
-    return cast(pd.DataFrame, df)
+    cleaned: pd.DataFrame = df
+    return cleaned
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
@@ -274,7 +277,8 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
         len(agg),
         df["trip_id"].nunique() if "trip_id" in df.columns else -1,
     )
-    return cast(pd.DataFrame, agg)
+    result: pd.DataFrame = agg
+    return result
 
 
 def build_feature_matrix(
@@ -282,7 +286,7 @@ def build_feature_matrix(
     encoder: OneHotEncoder | None = None,
     fit: bool = False,
     categorical_features: list[str] | None = None,
-) -> tuple[np.ndarray, OneHotEncoder]:
+) -> tuple[FloatArray, OneHotEncoder]:
     """Build the feature matrix X from an aggregated DataFrame.
 
     *categorical_features* defaults to ``CATEGORICAL_FEATURES``; pass a
@@ -307,9 +311,9 @@ def build_feature_matrix(
 
 def evaluate_model(
     name: str,
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    weights: np.ndarray | None = None,
+    y_true: FloatArray,
+    y_pred: FloatArray,
+    weights: FloatArray | None = None,
 ) -> ModelMetrics:
     """Compute regression metrics (optionally observation-weighted)."""
     r2 = r2_score(y_true, y_pred, sample_weight=weights)
@@ -370,13 +374,13 @@ TUNED_MODEL_CONFIGS: dict[str, TunedModelConfig] = {
 def _tune_and_persist_model(
     model_key: str,
     config: TunedModelConfig,
-    X_train: np.ndarray,
-    X_test: np.ndarray,
-    y_train: np.ndarray,
-    y_test: np.ndarray,
-    w_train: np.ndarray,
-    w_test: np.ndarray,
-    groups_train: np.ndarray,
+    X_train: FloatArray,
+    X_test: FloatArray,
+    y_train: FloatArray,
+    y_test: FloatArray,
+    w_train: FloatArray,
+    w_test: FloatArray,
+    groups_train: npt.NDArray[np.str_],
     tune_n_iter: int,
     tune_cv_splits: int,
     tuned_encoder: OneHotEncoder,
@@ -386,7 +390,7 @@ def _tune_and_persist_model(
     feature_medians: dict[str, float] | None = None,
     missing_indicator_features: list[str] | None = None,
     fixed_params: dict[str, HyperParamValue] | None = None,
-) -> tuple[Any, np.ndarray, dict[str, HyperParamValue]]:
+) -> tuple[Any, FloatArray, dict[str, HyperParamValue]]:
     """Spatial-CV hyperparameter search + weighted refit for one estimator.
 
     Evaluates the tuned model on the held-out test set (appending to *results*)
@@ -717,8 +721,8 @@ def fit_and_evaluate_models(
     tuned_models: dict[str, Any] = {}
     tuned_best_params: dict[str, dict[str, HyperParamValue]] = {}
     tuned_cat_names: list[str] = []
-    tuned_train_matrices: dict[str, np.ndarray] = {}
-    tuned_test_matrices: dict[str, np.ndarray] = {}
+    tuned_train_matrices: dict[str, FloatArray] = {}
+    tuned_test_matrices: dict[str, FloatArray] = {}
     if tune_hgb:
         agg["functional_class"] = (
             agg["highway"]

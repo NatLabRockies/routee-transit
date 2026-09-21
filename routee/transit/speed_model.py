@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 import geopandas as gpd
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import tomlkit
 from gtfsblocks import Feed
@@ -95,7 +96,9 @@ def _parse_lanes(val: object) -> float:
         return float("nan")
 
 
-def _compute_n_stops(edges_gdf: gpd.GeoDataFrame, feed: Feed) -> np.ndarray:
+def _compute_n_stops(
+    edges_gdf: gpd.GeoDataFrame, feed: Feed
+) -> npt.NDArray[np.float64]:
     """Count GTFS stops nearest to each edge (spatial join), indexed by edge_id."""
     stops_gdf = gpd.GeoDataFrame(
         feed.stops,
@@ -106,7 +109,7 @@ def _compute_n_stops(edges_gdf: gpd.GeoDataFrame, feed: Feed) -> np.ndarray:
     edges_projected = edges_gdf[["edge_id", "geometry"]].to_crs("EPSG:3857")
     matched = stops_projected.sjoin_nearest(edges_projected, distance_col="dist")
     counts = matched.groupby("edge_id").size()
-    result: np.ndarray = (
+    result: npt.NDArray[np.float64] = (
         counts.reindex(edges_gdf["edge_id"], fill_value=0).astype(float).to_numpy()
     )
     return result
@@ -133,7 +136,7 @@ def compute_transit_speed_features(
 
     edges = edges_gdf.sort_values("edge_id").reset_index(drop=True)
 
-    raw: dict[str, np.ndarray] = {}
+    raw: dict[str, npt.NDArray[np.float64]] = {}
     raw["maxspeed_mph"] = edges["maxspeed"].apply(_parse_maxspeed_mph).to_numpy()
     raw["lanes"] = edges["lanes"].apply(_parse_lanes).to_numpy()
     raw["grade"] = pd.to_numeric(edges.get("grade"), errors="coerce").to_numpy()

@@ -25,7 +25,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -84,7 +83,8 @@ def load_and_clean_archive(root: Path, agency: str) -> pd.DataFrame:
     # they don't collide when training across agencies (same convention as
     # fit_speed_models.load_and_clean).
     df["road_id"] = agency + "_" + df["road_id"].astype(str)
-    return cast(pd.DataFrame, df)
+    cleaned: pd.DataFrame = df
+    return cleaned
 
 
 def main(
