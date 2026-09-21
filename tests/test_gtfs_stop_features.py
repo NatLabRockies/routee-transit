@@ -22,7 +22,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import LineString
 
-from scripts.gtfs_realtime.realtime_speeds import (
+from realtime_speeds import (
     aggregate_gtfs_features_by_edge,
     compute_scheduled_speeds_between_stops,
     project_stops_to_route,
