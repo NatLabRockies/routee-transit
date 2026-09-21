@@ -50,43 +50,37 @@ The `run()` method automatically performs all these steps:
 5. Matches shapes to OpenStreetMap road network and adds road grade (via RouteE-Compass)
 6. Predicts energy consumption with RouteE-Compass
 7. Adds estimated HVAC energy impacts
-8. Saves results to CSV files
 
-Let's examine the results. The columns include information about the energy predictions made (including any HVAC component) as well as GTFS fields that apply to each trip, and a description of the weather scenario considered:
+Let's examine the results. The columns include information about the energy predictions made (including any HVAC component) as well as GTFS fields that apply to each trip, and the date whose weather was used:
 """
 trip_results.columns
-trip_results[["trip_id", "vehicle", "scenario", "energy_used", "miles"]].head()
+trip_results[["trip_id", "vehicle", "date", "energy_used", "miles"]].head()
 """
 ## Analyze Energy Efficiency
 
 We can calculate energy efficiency in kWh per mile, including HVAC loads.
-The results include a `scenario` column (summer/winter.median) for HVAC impacts.
-
-### Weather Impacts
-Let's see how energy efficiency in kWh/mi compares across different weather scenarios:
 """
-if "scenario" in trip_results.columns:
-    trip_results["kwh_per_mi"] = trip_results["energy_used"] / trip_results["miles"]
-
-trip_results.groupby("scenario")["kwh_per_mi"].mean()
+trip_results["kwh_per_mi"] = trip_results["energy_used"] / trip_results["miles"]
 """
-We can see that winter requires the greatest energy, since the cold climate in Utah requires a heavy HVAC load.
-
 ### Efficiency by Route
-How does typical energy efficiency in the `median` scenario (meaning temperatures are taken from the day of a typical year with the median average temperature)?
+How does typical energy efficiency compare between the two routes?
 
-We can check by filtering by scenario and then grouping by route:
+We can check by filtering out deadhead trips and then grouping by route:
 """
-# First, filter out any deadhead trips
-median_results = trip_results[trip_results["trip_type"] == "service"].copy()
-# Then, only include median weather impacts
-median_results = median_results[median_results["scenario"] == "median"]
-median_results.groupby("route_short_name")["kwh_per_mi"].mean().sort_values(
+# Only include revenue service trips
+service_results = trip_results[trip_results["trip_type"] == "service"].copy()
+service_results.groupby("route_short_name")["kwh_per_mi"].mean().sort_values(
     ascending=False
 )
 """
 Route 807 requires more energy on average.
+
+### Deadhead Energy
+Deadhead trips are non-revenue movements: between consecutive trips in a block
+(`mid_block_deadhead`) and to and from the depot (`pull-out` / `pull-in`). We can see
+how much energy they add relative to revenue service:
 """
+trip_results.groupby("trip_type")["energy_used"].sum()
 """
 ## Access Additional Results
 

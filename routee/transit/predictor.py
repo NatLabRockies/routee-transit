@@ -206,13 +206,17 @@ class GTFSEnergyPredictor:
     Typical usage:
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         ... )
+        >>> results = predictor.run(date="2023-08-02", routes=["205"])
+
+    Step-by-step usage (revenue service only; deadhead inference is available
+    through ``run()``):
         >>> predictor.load_gtfs_data()
         >>> predictor.filter_trips(date="2023-08-02", routes=["205"])
-        >>> predictor.add_mid_block_deadhead()
-        >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
-        >>> predictor.get_link_level_inputs()
-        >>> results = predictor.predict_energy(["Transit_Bus_Electric_40ft_300kWh"])
+        >>> predictor.add_trip_times()
+        >>> predictor.load_compass_app()
+        >>> results = predictor.predict_energy(add_hvac=True)
 
     For extending with custom network data:
         >>> class CustomNetworkPredictor(GTFSEnergyPredictor):
@@ -1640,6 +1644,10 @@ class GTFSEnergyPredictor:
 
         Args:
             add_hvac: Whether to add HVAC energy consumption to trip-level results
+            scale_to_year: Whether to project the feed's typical weekday service onto
+                uncovered dates so HVAC results span a full year
+            include_stop_penalty: Whether to include the GTFS-stop kinetic-energy
+                penalty at each stop location
 
         Returns:
             Dictionary with keys:

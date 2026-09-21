@@ -1,6 +1,6 @@
 ### GTFS feed reading mechanisms for great glory
 
-This package presents tooling for interacting with a GTFS Realtime feed as part of an effort to validate GTFS speed estimates (see [GitHub issue](https://github.com/NREL/routee-transit/issues/12)).
+This package presents tooling for interacting with a GTFS Realtime feed as part of an effort to validate GTFS speed estimates (see [GitHub issue](https://github.com/NatLabRockies/routee-transit/issues/12)).
 
 ### usage
 
