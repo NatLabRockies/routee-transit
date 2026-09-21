@@ -41,11 +41,12 @@ if __name__ == "__main__":
     # Configuration
     n_proc = 8
     routee_vehicle_models = [
-        "Transit_Bus_Battery_Electric",
-        "Transit_Bus_Diesel",
+        "Transit_Bus_Electric_40ft_300kWh",
+        "Transit_Bus_Diesel_40ft",
     ]
     input_directory = sample_inputs_path() / "saltlake/gtfs"
     output_directory = HERE / "../reports/saltlake"
+    speed_model_directory = HERE / "../reports/realtime_archive"
 
     start_time = time.time()
 
@@ -54,6 +55,8 @@ if __name__ == "__main__":
         n_processes=n_proc,
         vehicle_models=routee_vehicle_models,
         output_dir=output_directory,
+        speed_model_dir=speed_model_directory,
+        overwrite=True,
     )
 
     # Run entire pipeline with one method call

@@ -7,6 +7,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 
 from __future__ import annotations
 
+import json
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -19,11 +20,18 @@ import shutil
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
+import tomlkit
 from gtfsblocks import Feed, filter_blocks_by_route
 from nrel.routee.compass.io.generate_dataset import GeneratePipelinePhase
 from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 
 from routee.transit.compass_app import TransitCompassApp
+from routee.transit.compass_config import (
+    copy_custom_vehicle_models,
+    copy_transit_config,
+    read_configured_vehicle_models,
+    sanitize_grade_table,
+)
 from routee.transit.deadhead_router import (
     create_deadhead_shapes,
     gtfs_time_to_query_time,
@@ -35,7 +43,6 @@ from routee.transit.depot_deadhead import (
 )
 from routee.transit.gtfs_processing import (
     build_corridor_polygon,
-    copy_transit_config,
     extend_trip_traces,
     timedelta_to_gtfs_time,
     upsample_shape,
@@ -46,6 +53,13 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_trips,
 )
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
+from routee.transit.speed_model import (
+    DEFAULT_SPEED_MODEL_DIR,
+    insert_transit_speed_config,
+    patch_vehicle_speed_feature,
+    write_routing_config,
+    write_transit_speed_model,
+)
 from routee.transit.thermal_energy import add_HVAC_energy
 from routee.transit.tods_export import write_tods_deadhead
 
@@ -57,7 +71,53 @@ MI_PER_KM = 0.6213712
 # Source: DOE Alternative Fuels Data Center (AFDC) fuel properties
 KWH_PER_GGE = 33.7  # 1 GGE = 33.7 kWh (EPA standard)
 GGE_PER_GALLON_DIESEL = 1.136  # 1 gallon diesel = 1.136 GGE (DOE AFDC)
+# Derived so all energy<->fuel conversions stay mutually consistent:
+# 1 gallon diesel = 1.136 GGE = 1.136 * 33.7 kWh ≈ 38.28 kWh.
+KWH_PER_GALLON_DIESEL = GGE_PER_GALLON_DIESEL * KWH_PER_GGE
 MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
+
+
+def _speed_model_cache_is_valid(cache_dir: Path, speed_model_dir: Path) -> bool:
+    """Return whether a cached CompassApp contains the requested speed model."""
+    source_model = speed_model_dir / "tuned_rf_speed_model.onnx"
+    source_manifest = speed_model_dir / "tuned_rf_speed_model_manifest.json"
+    cached_model = cache_dir / "transit_speed_model.onnx"
+    cached_manifest = cache_dir / "transit_speed_model_manifest.json"
+    routing_config = cache_dir / "transit_routing.toml"
+    routing_vehicles = cache_dir / "vehicles_routing"
+
+    required = (
+        source_model,
+        source_manifest,
+        cached_model,
+        cached_manifest,
+        routing_config,
+    )
+    if not all(path.is_file() for path in required) or not routing_vehicles.is_dir():
+        return False
+    if source_model.read_bytes() != cached_model.read_bytes():
+        return False
+    if source_manifest.read_bytes() != cached_manifest.read_bytes():
+        return False
+
+    manifest = json.loads(source_manifest.read_text())
+    temporal = set(manifest["per_query_temporal_features"])
+    feature_files = (
+        cache_dir / f"transit_speed_feature__{name}.txt"
+        for name in manifest["input_order"]
+        if name not in temporal
+    )
+    if not all(path.is_file() for path in feature_files):
+        return False
+
+    config = tomlkit.loads((cache_dir / "transit_energy.toml").read_text())
+    models = config.get("search", {}).get("traversal", {}).get("models", [])
+    return any(model.get("type") == "transit_speed" for model in models) and any(
+        model.get("type") == "transit_energy"
+        and model.get("speed_feature_name") == "transit_speed"
+        for model in models
+    )
+
 
 # Vehicle model configuration: maps model names to their CompassApp traversal summary fields.
 # "gge_per_unit" converts one unit of the fuel into gasoline gallon equivalents (GGE),
@@ -65,6 +125,7 @@ MILES_PER_GALLON_TO_KWH = KWH_PER_GGE  # backward-compatible alias
 # To add CNG: gge_per_unit = 1.0 (if energy is already reported in GGE)
 # To add hydrogen fuel cell: gge_per_unit ≈ 1.019 per kg (DOE AFDC)
 VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
+    # Stock models shipped with RouteE-Compass (Diesel reports gallons).
     "Transit_Bus_Battery_Electric": {
         "energy_field": "trip_energy_electric",
         "unit": "kWh",
@@ -74,6 +135,54 @@ VEHICLE_MODELS: dict[str, dict[str, str | float]] = {
         "energy_field": "trip_energy_liquid",
         "unit": "gallons_diesel",
         "gge_per_unit": GGE_PER_GALLON_DIESEL,
+    },
+    # Custom models bundled with RouteE-Transit. The powertrain models output
+    # energy in kWh; ``kwh_per_output_unit`` converts that raw kWh into the
+    # reported fuel ``unit`` at prediction time (BEVs stay in kWh; combustion
+    # buses convert to gallons diesel / GGE so downstream code sees fuel units).
+    "Transit_Bus_Electric_40ft_300kWh": {
+        "energy_field": "trip_energy_electric",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Electric_60ft_600kWh": {
+        "energy_field": "trip_energy_electric",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Diesel_40ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
+    },
+    "Transit_Bus_Diesel_60ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
+    },
+    "Transit_Bus_CNG_40ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_CNG_60ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "kWh",
+        "gge_per_unit": 1.0 / KWH_PER_GGE,
+    },
+    "Transit_Bus_Hybrid_40ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
+    },
+    "Transit_Bus_Hybrid_60ft": {
+        "energy_field": "trip_energy_liquid",
+        "unit": "gallons_diesel",
+        "gge_per_unit": GGE_PER_GALLON_DIESEL,
+        "kwh_per_output_unit": KWH_PER_GALLON_DIESEL,
     },
 }
 
@@ -103,7 +212,7 @@ class GTFSEnergyPredictor:
         >>> predictor.add_mid_block_deadhead()
         >>> predictor.add_depot_deadhead()  # Uses NTD depot locations
         >>> predictor.get_link_level_inputs()
-        >>> results = predictor.predict_energy(["Transit_Bus_Battery_Electric"])
+        >>> results = predictor.predict_energy(["Transit_Bus_Electric_40ft_300kWh"])
 
     For extending with custom network data:
         >>> class CustomNetworkPredictor(GTFSEnergyPredictor):
@@ -132,7 +241,8 @@ class GTFSEnergyPredictor:
         overwrite: bool = True,
         feed_id: str | None = None,
         dataset_id: str | None = None,
-    ):
+        speed_model_dir: str | Path | None = None,
+    ) -> None:
         """
         Initialize the GTFSEnergyPredictor.
 
@@ -148,10 +258,15 @@ class GTFSEnergyPredictor:
             output_dir: Directory for saving results and caching the CompassApp graph.
                 If None, results are not persisted to disk.
             vehicle_models: List of vehicle model names to use for energy prediction
-                (e.g., ``["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"]``).
+                (e.g., ``["Transit_Bus_Electric_40ft_300kWh", "Transit_Bus_Diesel_40ft"]``).
                 If None, all supported models are used.
             overwrite: If True (default), regenerate the CompassApp graph and results
                 even if cached outputs already exist in ``output_dir``.
+            speed_model_dir: Optional directory containing a tuned speed model
+                bundle from ``scripts/gtfs_realtime/fit_speed_models.py`` +
+                ``export_speed_model_onnx.py``. When omitted, uses the bundled
+                random-forest baseline model. A supplied directory overrides
+                that baseline for specialized applications.
         """
         self.gtfs_path = Path(gtfs_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
@@ -161,6 +276,9 @@ class GTFSEnergyPredictor:
         self.overwrite = overwrite
         self.feed_id = feed_id
         self.dataset_id = dataset_id
+        self.speed_model_dir = (
+            Path(speed_model_dir) if speed_model_dir else DEFAULT_SPEED_MODEL_DIR
+        )
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -168,6 +286,10 @@ class GTFSEnergyPredictor:
         self.shapes: pd.DataFrame = pd.DataFrame()
         self.matched_shapes: pd.DataFrame = pd.DataFrame()
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
+        # Lightweight CompassApp (no transit_speed ONNX model / custom feature
+        # loaders) used for map matching and deadhead routing, which only need
+        # cost-comparable candidate paths, not accurate speed predictions.
+        self.routing_app: TransitCompassApp | None = None
         # Lower-case weekday name for the analysis service date, derived in run()
         # from its ``date`` argument; used to stamp deadhead routing queries for
         # time-of-day traversal models. None when no date filter is applied.
@@ -233,6 +355,7 @@ class GTFSEnergyPredictor:
         add_hvac: bool = True,
         scale_to_year: bool = False,
         save_results: bool = True,
+        include_stop_penalty: bool = True,
     ) -> pd.DataFrame:
         """
         Run the complete energy prediction pipeline with a single method call.
@@ -274,6 +397,9 @@ class GTFSEnergyPredictor:
             ``trip_is_within_gtfs_scope=False`` in the trip-level output.
         save_results : bool, default=True
             Whether to save results to files.
+        include_stop_penalty : bool, default=True
+            Whether to include the GTFS-stop kinetic-energy penalty
+            (deceleration/re-acceleration at each stop) in energy predictions.
 
         Returns
         -------
@@ -286,7 +412,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models=["Transit_Bus_Battery_Electric", "Transit_Bus_Diesel"],
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh", "Transit_Bus_Diesel_40ft"],
         ... )
         >>> results = predictor.run()
 
@@ -294,7 +420,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         ...     output_dir="reports/saltlake",
         ... )
         >>> results = predictor.run(date="2023-08-02", routes=["205", "209"])
@@ -303,7 +429,7 @@ class GTFSEnergyPredictor:
 
         >>> predictor = GTFSEnergyPredictor(
         ...     gtfs_path="data/gtfs",
-        ...     vehicle_models="Transit_Bus_Battery_Electric",
+        ...     vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         ... )
         >>> results = predictor.run(
         ...     add_mid_block_deadhead=False,
@@ -376,7 +502,11 @@ class GTFSEnergyPredictor:
             self._route_depot_deadhead(depot_metadata)
 
         # Step 6: Predict energy using CompassApp
-        self.predict_energy(add_hvac=add_hvac, scale_to_year=scale_to_year)
+        self.predict_energy(
+            add_hvac=add_hvac,
+            scale_to_year=scale_to_year,
+            include_stop_penalty=include_stop_penalty,
+        )
 
         # Step 7: Save results if requested
         if save_results:
@@ -428,6 +558,22 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
+
+    def _load_routing_app(self, cache_dir: Path) -> TransitCompassApp:
+        """Load the lightweight routing config if the speed model wrote one,
+        otherwise reuse the full ``self.app`` (no separate config needed).
+        """
+        routing_config_path = cache_dir / "transit_routing.toml"
+        if routing_config_path.exists():
+            logger.info(f"Loading lightweight routing CompassApp from {cache_dir}")
+            return cast(
+                TransitCompassApp,
+                TransitCompassApp.from_config_file(
+                    routing_config_path, parallelism=self.n_processes
+                ),
+            )
+        assert self.app is not None
+        return self.app
 
     def load_compass_app(
         self,
@@ -509,9 +655,58 @@ class GTFSEnergyPredictor:
                 write_gtfs_stops(params, feed=cast(Feed, self.feed))
 
             def config_hook(params: HookParameters) -> None:
-                copy_transit_config(params, vehicle_models=compass_vehicle_models)
+                copy_transit_config(
+                    params.output_directory, vehicle_models=compass_vehicle_models
+                )
 
-            hooks: list[Callable[[HookParameters], None]] = [gtfs_hook, config_hook]
+            def custom_vehicle_hook(params: HookParameters) -> None:
+                copy_custom_vehicle_models(
+                    params.output_directory, vehicle_models=compass_vehicle_models
+                )
+
+            def grade_hook(params: HookParameters) -> None:
+                sanitize_grade_table(params.output_directory, params.edges)
+
+            hooks: list[Callable[[HookParameters], None]] = [
+                gtfs_hook,
+                config_hook,
+                custom_vehicle_hook,
+                grade_hook,
+            ]
+
+            if self.speed_model_dir is not None:
+                speed_model_dir = self.speed_model_dir
+
+                def speed_model_hook(params: HookParameters) -> None:
+                    onnx_path = speed_model_dir / "tuned_rf_speed_model.onnx"
+                    manifest_path = (
+                        speed_model_dir / "tuned_rf_speed_model_manifest.json"
+                    )
+                    transit_energy_toml_path = (
+                        params.output_directory / "transit_energy.toml"
+                    )
+                    # Copy aside BEFORE wiring in transit_speed, so routing
+                    # (map matching, deadhead) can use a config without the
+                    # ONNX speed model / custom feature loaders.
+                    write_routing_config(
+                        transit_energy_toml_path,
+                        params.output_directory / "transit_routing.toml",
+                    )
+                    model_blocks = write_transit_speed_model(
+                        params,
+                        feed=cast(Feed, self.feed),
+                        onnx_model_path=onnx_path,
+                        manifest_path=manifest_path,
+                    )
+                    insert_transit_speed_config(transit_energy_toml_path, model_blocks)
+                    # Repoint the (now-shared-with-main-config-only) vehicle
+                    # files' own speed input at transit_speed, so it drives
+                    # the primary energy-rate calc, not just stop penalties.
+                    patch_vehicle_speed_feature(
+                        params.output_directory / "vehicles", compass_vehicle_models
+                    )
+
+                hooks.append(speed_model_hook)
         else:
             raise RuntimeError("GTFS Feed must be set before calling load_compass_app")
 
@@ -521,7 +716,35 @@ class GTFSEnergyPredictor:
             config_path = cache_dir / config_file
 
             if config_path.exists() and not self.overwrite:
-                if self.app is None:
+                cache_has_requested_speed_model = _speed_model_cache_is_valid(
+                    cache_dir, self.speed_model_dir
+                )
+                if not cache_has_requested_speed_model:
+                    logger.info(
+                        "Cached CompassApp is missing or has a stale transit "
+                        "speed model; rebuilding the cache"
+                    )
+                elif self.app is None:
+                    # Self-heal: if the cached config predates a requested
+                    # vehicle model (e.g. a model was added after the graph was
+                    # generated), refresh the cheap config + vehicle files in
+                    # place. The road graph is unchanged, so there's no need to
+                    # re-download OSM or rebuild the dataset.
+                    configured = read_configured_vehicle_models(config_path)
+                    missing = set(compass_vehicle_models) - configured
+                    if missing:
+                        logger.info(
+                            f"Cached CompassApp is missing vehicle models "
+                            f"{sorted(missing)}; refreshing config and vehicle "
+                            f"files without rebuilding the graph"
+                        )
+                        copy_transit_config(
+                            cache_dir, vehicle_models=compass_vehicle_models
+                        )
+                        copy_custom_vehicle_models(
+                            cache_dir, vehicle_models=compass_vehicle_models
+                        )
+
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
                     self.app = cast(
                         TransitCompassApp,
@@ -529,6 +752,7 @@ class GTFSEnergyPredictor:
                             config_path, parallelism=self.n_processes
                         ),
                     )
+                    self.routing_app = self._load_routing_app(cache_dir)
                     self._bbox = new_bbox
                     return
 
@@ -556,10 +780,30 @@ class GTFSEnergyPredictor:
                 phases=phases,
                 parallelism=self.n_processes,
                 hooks=hooks,
+                # Without this, from_graph() defaults to compass's own bundled
+                # "osm_default_energy.toml" (generic passenger-car vehicles),
+                # silently ignoring our custom vehicles/traversal models
+                # (transit_energy, transit_speed, GTFS stop penalties, etc.)
+                # written by copy_transit_config/insert_transit_speed_config.
+                config_file="transit_energy.toml",
             ),
         )
+        self.routing_app = self._load_routing_app(cache_dir) if cache_dir else self.app
         self._bbox = new_bbox
         logger.info("CompassApp initialized")
+
+        if cache_dir is not None:
+            # Always reload from the hook-written config so the in-memory app
+            # picks up the [map_matching] section and custom vehicle models the
+            # generate hooks wrote to disk; the from_graph app alone omits them,
+            # which makes every map-match query error.
+            self.app = cast(
+                TransitCompassApp,
+                TransitCompassApp.from_config_file(
+                    cache_dir / "transit_energy.toml",
+                    parallelism=self.n_processes,
+                ),
+            )
 
     def filter_trips(
         self,
@@ -710,6 +954,18 @@ class GTFSEnergyPredictor:
             "deadhead_ods": deadhead_ods,
         }
 
+    def _deadhead_routing_model(self) -> str:
+        """Return a loaded vehicle model name to use for deadhead path routing.
+
+        Deadhead routing only optimizes ``trip_time`` (energy is not part of the
+        objective), so any model loaded into the CompassApp works; per-model
+        energy is computed later in ``predict_energy``. Using the first requested
+        vehicle model guarantees the name exists in the loaded app.
+        """
+        if self.vehicle_models:
+            return self.vehicle_models[0]
+        return next(iter(VEHICLE_MODELS))
+
     def _route_mid_block_deadhead(self, metadata: dict[str, Any]) -> None:
         """
         Route mid-block deadhead trips using the loaded CompassApp.
@@ -726,9 +982,15 @@ class GTFSEnergyPredictor:
 
         logger.info("Routing mid-block deadhead trips...")
 
-        # Generate shapes for unique O-D pairs
+        # Generate shapes for unique O-D pairs. Uses the lightweight
+        # routing_app (falls back to self.app) — deadhead routing only needs
+        # cost-comparable candidate paths, not accurate transit_speed.
+        routing_app = self.routing_app or self.app
         deadhead_shapes, od_mapping = create_deadhead_shapes(
-            app=self.app, df=deadhead_ods, start_weekday=self._service_weekday
+            app=routing_app,
+            df=deadhead_ods,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
 
         # Assign shape_id to each trip based on O-D mapping
@@ -938,9 +1200,16 @@ class GTFSEnergyPredictor:
 
         logger.info("Routing depot deadhead trips...")
 
-        # Generate shapes for trips from depot to first stop
+        # Generate shapes for trips from depot to first stop. Uses the
+        # lightweight routing_app (falls back to self.app) — deadhead routing
+        # only needs cost-comparable candidate paths, not accurate
+        # transit_speed.
+        routing_app = self.routing_app or self.app
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=first_stops_gdf, start_weekday=self._service_weekday
+            app=routing_app,
+            df=first_stops_gdf,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -951,7 +1220,10 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
-            app=self.app, df=last_stops_gdf, start_weekday=self._service_weekday
+            app=routing_app,
+            df=last_stops_gdf,
+            start_weekday=self._service_weekday,
+            model_name=self._deadhead_routing_model(),
         )
         to_depot_shapes["shape_id"] = to_depot_shapes["shape_id"].apply(
             lambda x: f"to_depot_{x}"
@@ -1177,14 +1449,12 @@ class GTFSEnergyPredictor:
                 "Call load_compass_app() first."
             )
 
-        # Determine model_name for map matching search parameters
-        # (needed when using energy config which requires a model_name
-        # for the internal path recalculation during map matching)
+        # Map matching needs a model_name present in the generated config's
+        # vehicle set (copy_transit_config filters it to the requested models).
+        # The vehicle doesn't affect the matched geometry, so use the first
+        # configured model; per-vehicle energy is handled in predict_energy.
         if self.vehicle_models is not None:
-            if isinstance(self.vehicle_models, str):
-                mm_model_name = self.vehicle_models
-            else:
-                mm_model_name = list(self.vehicle_models)[0]
+            mm_model_name = self.vehicle_models[0]
         else:
             mm_model_name = list(VEHICLE_MODELS.keys())[0]
 
@@ -1207,8 +1477,12 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Running map matching for {len(queries)} shapes...")
 
-        # Run map matching with CompassApp (handles parallelism natively)
-        results = self.app.map_match(queries)
+        # Run map matching with CompassApp (handles parallelism natively).
+        # Uses the lightweight routing_app (falls back to self.app) since map
+        # matching only needs cost-comparable candidate paths, not accurate
+        # per-edge transit_speed predictions.
+        routing_app = self.routing_app or self.app
+        results = routing_app.map_match(queries)
 
         # Process results into a combined DataFrame
         return self._process_map_match_results(results, shape_ids)
@@ -1271,7 +1545,35 @@ class GTFSEnergyPredictor:
         gdf = match_result_to_geopandas(results)
 
         if gdf.empty:
-            logger.warning("No map matching results returned")
+            # match_result_to_geopandas silently drops any result carrying an
+            # "error" key, so an empty gdf usually means every query errored.
+            # Surface a breakdown of why so failures aren't invisible.
+            results_list = [results] if isinstance(results, dict) else results
+            n_total = len(results_list)
+            errored = [r for r in results_list if isinstance(r, dict) and "error" in r]
+            no_path = [
+                r
+                for r in results_list
+                if isinstance(r, dict)
+                and "error" not in r
+                and r.get("matched_path") is None
+            ]
+            logger.warning(
+                "No map matching results returned: %d/%d queries errored, "
+                "%d succeeded but had no matched_path",
+                len(errored),
+                n_total,
+                len(no_path),
+            )
+            # Log a few distinct error messages so the root cause is visible.
+            distinct_errors: dict[str, int] = {}
+            for r in errored:
+                msg = str(r.get("error"))
+                distinct_errors[msg] = distinct_errors.get(msg, 0) + 1
+            for msg, count in sorted(
+                distinct_errors.items(), key=lambda kv: kv[1], reverse=True
+            )[:5]:
+                logger.warning("  map-match error (x%d): %s", count, msg)
             return pd.DataFrame()
 
         # Add shape_id to each result
@@ -1286,10 +1588,39 @@ class GTFSEnergyPredictor:
         # Keep as-is for powertrain which expects miles
         return cast(pd.DataFrame, gdf)
 
+    @staticmethod
+    def _extract_edge_states(
+        route: dict[str, Any], shape_id: str
+    ) -> list[dict[str, Any]]:
+        """Flatten per-edge state (speed, energy, etc.) from a GeoJSON route output.
+
+        Requires ``route = "geo_json"`` on the ``traversal`` output plugin
+        (the package default), which emits one GeoJSON Feature per traversed
+        edge with a ``properties.state`` dict of every named state variable
+        (e.g. ``edge_speed``, ``transit_speed`` when configured, per-edge
+        energy fields) at that edge — the true per-link values, as opposed to
+        the trip-level ``traversal_summary`` aggregate.
+        """
+        path = route.get("path", {})
+        features = path.get("features", []) if isinstance(path, dict) else []
+        records: list[dict[str, Any]] = []
+        for feature in features:
+            props = feature.get("properties", {})
+            edge_id = props.get("edge_id")
+            if edge_id is None:
+                continue
+            record: dict[str, Any] = {"shape_id": shape_id, "edge_id": int(edge_id)}
+            state = props.get("state", {})
+            if isinstance(state, dict):
+                record.update(state)
+            records.append(record)
+        return records
+
     def predict_energy(
         self,
         add_hvac: bool = False,
         scale_to_year: bool = False,
+        include_stop_penalty: bool = True,
     ) -> dict[str, pd.DataFrame]:
         """
         Predict energy consumption by map matching once, then running
@@ -1327,8 +1658,6 @@ class GTFSEnergyPredictor:
 
         if self.vehicle_models is None:
             vehicle_models_list = list(VEHICLE_MODELS.keys())
-        elif isinstance(self.vehicle_models, str):
-            vehicle_models_list = [self.vehicle_models]
         else:
             vehicle_models_list = list(self.vehicle_models)
 
@@ -1394,6 +1723,7 @@ class GTFSEnergyPredictor:
                     "path": shapes_edge_ids[sid],
                     "model_name": model_name,
                     "weights": {"trip_time": 1.0},
+                    "include_stop_penalty": include_stop_penalty,
                 }
                 start_time, start_weekday = shape_start_times.get(
                     str(sid), default_time
@@ -1408,8 +1738,13 @@ class GTFSEnergyPredictor:
             if isinstance(results, dict):
                 results = [results]
 
-            # Process results: extract energy from traversal_summary
+            # Process results: extract energy from traversal_summary, and
+            # per-edge state (speed, energy, etc. — including transit_speed
+            # when a speed_model_dir/transit_speed model is configured) from
+            # the per-edge GeoJSON route output (route="geo_json" in
+            # transit_energy.toml).
             energy_records: list[dict[str, Any]] = []
+            edge_state_records: list[dict[str, Any]] = []
             for sid, result in zip(shape_id_list, results):
                 if "error" in result:
                     logger.warning(
@@ -1421,9 +1756,15 @@ class GTFSEnergyPredictor:
                 route = result.get("route", {})
                 summary = route.get("traversal_summary", {})
 
-                # Extract energy value from traversal summary
+                # Extract energy value from traversal summary. Powertrain models
+                # report kWh; convert to the reported fuel unit (gallons diesel,
+                # GGE, ...) so downstream consumers get consistent fuel units.
                 energy_entry = summary.get(energy_field, {})
                 energy_value = energy_entry.get("value", 0.0)
+                kwh_per_output_unit = float(
+                    model_config.get("kwh_per_output_unit", 1.0)
+                )
+                energy_used = float(energy_value) / kwh_per_output_unit
 
                 # Extract distance
                 distance_entry = summary.get("edge_distance", {})
@@ -1432,12 +1773,13 @@ class GTFSEnergyPredictor:
                 energy_records.append(
                     {
                         "shape_id": sid,
-                        "energy_used": float(energy_value),
+                        "energy_used": energy_used,
                         "miles": float(distance_value),
                         "vehicle": model_name,
                         "energy_unit": model_config["unit"],
                     }
                 )
+                edge_state_records.extend(self._extract_edge_states(route, sid))
 
             if not energy_records:
                 logger.warning(f"No energy results for model {model_name}")
@@ -1455,14 +1797,47 @@ class GTFSEnergyPredictor:
                 how="left",
             )
 
+            # Merge per-edge state (speed, per-edge energy, etc.) — actual
+            # per-link values from Compass, as opposed to the trip-level
+            # energy_used/miles above which are constant across a shape's links.
+            # Joined on traversal order (in addition to edge_id) since a shape
+            # can revisit the same edge_id more than once (e.g. loop routes).
+            if edge_state_records:
+                edge_states_df = pd.DataFrame(edge_state_records)
+                edge_states_df["path_seq"] = edge_states_df.groupby(
+                    "shape_id"
+                ).cumcount()
+                model_link_results["path_seq"] = model_link_results.groupby(
+                    "shape_id"
+                ).cumcount()
+                # link_results already carries its own state columns from the
+                # map matcher's internal path recalculation (using the fixed
+                # representative mm_model_name, not necessarily this model) —
+                # stale/wrong for this vehicle. Drop them so they don't collide
+                # with (and get _x/_y suffixed against) the authoritative
+                # per-vehicle values in edge_states_df.
+                stale_state_cols = (
+                    set(model_link_results.columns) & set(edge_states_df.columns)
+                ) - {"shape_id", "edge_id", "path_seq"}
+                model_link_results = model_link_results.drop(
+                    columns=list(stale_state_cols)
+                )
+                model_link_results = model_link_results.merge(
+                    edge_states_df,
+                    on=["shape_id", "edge_id", "path_seq"],
+                    how="left",
+                ).drop(columns="path_seq")
+
             # Map shapes to trips
             shape_to_trips = self.trips[["trip_id", "shape_id"]].drop_duplicates()
             trip_results = energy_by_shape.merge(shape_to_trips, on="shape_id").drop(
                 columns=["shape_id"]
             )
 
-            # Optionally add HVAC to trip-level results (electric vehicles only)
-            if add_hvac and model_config["unit"] == "kWh":
+            # Optionally add HVAC to trip-level results (electric vehicles only).
+            # Gate on the electric energy field rather than the unit, since
+            # combustion models may also report energy in kWh.
+            if add_hvac and model_config["energy_field"] == "trip_energy_electric":
                 logger.info("Adding HVAC energy impacts...")
                 hvac_energy = add_HVAC_energy(
                     self.feed,

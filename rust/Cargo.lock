@@ -2359,6 +2359,8 @@ dependencies = [
  "config",
  "csv",
  "log",
+ "ndarray",
+ "ort",
  "routee-compass",
  "routee-compass-core",
  "routee-compass-powertrain",
