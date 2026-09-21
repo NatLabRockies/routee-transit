@@ -90,7 +90,7 @@ def _load_static_gtfs(
 # ---------------------------------------------------------------------------
 
 
-def run_single_day(path_to_json: Path | os.PathLike) -> None:
+def run_single_day(path_to_json: Path | os.PathLike[str]) -> None:
     """Process a single day's JSONL file and write per-link speed CSVs.
 
     Reads GTFS static files from ``path_to_json.parent/static/``, builds a

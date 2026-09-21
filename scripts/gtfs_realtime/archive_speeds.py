@@ -51,11 +51,13 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import osmnx as ox
 import pandas as pd
 import pyarrow.parquet as pq
+from nrel.routee.compass import CompassApp
 
 # Make sibling library importable when run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -202,7 +204,7 @@ def configure_osmnx(cache_dir: Path) -> None:
 
 def _build_compass_app_safe(
     bbox: tuple[float, float, float, float], slug: str, base_wait: float = 30.0
-):
+) -> tuple[CompassApp, pd.DataFrame]:
     """Build the CompassApp for *bbox*, rotating endpoints and backing off on failure.
 
     Uses the osmnx download cache, so once a bbox has been fetched (e.g. by the
@@ -215,7 +217,7 @@ def _build_compass_app_safe(
         endpoint = endpoints[(attempt - 1) % len(endpoints)]
         ox.settings.overpass_url = endpoint
         try:
-            return build_compass_app(bbox=bbox)
+            return cast(tuple[CompassApp, pd.DataFrame], build_compass_app(bbox=bbox))
         except Exception as exc:
             last_exc = exc
             msg = str(exc).lower()
@@ -256,7 +258,7 @@ def _http_get(url: str, timeout: int = 120, retries: int = 3) -> bytes:
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(url, timeout=timeout) as r:
-                return r.read()
+                return cast(bytes, r.read())
         except Exception as exc:  # noqa: BLE001 - network flakiness, retry
             last = exc
             time.sleep(1.5 * (attempt + 1))
@@ -335,7 +337,7 @@ def agency_network_bbox(
     """
     cache_file = out_root / agency.slug / "network_bbox.json"
     if cache_file.exists():
-        return tuple(json.loads(cache_file.read_text()))  # type: ignore[return-value]
+        return tuple(json.loads(cache_file.read_text()))
 
     digest = _list_schedule_digests(agency.schedule_url)[-1][1]
     raw = _gcs_get(f"{digest}shapes.parquet")
@@ -421,7 +423,9 @@ def prepare_static(agency: Agency, digest_prefix: str, out_root: Path) -> Path:
     return static_dir
 
 
-def load_static(static_dir: Path):
+def load_static(
+    static_dir: Path,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load static GTFS the same way the JSONL pipeline does."""
     trips_df = pd.read_csv(
         static_dir / "trips.txt", dtype={"trip_id": str, "shape_id": str}
@@ -541,9 +545,13 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
     if n_eras > 1:
         log.info("[%s] requested dates span %d schedule era(s)", agency.slug, n_eras)
 
-    era_static: dict[str, tuple] = {}
+    era_static: dict[
+        str, tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+    ] = {}
 
-    def _static_for(digest: str):
+    def _static_for(
+        digest: str,
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         if digest not in era_static:
             static_dir = prepare_static(agency, digest, out_root)
             era_static[digest] = load_static(static_dir)
@@ -594,6 +602,13 @@ def run_agency(agency: Agency, dates: list[str], out_root: Path) -> None:
     for date in usable_dates:
         trips_df, _shapes_df, stop_times_df, stops_df = _static_for(era_for_date[date])
         vp_path = download_vp_day(agency, date, out_root)
+        if vp_path is None:
+            log.warning(
+                "[%s] %s: vehicle-position download vanished — skipping",
+                agency.slug,
+                date,
+            )
+            continue
         rt_df, match_rate, _ = build_rt_df(vp_path, trips_df)
         n_trips = rt_df["trip_id"].nunique()
         log.info(

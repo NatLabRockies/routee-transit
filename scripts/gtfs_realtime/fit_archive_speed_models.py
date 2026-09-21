@@ -25,6 +25,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,7 @@ from fit_speed_models import (
     SPEED_CEIL_MPH,
     SPEED_FLOOR_MPH,
     TARGET,
+    HyperParamValue,
     add_temporal_features,
     fit_and_evaluate_models,
     remove_outliers,
@@ -70,7 +72,7 @@ def load_and_clean_archive(root: Path, agency: str) -> pd.DataFrame:
     log.info("  Raw rows: %d", len(df))
 
     df = df.dropna(subset=[TARGET])
-    df = df[np.isfinite(df[TARGET])]
+    df = df[np.isfinite(df[TARGET].to_numpy(dtype=float))]
     # Keep only directly observed links (>=2 GPS pings on the link)
     if "speed_source" in df.columns:
         df = df[df["speed_source"] == "observed"]
@@ -82,7 +84,7 @@ def load_and_clean_archive(root: Path, agency: str) -> pd.DataFrame:
     # they don't collide when training across agencies (same convention as
     # fit_speed_models.load_and_clean).
     df["road_id"] = agency + "_" + df["road_id"].astype(str)
-    return df
+    return cast(pd.DataFrame, df)
 
 
 def main(
@@ -93,7 +95,7 @@ def main(
     tune_n_iter: int = 25,
     tune_cv_splits: int = 4,
     tuned_model_keys: list[str] | None = None,
-    tuned_fixed_params: dict[str, dict] | None = None,
+    tuned_fixed_params: dict[str, dict[str, HyperParamValue]] | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 

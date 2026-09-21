@@ -16,6 +16,7 @@ set to an exact 1000 m so that cumul_dist_m arithmetic is clean.
 
 import math
 import unittest
+from typing import cast
 
 import geopandas as gpd
 import pandas as pd
@@ -68,11 +69,11 @@ def _stops_df(stops: dict[str, tuple[float, float]]) -> pd.DataFrame:
     ).set_index("stop_id")
 
 
-def _stop_times(rows: list[dict]) -> pd.DataFrame:
+def _stop_times(rows: list[dict[str, str | int | float]]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _stops_on_route(rows: list[dict]) -> pd.DataFrame:
+def _stops_on_route(rows: list[dict[str, str | int | float]]) -> pd.DataFrame:
     """Convenience constructor for pre-built stops_on_route DataFrames."""
     cols = [
         "stop_id",
@@ -86,7 +87,7 @@ def _stops_on_route(rows: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=cols)
 
 
-def _sched_speeds(rows: list[dict]) -> pd.DataFrame:
+def _sched_speeds(rows: list[dict[str, str | int | float]]) -> pd.DataFrame:
     """Convenience constructor for pre-built sched_speeds DataFrames."""
     cols = [
         "stop_seq_from",
@@ -571,10 +572,10 @@ class TestAggregateGtfsFeaturesByEdge(unittest.TestCase):
 
         result = aggregate_gtfs_features_by_edge(stops_on_route, sched_speeds, edges_df)
 
-        self.assertAlmostEqual(result.loc[0, "scheduled_speed_mph"], 30.0)
-        self.assertAlmostEqual(result.loc[1, "scheduled_speed_mph"], 30.0)
-        self.assertTrue(math.isnan(result.loc[2, "scheduled_speed_mph"]))
-        self.assertTrue(math.isnan(result.loc[3, "scheduled_speed_mph"]))
+        self.assertAlmostEqual(cast(float, result.loc[0, "scheduled_speed_mph"]), 30.0)
+        self.assertAlmostEqual(cast(float, result.loc[1, "scheduled_speed_mph"]), 30.0)
+        self.assertTrue(math.isnan(cast(float, result.loc[2, "scheduled_speed_mph"])))
+        self.assertTrue(math.isnan(cast(float, result.loc[3, "scheduled_speed_mph"])))
 
     def test_distance_weighted_speed_differs_from_simple_mean(self) -> None:
         """Distance weighting gives a different result than a simple mean.
@@ -618,13 +619,13 @@ class TestAggregateGtfsFeaturesByEdge(unittest.TestCase):
         result = aggregate_gtfs_features_by_edge(stops_on_route, sched_speeds, edges_df)
 
         # Edge 0: only segment A covers it (200 m overlap: min(1800,1000)-max(800,0))
-        self.assertAlmostEqual(result.loc[0, "scheduled_speed_mph"], 10.0)
+        self.assertAlmostEqual(cast(float, result.loc[0, "scheduled_speed_mph"]), 10.0)
         # Edge 1: distance-weighted, NOT simple mean
-        self.assertAlmostEqual(result.loc[1, "scheduled_speed_mph"], 16.0)
+        self.assertAlmostEqual(cast(float, result.loc[1, "scheduled_speed_mph"]), 16.0)
         # Edge 2: only segment B covers it (200 m overlap)
-        self.assertAlmostEqual(result.loc[2, "scheduled_speed_mph"], 40.0)
+        self.assertAlmostEqual(cast(float, result.loc[2, "scheduled_speed_mph"]), 40.0)
         # Edge 3: no coverage
-        self.assertTrue(math.isnan(result.loc[3, "scheduled_speed_mph"]))
+        self.assertTrue(math.isnan(cast(float, result.loc[3, "scheduled_speed_mph"])))
 
     def test_edge_with_no_covering_segment_is_nan(self) -> None:
         """Edges not touched by any stop-pair segment have NaN scheduled_speed_mph."""
@@ -649,10 +650,10 @@ class TestAggregateGtfsFeaturesByEdge(unittest.TestCase):
 
         result = aggregate_gtfs_features_by_edge(stops_on_route, sched_speeds, edges_df)
 
-        self.assertFalse(math.isnan(result.loc[0, "scheduled_speed_mph"]))
-        self.assertFalse(math.isnan(result.loc[1, "scheduled_speed_mph"]))
-        self.assertTrue(math.isnan(result.loc[2, "scheduled_speed_mph"]))
-        self.assertTrue(math.isnan(result.loc[3, "scheduled_speed_mph"]))
+        self.assertFalse(math.isnan(cast(float, result.loc[0, "scheduled_speed_mph"])))
+        self.assertFalse(math.isnan(cast(float, result.loc[1, "scheduled_speed_mph"])))
+        self.assertTrue(math.isnan(cast(float, result.loc[2, "scheduled_speed_mph"])))
+        self.assertTrue(math.isnan(cast(float, result.loc[3, "scheduled_speed_mph"])))
 
     def test_two_stops_same_edge_n_stops_is_two(self) -> None:
         """Two stops projected onto the same edge increment n_stops by 2."""

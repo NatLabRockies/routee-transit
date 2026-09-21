@@ -28,6 +28,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
+from typing import TypedDict
 
 import joblib
 import numpy as np
@@ -47,7 +48,29 @@ MAX_ABS_DIFF_TOLERANCE = 0.05
 MEAN_ABS_DIFF_TOLERANCE = 0.01
 
 
-def build_inference_matrix(agg: pd.DataFrame, manifest: dict) -> np.ndarray:
+class _CategoricalFeatureManifest(TypedDict):
+    name: str
+    one_hot_columns: list[str]
+    highway_to_functional_class: dict[str, str]
+    default: str
+
+
+class SpeedModelManifest(TypedDict):
+    """Schema of ``tuned_{model_key}_speed_model_manifest.json`` (written by
+    ``fit_speed_models._tune_and_persist_model``)."""
+
+    target: str
+    input_order: list[str]
+    static_per_edge_features: list[str]
+    per_query_temporal_features: list[str]
+    categorical_feature: _CategoricalFeatureManifest
+    feature_medians: dict[str, float] | None
+    missing_indicator_features: list[str] | None
+
+
+def build_inference_matrix(
+    agg: pd.DataFrame, manifest: SpeedModelManifest
+) -> np.ndarray:
     """Assemble the model's input matrix from an aggregated training DataFrame.
 
     Mirrors what the Rust side will do per-edge/per-query: numeric + temporal
@@ -95,7 +118,7 @@ def build_inference_matrix(agg: pd.DataFrame, manifest: dict) -> np.ndarray:
 
 def export_to_onnx(model_path: Path, manifest_path: Path, output_path: Path) -> None:
     bundle = joblib.load(model_path)
-    manifest = json.loads(manifest_path.read_text())
+    manifest: SpeedModelManifest = json.loads(manifest_path.read_text())
     model = bundle["model"]
     n_features = len(manifest["input_order"])
 
@@ -117,7 +140,7 @@ def validate_onnx(
     n_samples: int = 2000,
 ) -> None:
     bundle = joblib.load(model_path)
-    manifest = json.loads(manifest_path.read_text())
+    manifest: SpeedModelManifest = json.loads(manifest_path.read_text())
     model = bundle["model"]
 
     agg = pd.read_csv(agg_csv)

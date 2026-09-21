@@ -30,6 +30,7 @@ import json
 import logging
 import textwrap
 from pathlib import Path
+from typing import Any, TypedDict, cast
 
 import joblib
 import numpy as np
@@ -97,6 +98,28 @@ HIGHWAY_TO_FUNCTIONAL_CLASS: dict[str, str] = {
 }
 FUNCTIONAL_CLASS_DEFAULT = "local"
 
+# A tuned estimator's hyperparameter values (e.g. max_depth=None, learning_rate=0.05).
+HyperParamValue = int | float | str | None
+# sklearn ships no type stubs, so its estimator classes/instances are unavoidably Any.
+
+
+class ModelMetrics(TypedDict):
+    """Regression metrics returned by :func:`evaluate_model`."""
+
+    model: str
+    r2: float
+    rmse_mph: float
+    mae_mph: float
+
+
+class TunedModelConfig(TypedDict):
+    """One entry of :data:`TUNED_MODEL_CONFIGS`."""
+
+    label: str
+    estimator_cls: Any
+    needs_imputation: bool
+    param_distributions: dict[str, list[HyperParamValue]]
+
 
 def _resolve_input(data_dir: Path) -> Path:
     """Find the best available per-trip speed CSV in a single agency directory."""
@@ -117,7 +140,7 @@ def load_and_clean(csv_path: Path, agency_label: str | None = None) -> pd.DataFr
     log.info("  Raw rows: %d", len(df))
 
     df = df.dropna(subset=[TARGET])
-    df = df[np.isfinite(df[TARGET])]
+    df = df[np.isfinite(df[TARGET].to_numpy(dtype=float))]
     # Keep only directly observed links (≥2 GPS pings on the link)
     if "speed_source" in df.columns:
         df = df[df["speed_source"] == "observed"]
@@ -130,7 +153,7 @@ def load_and_clean(csv_path: Path, agency_label: str | None = None) -> pd.DataFr
         df["agency"] = agency_label
         df["road_id"] = agency_label + "_" + df["road_id"].astype(str)
 
-    return df
+    return cast(pd.DataFrame, df)
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
@@ -141,7 +164,7 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     hard floor/ceiling is still in effect).
     """
     n_before = len(df)
-    keep_mask = pd.Series(True, index=df.index)
+    keep_mask: pd.Series = pd.Series(True, index=df.index, dtype=bool)
 
     for road_id, group in df.groupby("road_id"):
         if len(group) < 4:
@@ -209,13 +232,13 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
     has_sched_speed = "scheduled_speed_mph" in df.columns
 
     def _weighted_mean(g: pd.DataFrame) -> pd.Series:
-        w = g["n_observations"].values.astype(float)
+        w = g["n_observations"].to_numpy(dtype=float)
         total_w = w.sum()
         if total_w == 0:
             w = np.ones(len(g))
             total_w = float(len(g))
         result = {
-            "mph_moving_mean": np.average(g[TARGET].values, weights=w),
+            "mph_moving_mean": np.average(g[TARGET].to_numpy(dtype=float), weights=w),
             "mph_moving_std": g[TARGET].std(),
             "n_trips": len(g),
             "total_observations": int(total_w),
@@ -224,15 +247,17 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
             valid = g["scheduled_speed_mph"].notna()
             if valid.any():
                 result["scheduled_speed_mph"] = np.average(
-                    g.loc[valid, "scheduled_speed_mph"].values,
-                    weights=w[valid.values],
+                    g.loc[valid, "scheduled_speed_mph"].to_numpy(dtype=float),
+                    weights=w[valid.to_numpy(dtype=bool)],
                 )
             else:
                 result["scheduled_speed_mph"] = np.nan
         return pd.Series(result)
 
     agg = (
-        df.groupby(group_cols).apply(_weighted_mean, include_groups=False).reset_index()
+        df.groupby(group_cols)
+        .apply(_weighted_mean, include_groups=False)  # type: ignore[call-overload]
+        .reset_index()
     )
 
     # Attach road-level attributes from first occurrence
@@ -249,7 +274,7 @@ def aggregate_to_road_hour(df: pd.DataFrame) -> pd.DataFrame:
         len(agg),
         df["trip_id"].nunique() if "trip_id" in df.columns else -1,
     )
-    return agg
+    return cast(pd.DataFrame, agg)
 
 
 def build_feature_matrix(
@@ -285,7 +310,7 @@ def evaluate_model(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     weights: np.ndarray | None = None,
-) -> dict:
+) -> ModelMetrics:
     """Compute regression metrics (optionally observation-weighted)."""
     r2 = r2_score(y_true, y_pred, sample_weight=weights)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred, sample_weight=weights))
@@ -299,7 +324,7 @@ def evaluate_model(
 # environment's skl2onnx/sklearn versions (a boolean-attribute serialization bug
 # in its missing-value tree nodes); RandomForestRegressor and
 # GradientBoostingRegressor are kept as ONNX-exportable alternatives.
-TUNED_MODEL_CONFIGS: dict[str, dict] = {
+TUNED_MODEL_CONFIGS: dict[str, TunedModelConfig] = {
     "hgb": {
         "label": "Histogram Gradient Boosting (tuned, functional_class)",
         "estimator_cls": HistGradientBoostingRegressor,
@@ -344,7 +369,7 @@ TUNED_MODEL_CONFIGS: dict[str, dict] = {
 
 def _tune_and_persist_model(
     model_key: str,
-    config: dict,
+    config: TunedModelConfig,
     X_train: np.ndarray,
     X_test: np.ndarray,
     y_train: np.ndarray,
@@ -357,11 +382,11 @@ def _tune_and_persist_model(
     tuned_encoder: OneHotEncoder,
     tuned_cat_names: list[str],
     output_dir: Path,
-    results: list[dict],
+    results: list[ModelMetrics],
     feature_medians: dict[str, float] | None = None,
     missing_indicator_features: list[str] | None = None,
-    fixed_params: dict | None = None,
-) -> tuple[object, np.ndarray, dict]:
+    fixed_params: dict[str, HyperParamValue] | None = None,
+) -> tuple[Any, np.ndarray, dict[str, HyperParamValue]]:
     """Spatial-CV hyperparameter search + weighted refit for one estimator.
 
     Evaluates the tuned model on the held-out test set (appending to *results*)
@@ -476,7 +501,7 @@ def main(
     tune_n_iter: int = 25,
     tune_cv_splits: int = 4,
     tuned_model_keys: list[str] | None = None,
-    tuned_fixed_params: dict[str, dict] | None = None,
+    tuned_fixed_params: dict[str, dict[str, HyperParamValue]] | None = None,
 ) -> None:
     # --- Determine output directory -------------------------------------------
     if output_dir is None:
@@ -523,7 +548,7 @@ def fit_and_evaluate_models(
     tune_n_iter: int = 25,
     tune_cv_splits: int = 4,
     tuned_model_keys: list[str] | None = None,
-    tuned_fixed_params: dict[str, dict] | None = None,
+    tuned_fixed_params: dict[str, dict[str, HyperParamValue]] | None = None,
 ) -> pd.DataFrame | None:
     """Aggregate cleaned per-trip link speeds, fit models, and save all outputs.
 
@@ -607,7 +632,7 @@ def fit_and_evaluate_models(
     X_train_imp = np.where(np.isnan(X_train), col_medians, X_train)
     X_test_imp = np.where(np.isnan(X_test), col_medians, X_test)
 
-    results: list[dict] = []
+    results: list[ModelMetrics] = []
 
     # --- 0. Baseline: speed_limit x constant ----------------------------------
     log.info("Fitting Speed-Limit Baseline (speed = maxspeed x k) …")
@@ -689,8 +714,8 @@ def fit_and_evaluate_models(
     # more consistent across agencies with different OSM tagging conventions.
     # Tuning: spatial (GroupKFold by road_id) search so hyperparameters are
     # chosen for generalization to unseen roads, matching the final eval split.
-    tuned_models: dict[str, object] = {}
-    tuned_best_params: dict[str, dict] = {}
+    tuned_models: dict[str, Any] = {}
+    tuned_best_params: dict[str, dict[str, HyperParamValue]] = {}
     tuned_cat_names: list[str] = []
     tuned_train_matrices: dict[str, np.ndarray] = {}
     tuned_test_matrices: dict[str, np.ndarray] = {}

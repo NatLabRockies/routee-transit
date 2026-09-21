@@ -12,6 +12,8 @@ This module contains all the core computation logic:
 import json
 import logging
 import re
+from pathlib import Path
+from typing import cast
 
 import numpy as np
 import osmnx as ox
@@ -75,7 +77,7 @@ def _parse_lanes(val: object) -> float:
                 pass
         return float(max(nums)) if nums else float("nan")
     try:
-        return float(int(val))
+        return float(int(val))  # type: ignore[call-overload]
     except (ValueError, TypeError):
         return float("nan")
 
@@ -94,7 +96,7 @@ def geodesic_line_length_m(line_geom: shapely.geometry.LineString) -> float:
     return total
 
 
-def read_realtime_records(path_to_json):
+def read_realtime_records(path_to_json: Path | str) -> pd.DataFrame:
     """Read and flatten GTFS-RT vehicle position records from a JSONL file."""
     records = []
     with open(path_to_json, "r") as f:
@@ -280,6 +282,7 @@ def match_realtime_trip(
     ]
 
     results = app.map_match([{"trace": trace}])
+    assert isinstance(results, list), "map_match with a list query returns a list"
     result = results[0]
 
     gdf = match_result_to_geopandas(results)
@@ -353,7 +356,9 @@ def match_realtime_trip(
     valid["cumul_dist_m"] = obs_cumul_dist
 
     # Enforce monotonicity: the bus can only move forward along the matched route
-    valid["cumul_dist_m"] = np.maximum.accumulate(valid["cumul_dist_m"].values)
+    valid["cumul_dist_m"] = np.maximum.accumulate(
+        valid["cumul_dist_m"].to_numpy(dtype=float)
+    )
 
     # Map edge attributes to observations
     valid["road_id"] = [str(edge_ids[ei]) for ei in obs_edge_idx]
@@ -395,7 +400,8 @@ def detect_dwell_time(
         Dwell time in seconds, indexed by edge_idx.
     """
     dwell_by_edge: dict[int, float] = {}
-    for edge_idx, group in obs_df.groupby("edge_idx"):
+    for edge_idx_raw, group in obs_df.groupby("edge_idx"):
+        edge_idx = cast(int, edge_idx_raw)
         if len(group) < 2:
             dwell_by_edge[edge_idx] = 0.0
             continue
@@ -438,11 +444,11 @@ def estimate_link_speeds(obs_df: pd.DataFrame, edges_df: pd.DataFrame) -> pd.Dat
 
     # Work in float seconds for interpolation
     t0 = obs_df["timestamp"].iloc[0]
-    obs_dists = obs_df["cumul_dist_m"].values
-    obs_times_sec = (obs_df["timestamp"] - t0).dt.total_seconds().values
+    obs_dists = obs_df["cumul_dist_m"].to_numpy(dtype=float)
+    obs_times_sec = (obs_df["timestamp"] - t0).dt.total_seconds().to_numpy(dtype=float)
 
     # Compute link boundary positions (start of each edge + end of last edge)
-    edge_starts = edges_df["cumul_start_m"].values
+    edge_starts = edges_df["cumul_start_m"].to_numpy(dtype=float)
     total_route_m = edge_starts[-1] + edges_df.iloc[-1]["link_length_m"]
     boundaries = np.append(edge_starts, total_route_m)
 
@@ -450,7 +456,7 @@ def estimate_link_speeds(obs_df: pd.DataFrame, edges_df: pd.DataFrame) -> pd.Dat
     boundary_sec = np.interp(boundaries, obs_dists, obs_times_sec)
 
     n_edges = len(edges_df)
-    link_length_m = edges_df["link_length_m"].values
+    link_length_m = edges_df["link_length_m"].to_numpy(dtype=float)
     link_length_mi = link_length_m / 1609.344
 
     entry_sec = boundary_sec[:n_edges]
@@ -516,7 +522,7 @@ def parse_gtfs_time_to_seconds(time_val: object) -> float:
     if time_val is None:
         return float("nan")
     try:
-        if pd.isna(time_val):  # type: ignore[arg-type]
+        if pd.isna(time_val):  # type: ignore[call-overload]
             return float("nan")
     except (TypeError, ValueError):
         pass
@@ -600,7 +606,7 @@ def project_stops_to_route(
     cumul_start = edges_df["cumul_start_m"].values
     link_lengths = edges_df["link_length_m"].values
 
-    results: list[dict] = []
+    results: list[dict[str, str | int | float]] = []
     last_edge_idx = 0
 
     for _, row in stops_ordered.iterrows():
@@ -692,7 +698,7 @@ def compute_scheduled_speeds_between_stops(
         return pd.DataFrame(columns=_EMPTY_COLS)
 
     rows = stops_on_route.sort_values("stop_sequence").reset_index(drop=True)
-    results: list[dict] = []
+    results: list[dict[str, int | float]] = []
 
     for i in range(len(rows) - 1):
         a = rows.iloc[i]
@@ -759,9 +765,10 @@ def aggregate_gtfs_features_by_edge(
     sched_speed_arr = np.full(n_edges, float("nan"))
 
     if not stops_on_route.empty:
-        for ei, count in stops_on_route.groupby("edge_idx").size().items():
+        for ei_raw, count in stops_on_route.groupby("edge_idx").size().items():
+            ei = cast(int, ei_raw)
             if 0 <= ei < n_edges:
-                n_stops_arr[int(ei)] = int(count)
+                n_stops_arr[ei] = int(count)
 
     if not sched_speeds.empty:
         cumul_start = edges_df["cumul_start_m"].values
@@ -916,21 +923,23 @@ def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame
         return pd.DataFrame()
 
     def weighted_mean(group: pd.DataFrame) -> pd.Series:
-        weights = group["n_observations"].values.astype(float)
+        weights = group["n_observations"].to_numpy(dtype=float)
         total_weight = weights.sum()
         if total_weight == 0:
             weights = np.ones(len(group))
             total_weight = float(len(group))
 
-        wmean_mph = np.average(group["mph"].values, weights=weights)
+        wmean_mph = np.average(group["mph"].to_numpy(dtype=float), weights=weights)
 
         wmean_moving = np.nan
         moving_valid = group["mph_moving"].dropna()
         if len(moving_valid) > 0:
-            w_moving = weights[group["mph_moving"].notna()]
+            w_moving = weights[group["mph_moving"].notna().to_numpy(dtype=bool)]
             if w_moving.sum() == 0:
                 w_moving = np.ones(len(moving_valid))
-            wmean_moving = np.average(moving_valid.values, weights=w_moving)
+            wmean_moving = np.average(
+                moving_valid.to_numpy(dtype=float), weights=w_moving
+            )
 
         return pd.Series(
             {
@@ -959,4 +968,4 @@ def aggregate_speeds_across_trips(all_trip_speeds: pd.DataFrame) -> pd.DataFrame
         road_props = valid.groupby("road_id")[road_prop_cols].first().reset_index()
         aggregated = aggregated.merge(road_props, on="road_id", how="left")
 
-    return aggregated
+    return cast(pd.DataFrame, aggregated)
