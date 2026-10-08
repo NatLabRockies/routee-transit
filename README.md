@@ -20,7 +20,13 @@ trip_results = predictor.run(
     routes=["205"],     # Optional: filter to specific routes
     add_hvac=True,      # Include HVAC energy impacts
 )
+
+block_results = predictor.get_block_predictions()
 ```
+
+Trip predictions are daily for every vehicle model, including runs without HVAC. Block results contain one row per vehicle, service date, and block ID, with `energy_used_without_deadhead` and `energy_used_with_deadhead`. Deadhead totals include only inferred trips requested in `run()`. Results are exported to `block_energy_predictions.csv` alongside the existing trip and link files.
+
+Trips with missing or blank block IDs remain in trip results but are skipped in block summaries with a warning. Feeds without usable block IDs produce an empty block table and a header-only block CSV. See [daily trip and block results](docs/prediction.md#daily-trip-and-block-results) for calendar projection, column definitions, and export details.
 
 See the [documentation](https://NatLabRockies.github.io/routee-transit/) for more examples and details.
 
@@ -41,6 +47,7 @@ You can also set up your environment using `pip`, if preferred. Create a new vir
 - **HVAC Energy**: Includes seasonal HVAC energy impacts for battery-electric buses
 - **Deadhead Trips**: Models both mid-block deadhead (between trips) and depot deadhead (pull-out/pull-in)
 - **Multiple Models**: Predict for multiple vehicle types in a single workflow
+- **Daily Block Demand**: Compare energy demand with and without deadhead for each block and service date
 
 ## Running Examples
 `scripts/single_agency_full_analysis.py` shows how to use RouteE-Transit to predict energy consumption for some or all trips in an agency's GTFS feed. See also `docs/examples/Utah_Transit_Agency_example.py` for a documented example.

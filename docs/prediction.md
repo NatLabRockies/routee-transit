@@ -76,9 +76,41 @@ For battery-electric buses, auxiliary loads from the HVAC system and battery the
 1. Each stop is spatially joined to its US Census county.
 2. TMY3 files for the relevant counties are downloaded from the NREL Open Energy Data Initiative (OEDI) S3 bucket.
 3. Hourly HVAC + BTMS power demand is looked up from a temperature-dependent table (derived from the literature) and integrated over each trip's scheduled time window.
-4. Thermal energy is computed for three weather scenarios — **summer** (hottest day of year), **winter** (coldest day), and **median** — giving a range of thermal impact estimates per trip.
+4. Thermal energy is computed for each modeled service date using its TMY temperature profile. These rows use the **TMY** scenario.
 
 The resulting `hvac_energy_kWh` is added to the powertrain energy for electric models in the trip-level output.
+
+### Daily trip and block results
+
+All vehicle models produce one trip row per modeled service date, including diesel models and runs with `add_hvac=False`. Dates come from the feed's service calendar, including calendar exceptions, using the densest 365-day window by default. A `date` filter restricts the output to that service date. Trips with times beyond 24:00 remain assigned to their original service date.
+
+With `scale_to_year=True` and no date filter, typical weekday service is projected onto uncovered dates in the selected year window. Both trip and block outputs include `trip_is_within_gtfs_scope`: false identifies projected service. This calendar expansion applies independently of HVAC. Compared with earlier versions, non-electric and HVAC-disabled trip exports now contain repeated trips on different dates rather than one undated row per trip.
+
+```python
+trip_results = predictor.run(
+    add_mid_block_deadhead=True,
+    add_depot_deadhead=True,
+)
+block_results = predictor.get_block_predictions()
+electric_blocks = predictor.get_block_predictions("Transit_Bus_Electric_40ft_300kWh")
+```
+
+Block results have one row per `vehicle`, `date`, and usable `block_id`:
+
+| Column | Meaning |
+|---|---|
+| `energy_used_without_deadhead` | Sum of modeled revenue service trip energy, including HVAC when enabled |
+| `energy_used_with_deadhead` | Sum of all modeled trip energy, including pull-out, pull-in, and mid-block deadhead |
+| `energy_unit` | The vehicle model's output unit; incompatible units cannot be combined |
+| `routes_covered` | Sorted unique revenue route IDs, excluding synthetic deadhead routes |
+| `agency_id` | Revenue agency ID when unambiguous; unset with a warning for multi-agency blocks |
+| `trip_is_within_gtfs_scope` | True only when every contributing trip is within the actual feed calendar |
+
+Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. Deadhead-only groups have zero revenue energy and an empty route list.
+
+Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.
+
+`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included when supplied. Use `save_results(save_block_level=False)` to omit the block export. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
 
 # Using the GTFSEnergyPredictor Class
 

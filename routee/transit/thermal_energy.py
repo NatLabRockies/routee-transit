@@ -10,6 +10,12 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from gtfsblocks import Feed
 
+from routee.transit.results import (
+    _densest_window as _densest_window,
+    _select_full_year_window as _select_full_year_window,
+    build_trip_dates,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,55 +197,6 @@ def load_tmy_power_by_day(
     return tmy_df[["month", "day_of_month", "hour", "Power"]]
 
 
-def _densest_window(
-    sorted_dates: list[pd.Timestamp], max_days: int
-) -> tuple[pd.Timestamp, pd.Timestamp] | None:
-    """
-    Return the (start, end) of the ``max_days``-wide window containing the most
-    service dates.  Robust to feeds with sparse outliers far in the past or future.
-    Returns None if ``sorted_dates`` is empty.
-    """
-    if not sorted_dates:
-        return None
-    best_start = sorted_dates[0]
-    best_count = 0
-    j = 0
-    for i, start in enumerate(sorted_dates):
-        window_end = start + pd.Timedelta(days=max_days - 1)
-        while j < len(sorted_dates) and sorted_dates[j] <= window_end:
-            j += 1
-        count = j - i
-        if count > best_count:
-            best_count = count
-            best_start = start
-    return best_start, best_start + pd.Timedelta(days=max_days - 1)
-
-
-def _select_full_year_window(
-    sorted_dates: list[pd.Timestamp], max_days: int
-) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """
-    Pick a full-year window for scale_to_year mode.
-
-    Snaps to a calendar year (Jan 1 - Dec 31) when the dense block of service
-    dates falls within a single year; otherwise centers a ``max_days``-wide
-    window on the midpoint of the dense block.
-    """
-    dense = _densest_window(sorted_dates, max_days)
-    assert dense is not None  # caller guarantees non-empty
-    dense_start, dense_end = dense
-    dense_dates = [d for d in sorted_dates if dense_start <= d <= dense_end]
-    first, last = dense_dates[0], dense_dates[-1]
-    if first.year == last.year:
-        year = first.year
-        return pd.Timestamp(year=year, month=1, day=1), pd.Timestamp(
-            year=year, month=12, day=31
-        )
-    midpoint = first + (last - first) / 2
-    half = pd.Timedelta(days=(max_days - 1) // 2)
-    return midpoint - half, midpoint - half + pd.Timedelta(days=max_days - 1)
-
-
 def add_HVAC_energy(
     feed: Feed,
     trips_df: pd.DataFrame,
@@ -369,70 +326,13 @@ def add_HVAC_energy(
         month_key, day_key = cast(tuple[int, int], key)
         power_lookup[(month_key, day_key)] = grp.sort_values("hour")["Power"].to_numpy()
 
-    # Get all (date, service_id) pairs covered by the feed, capped to max_days.
-    # If a specific service_date was supplied (single-date run), restrict to that
-    # date only — do not re-expand to every day the service_id runs.
-    all_dates_df = feed.get_service_ids_all_dates()
-    if service_date is not None:
-        date_service_df = all_dates_df[all_dates_df["date"] == service_date][
-            ["date", "service_id"]
-        ].drop_duplicates()
-        date_service_df["trip_is_within_gtfs_scope"] = True
-    else:
-        all_unique = pd.to_datetime(all_dates_df["date"].dropna().unique()).tolist()
-        all_unique.sort()
-        if scale_to_year and all_unique:
-            window_start, window_end = _select_full_year_window(all_unique, max_days)
-        else:
-            dense = _densest_window(all_unique, max_days)
-            if dense is None:
-                window_start = window_end = pd.Timestamp("1970-01-01")
-            else:
-                window_start, window_end = dense
-
-        in_window_mask = (all_dates_df["date"] >= window_start) & (
-            all_dates_df["date"] <= window_end
-        )
-        date_service_df = all_dates_df.loc[
-            in_window_mask, ["date", "service_id"]
-        ].drop_duplicates()
-        date_service_df["trip_is_within_gtfs_scope"] = True
-
-        if scale_to_year and all_unique:
-            # Project the feed's typical weekday service patterns onto uncovered
-            # dates within the full-year window.  Weekdays absent from the
-            # typical-service map (e.g. Tuesday in an M/W/F-only feed) get no
-            # projected rows, preserving the feed's real day-of-week service shape.
-            typical = feed.get_typical_service_by_weekday()
-            weekday_to_sids: dict[str, list[str]] = {
-                weekday: list(row["service_id"]) for weekday, row in typical.iterrows()
-            }
-            covered_dates: set[pd.Timestamp] = set(
-                pd.to_datetime(date_service_df["date"]).to_list()
-            )
-            all_window_dates = pd.date_range(window_start, window_end, freq="D")
-            uncovered_dates = [d for d in all_window_dates if d not in covered_dates]
-            projected_rows = []
-            for d in uncovered_dates:
-                weekday_name = d.day_name().lower()
-                for sid in weekday_to_sids.get(weekday_name, []):
-                    projected_rows.append((d, sid, False))
-            if projected_rows:
-                projected_df = pd.DataFrame(
-                    projected_rows,
-                    columns=["date", "service_id", "trip_is_within_gtfs_scope"],
-                )
-                date_service_df = pd.concat(
-                    [date_service_df, projected_df], ignore_index=True
-                )
-
-    # Join dates to trips via service_id
-    required_cols = {"trip_id", "service_id"}
-    missing = required_cols.difference(trips_df.columns)
-    if missing:
-        raise ValueError(f"trips_df is missing required columns: {sorted(missing)}")
-    trips_slim = trips_df[["trip_id", "service_id"]].drop_duplicates()
-    date_trips = date_service_df.merge(trips_slim, on="service_id")
+    date_trips = build_trip_dates(
+        feed,
+        trips_df,
+        service_date=service_date,
+        scale_to_year=scale_to_year,
+        max_days=max_days,
+    )
 
     # Load trip start/end fractional hours from stop_times
     df_stop_times = feed.stop_times[

@@ -1,3 +1,5 @@
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -64,6 +66,44 @@ class TestPredictor(unittest.TestCase):
         self.predictor.filter_trips(date="2023-01-01")
         self.assertEqual(len(self.predictor.trips), 1)
         self.assertEqual(self.predictor.trips.iloc[0]["service_id"], "S1")
+        self.assertEqual(self.predictor._service_date, pd.Timestamp("2023-01-01"))
+
+    def test_missing_ids_preserve_route_filtered_trips(self) -> None:
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2", "T3", "T4"],
+                "block_id": ["B1", "B1", None, " "],
+                "route_short_name": ["R1", "R2", "R1", "R2"],
+                "service_id": ["S1"] * 4,
+                "shape_id": ["SH1"] * 4,
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1"]})
+        self.predictor.filter_trips(routes=["R1"], use_block_filter=True)
+        self.assertEqual(self.predictor.trips["trip_id"].tolist(), ["T3"])
+        self.assertIsNone(self.predictor._prepare_mid_block_deadhead())
+        self.assertIsNone(self.predictor._prepare_depot_deadhead())
+
+    def test_absent_ids_skip_deadhead_without_dropping_trips(self) -> None:
+        self.predictor.feed = MagicMock()
+        self.predictor.trips = pd.DataFrame(
+            {
+                "trip_id": ["T1"],
+                "service_id": ["S1"],
+                "route_short_name": ["R1"],
+                "shape_id": ["SH1"],
+            }
+        )
+        self.predictor.feed.shapes = pd.DataFrame({"shape_id": ["SH1"]})
+        self.predictor.filter_trips(routes=["R1"], use_block_filter=True)
+        self.assertIsNone(self.predictor._prepare_mid_block_deadhead())
+        self.assertIsNone(self.predictor._prepare_depot_deadhead())
+        self.assertEqual(len(self.predictor.trips), 1)
+
+    def test_block_getter_before_prediction(self) -> None:
+        with self.assertRaisesRegex(KeyError, "Call predict_energy"):
+            self.predictor.get_block_predictions()
 
     def test_filter_trips_trip_level_default(self) -> None:
         """Trip-level filtering keeps individual trips even if the block has other routes."""
@@ -183,6 +223,9 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         self.predictor.feed = MagicMock()
 
         # Two trips sharing one shape so merge produces two output rows
+        self.predictor.feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            {"service_id": ["S1"], "date": pd.to_datetime(["2026-01-05"])}
+        )
         self.predictor.trips = pd.DataFrame(
             {
                 "trip_id": ["T1", "T2"],
@@ -191,6 +234,9 @@ class TestPredictEnergyMPGe(unittest.TestCase):
                 "route_short_name": ["101", "101"],
                 "route_desc": ["Main Line", "Main Line"],
                 "route_type": [3, 3],
+                "block_id": ["001", "001"],
+                "trip_type": ["service", "service"],
+                "route_id": ["101", "101"],
             }
         )
         # Minimal shapes DataFrame (two points for one shape)
@@ -227,7 +273,12 @@ class TestPredictEnergyMPGe(unittest.TestCase):
             }
         ]
 
-    def _run_predict_energy(self, vehicle_models: list[str]) -> dict[str, pd.DataFrame]:
+    def _run_predict_energy(
+        self,
+        vehicle_models: list[str],
+        add_hvac: bool = False,
+        scale_to_year: bool = False,
+    ) -> dict[str, pd.DataFrame]:
         """Run predict_energy() with multiprocessing and map-matching mocked out."""
         self.predictor.vehicle_models = vehicle_models
 
@@ -244,7 +295,163 @@ class TestPredictEnergyMPGe(unittest.TestCase):
                 return_value=self._link_results,
             ),
         ):
-            return self.predictor.predict_energy()
+            return self.predictor.predict_energy(
+                add_hvac=add_hvac, scale_to_year=scale_to_year
+            )
+
+    def test_daily_models_and_block_reconciliation(self) -> None:
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            {
+                "service_id": ["S1", "S1"],
+                "date": pd.to_datetime(["2026-01-05", "2026-01-06"]),
+            }
+        )
+        electric = "Transit_Bus_Battery_Electric"
+        diesel = "Transit_Bus_Diesel"
+        self.mock_app.run_calculate_path.side_effect = [
+            self._make_compass_result(10, 5, "trip_energy_electric"),
+            self._make_compass_result(20, 5, "trip_energy_liquid"),
+        ]
+        results = self._run_predict_energy([electric, diesel])
+        self.assertEqual(len(results["trip"]), 8)
+        self.assertEqual(len(results["block"]), 4)
+        expected = (
+            results["trip"]
+            .groupby(["vehicle", "date", "block_id"])["energy_used"]
+            .sum()
+        )
+        actual = results["block"].set_index(["vehicle", "date", "block_id"])[
+            "energy_used_with_deadhead"
+        ]
+        pd.testing.assert_series_equal(expected, actual.sort_index(), check_names=False)
+        self.assertEqual(len(self.predictor.get_block_predictions(diesel)), 2)
+        self.assertEqual(
+            results["trip"].duplicated(["vehicle", "trip_id", "date"]).sum(), 0
+        )
+        self.mock_app.run_calculate_path.side_effect = None
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        results = self._run_predict_energy([electric])
+        self.assertNotIn(f"{diesel}_block", results)
+        with self.assertRaises(KeyError):
+            self.predictor.get_block_predictions(diesel)
+
+    def test_daily_hvac_join_and_deadhead(self) -> None:
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            {
+                "service_id": ["S1", "S1"],
+                "date": pd.to_datetime(["2026-01-05", "2026-01-06"]),
+            }
+        )
+        self.predictor.trips.loc[1, "trip_type"] = "pull-in"
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        hvac = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T1", "T2"],
+                "date": pd.to_datetime(["2026-01-05", "2026-01-06", "2026-01-05"]),
+                "hvac_energy_kWh": [1.0, 2.0, 3.0],
+                "trip_is_within_gtfs_scope": [True] * 3,
+                "scenario": ["TMY"] * 3,
+            }
+        )
+        with patch("routee.transit.predictor.add_HVAC_energy", return_value=hvac):
+            results = self._run_predict_energy(
+                ["Transit_Bus_Battery_Electric"], add_hvac=True
+            )
+        self.assertEqual(len(results["trip"]), 4)
+        block = results["block"].sort_values("date")
+        self.assertEqual(block["energy_used_without_deadhead"].tolist(), [11, 12])
+        self.assertEqual(block["energy_used_with_deadhead"].tolist(), [24, 22])
+        self.assertTrue(results["trip"]["trip_is_within_gtfs_scope"].all())
+
+    def test_annual_projection_and_single_date_without_hvac(self) -> None:
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_typical_service_by_weekday.return_value = pd.DataFrame(
+            {"service_id": [["S1"]]}, index=["monday"]
+        )
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_liquid"
+        )
+        results = self._run_predict_energy(["Transit_Bus_Diesel"], scale_to_year=True)
+        self.assertEqual(len(results["block"]), 52)
+        self.assertEqual(results["block"]["trip_is_within_gtfs_scope"].sum(), 1)
+        self.predictor._service_date = pd.Timestamp("2026-01-05")
+        results = self._run_predict_energy(["Transit_Bus_Diesel"], scale_to_year=True)
+        self.assertEqual(len(results["trip"]), 2)
+        self.assertEqual(len(results["block"]), 1)
+
+    def test_exports_repeat_safely_and_preserve_results(self) -> None:
+        self.predictor.dataset_id = "dataset"
+        self.predictor.feed_id = "feed"
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        results = self._run_predict_energy(["Transit_Bus_Battery_Electric"])
+        original_trip = results["trip"].copy(deep=True)
+        original_block = results["block"].copy(deep=True)
+        with tempfile.TemporaryDirectory() as directory:
+            self.predictor.save_results(directory, save_tods=False)
+            self.predictor.save_results(directory, save_tods=False)
+            blocks = pd.read_csv(
+                Path(directory) / "block_energy_predictions.csv",
+                dtype={"block_id": str},
+            )
+            self.assertEqual(blocks["block_id"].tolist(), ["001"])
+            self.assertEqual(json.loads(blocks.iloc[0]["routes_covered"]), ["101"])
+            self.assertEqual(blocks.iloc[0]["date"], "2026-01-05")
+            self.assertEqual(blocks.iloc[0]["feed_id"], "feed")
+            self.assertEqual(blocks.iloc[0]["dataset_id"], "dataset")
+            trips = pd.read_csv(Path(directory) / "trip_energy_predictions.csv")
+            self.assertEqual(
+                blocks.iloc[0]["energy_used_with_deadhead"], trips["energy_used"].sum()
+            )
+        pd.testing.assert_frame_equal(original_trip, results["trip"])
+        pd.testing.assert_frame_equal(original_block, results["block"])
+        with tempfile.TemporaryDirectory() as directory:
+            self.predictor.save_results(
+                directory, save_tods=False, save_block_level=False
+            )
+            self.assertFalse(
+                (Path(directory) / "block_energy_predictions.csv").exists()
+            )
+
+    def test_empty_service_calendar(self) -> None:
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            columns=["date", "service_id"]
+        )
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        results = self._run_predict_energy(["Transit_Bus_Battery_Electric"])
+        self.assertTrue(results["trip"].empty)
+        self.assertTrue(results["block"].empty)
+
+    def test_all_missing_blocks_still_export_trips(self) -> None:
+        self.predictor.trips = self.predictor.trips.drop(columns="block_id")
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        with self.assertLogs("routee.transit.predictor", level="WARNING") as captured:
+            results = self._run_predict_energy(["Transit_Bus_Battery_Electric"])
+        self.assertIn("Excluded 2 trips", " ".join(captured.output))
+        self.assertEqual(len(results["trip"]), 2)
+        self.assertTrue(self.predictor.get_block_predictions().empty)
+        self.assertTrue(
+            self.predictor.get_block_predictions("Transit_Bus_Battery_Electric").empty
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            self.predictor.save_results(directory, save_tods=False)
+            exported = pd.read_csv(Path(directory) / "block_energy_predictions.csv")
+            self.assertTrue(exported.empty)
+            self.assertEqual(
+                exported.columns.tolist(), results["block"].columns.tolist()
+            )
 
     # ------------------------------------------------------------------
     # MPGe calculation — BEB
