@@ -84,7 +84,7 @@ The resulting `hvac_energy_kWh` is added to the powertrain energy for electric m
 
 All vehicle models produce one trip row per modeled service date, including diesel models and runs with `add_hvac=False`. Dates come from the feed's service calendar, including calendar exceptions, using the densest 365-day window by default. A `date` filter restricts the output to that service date. Trips with times beyond 24:00 remain assigned to their original service date.
 
-With `scale_to_year=True` and no date filter, typical weekday service is projected onto uncovered dates in the selected year window. Both trip and block outputs include `trip_is_within_gtfs_scope`: false identifies projected service. This calendar expansion applies independently of HVAC. Compared with earlier versions, non-electric and HVAC-disabled trip exports now contain repeated trips on different dates rather than one undated row per trip.
+With `scale_to_year=True` and no date filter, typical weekday service is projected onto uncovered dates in the selected year window. Trip output includes `trip_is_within_gtfs_scope`: false identifies projected service. This calendar expansion applies independently of HVAC. Compared with earlier versions, non-electric and HVAC-disabled trip exports now contain repeated trips on different dates rather than one undated row per trip.
 
 ```python
 trip_results = predictor.run(
@@ -104,13 +104,16 @@ Block results have one row per `vehicle`, `date`, and usable `block_id`:
 | `energy_unit` | The vehicle model's output unit; incompatible units cannot be combined |
 | `routes_covered` | Sorted unique revenue route IDs, excluding synthetic deadhead routes |
 | `agency_id` | Revenue agency ID when unambiguous; unset with a warning for multi-agency blocks |
-| `trip_is_within_gtfs_scope` | True only when every contributing trip is within the actual feed calendar |
+| `feasible_without_deadhead` | Whether revenue energy fits the vehicle's usable capacity; unset for models without declared capacity |
+| `feasible_with_deadhead` | Whether total energy including deadhead fits the vehicle's usable capacity |
+
+Feasibility compares each total against `capacity * usable_capacity_fraction` from the vehicle model config. `save_results()` exports those capacities to `vehicles.csv`; pass `save_vehicle_specs=False` to skip it.
 
 Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. Deadhead-only groups have zero revenue energy and an empty route list.
 
 Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.
 
-`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included when supplied. Use `save_results(save_block_level=False)` to omit the block export. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
+`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included in the trip export when supplied. Use `save_results(save_block_level=False)` to omit the block export. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
 
 # Using the GTFSEnergyPredictor Class
 

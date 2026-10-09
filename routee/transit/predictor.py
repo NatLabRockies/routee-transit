@@ -67,6 +67,7 @@ from routee.transit.speed_model import (
 )
 from routee.transit.thermal_energy import add_HVAC_energy
 from routee.transit.tods_export import write_tods_deadhead
+from routee.transit.vehicle_specs import load_vehicle_specs, vehicle_specs_table
 
 logger = logging.getLogger(__name__)
 
@@ -1940,7 +1941,9 @@ class GTFSEnergyPredictor:
                     "Excluded %d trips without block IDs from block results",
                     unassigned["trip_id"].nunique(),
                 )
-            self.energy_predictions["block"] = aggregate_block_predictions(daily_trips)
+            self.energy_predictions["block"] = aggregate_block_predictions(
+                daily_trips, vehicle_specs=load_vehicle_specs(vehicle_models_list)
+            )
             for model_name in vehicle_models_list:
                 trip_key = f"{model_name}_trip"
                 if trip_key in self.energy_predictions:
@@ -2025,6 +2028,7 @@ class GTFSEnergyPredictor:
         save_inputs: bool = False,
         save_tods: bool = True,
         save_block_level: bool = True,
+        save_vehicle_specs: bool = True,
     ) -> None:
         """
         Save prediction results to CSV files.
@@ -2038,6 +2042,8 @@ class GTFSEnergyPredictor:
                 Files are written to a ``tods/`` subdirectory. Has no effect if
                 no deadhead trips were added.
             save_block_level: Whether to export daily block energy predictions.
+            save_vehicle_specs: Whether to export the vehicle capacity summary
+                that block feasibility flags are derived from.
 
         Raises:
             RuntimeError: If no predictions have been generated yet
@@ -2087,13 +2093,17 @@ class GTFSEnergyPredictor:
         if save_block_level and "block" in self.energy_predictions:
             block_df = self.energy_predictions["block"].copy()
             block_df["routes_covered"] = block_df["routes_covered"].map(json.dumps)
-            if self.dataset_id is not None:
-                block_df["dataset_id"] = self.dataset_id
-            if self.feed_id is not None:
-                block_df["feed_id"] = self.feed_id
             block_path = output_path / "block_energy_predictions.csv"
             block_df.to_csv(block_path, index=False, date_format="%Y-%m-%d")
             logger.info(f"Saved block predictions to {block_path}")
+
+        if save_vehicle_specs:
+            specs_df = vehicle_specs_table(
+                load_vehicle_specs(self.vehicle_models or list(VEHICLE_MODELS.keys()))
+            )
+            specs_path = output_path / "vehicles.csv"
+            specs_df.to_csv(specs_path, index=False)
+            logger.info(f"Saved vehicle specifications to {specs_path}")
 
         # Save RouteE inputs
         if save_inputs and not self.routee_inputs.empty:

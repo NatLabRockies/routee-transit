@@ -379,7 +379,8 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         )
         results = self._run_predict_energy(["Transit_Bus_Diesel"], scale_to_year=True)
         self.assertEqual(len(results["block"]), 52)
-        self.assertEqual(results["block"]["trip_is_within_gtfs_scope"].sum(), 1)
+        self.assertNotIn("trip_is_within_gtfs_scope", results["block"].columns)
+        self.assertEqual(results["trip"]["trip_is_within_gtfs_scope"].sum(), 2)
         self.predictor._service_date = pd.Timestamp("2026-01-05")
         results = self._run_predict_energy(["Transit_Bus_Diesel"], scale_to_year=True)
         self.assertEqual(len(results["trip"]), 2)
@@ -404,9 +405,16 @@ class TestPredictEnergyMPGe(unittest.TestCase):
             self.assertEqual(blocks["block_id"].tolist(), ["001"])
             self.assertEqual(json.loads(blocks.iloc[0]["routes_covered"]), ["101"])
             self.assertEqual(blocks.iloc[0]["date"], "2026-01-05")
-            self.assertEqual(blocks.iloc[0]["feed_id"], "feed")
-            self.assertEqual(blocks.iloc[0]["dataset_id"], "dataset")
+            for column in (
+                "feed_id",
+                "dataset_id",
+                "usable_capacity",
+                "trip_is_within_gtfs_scope",
+            ):
+                self.assertNotIn(column, blocks.columns)
             trips = pd.read_csv(Path(directory) / "trip_energy_predictions.csv")
+            self.assertEqual(trips.iloc[0]["feed_id"], "feed")
+            self.assertEqual(trips.iloc[0]["dataset_id"], "dataset")
             self.assertEqual(
                 blocks.iloc[0]["energy_used_with_deadhead"], trips["energy_used"].sum()
             )

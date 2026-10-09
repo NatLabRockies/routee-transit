@@ -1,9 +1,12 @@
 """Service dates and daily block totals shared by prediction and HVAC."""
 
 import logging
+from collections.abc import Mapping
 
 import pandas as pd
 from gtfsblocks import Feed
+
+from routee.transit.vehicle_specs import VehicleSpec
 
 logger = logging.getLogger(__name__)
 
@@ -134,20 +137,71 @@ def build_trip_dates(
     return dates
 
 
-def aggregate_block_predictions(trips: pd.DataFrame) -> pd.DataFrame:
+def add_block_feasibility(
+    blocks: pd.DataFrame, vehicle_specs: Mapping[str, VehicleSpec]
+) -> pd.DataFrame:
+    """Flag whether each block fits within the vehicle's usable energy storage.
+
+    Parameters
+    ----------
+    blocks : pd.DataFrame
+            Block totals from :func:`aggregate_block_predictions`.
+    vehicle_specs : Mapping of str to VehicleSpec
+            Capacity metadata keyed by vehicle model name. Vehicles absent from
+            the mapping get a null capacity and null feasibility flags.
+
+    Returns
+    -------
+    pd.DataFrame
+            Input columns plus the two feasibility flags.
+
+    Raises
+    ------
+    ValueError
+            If a vehicle's capacity is recorded in a different unit than the one
+            its energy predictions are reported in.
+    """
+    blocks = blocks.copy()
+    usable: list[float] = []
+    for vehicle, unit in zip(blocks["vehicle"], blocks["energy_unit"]):
+        spec = vehicle_specs.get(vehicle)
+        if spec is None:
+            usable.append(float("nan"))
+            continue
+        if spec.capacity_unit != unit:
+            raise ValueError(
+                f"Vehicle '{vehicle}' reports energy in '{unit}' but its capacity "
+                f"is recorded in '{spec.capacity_unit}'"
+            )
+        usable.append(spec.usable_capacity)
+
+    capacity = pd.Series(usable, index=blocks.index, dtype="float64")
+    known = capacity.notna()
+    for suffix in ("without_deadhead", "with_deadhead"):
+        feasible = blocks[f"energy_used_{suffix}"] <= capacity
+        blocks[f"feasible_{suffix}"] = feasible.astype("boolean").where(known)
+    return blocks
+
+
+def aggregate_block_predictions(
+    trips: pd.DataFrame, vehicle_specs: Mapping[str, VehicleSpec] | None = None
+) -> pd.DataFrame:
     """Sum daily revenue and deadhead demand for assigned GTFS blocks.
 
     Parameters
     ----------
     trips : pd.DataFrame
             Daily predictions with vehicle, date, energy and trip metadata.
+    vehicle_specs : Mapping of str to VehicleSpec or None
+            Capacity metadata used to flag block feasibility. If None, the
+            feasibility columns are present but null.
 
     Returns
     -------
     pd.DataFrame
-            One row per vehicle/date/block with both energy totals, revenue route
-            IDs, agency metadata and the combined calendar scope flag. Unassigned
-            trips are excluded; an empty result retains its column schema.
+            One row per vehicle/date/block with both energy totals, feasibility
+            flags, revenue route IDs and agency metadata. Unassigned trips are
+            excluded; an empty result retains its column schema.
     """
     columns = [
         "vehicle",
@@ -158,12 +212,11 @@ def aggregate_block_predictions(trips: pd.DataFrame) -> pd.DataFrame:
         "energy_unit",
         "routes_covered",
         "agency_id",
-        "trip_is_within_gtfs_scope",
     ]
     rows: list[dict[str, object]] = []
     assigned = trips.loc[usable_block_ids(trips)]
     if assigned.empty:
-        return pd.DataFrame(columns=columns)
+        return add_block_feasibility(pd.DataFrame(columns=columns), {})
     for _, group in assigned.groupby(["vehicle", "date", "block_id"], sort=True):
         units = group["energy_unit"].dropna().unique()
         if len(units) != 1 or group["energy_unit"].isna().any():
@@ -191,9 +244,8 @@ def aggregate_block_predictions(trips: pd.DataFrame) -> pd.DataFrame:
                 if "route_id" in service
                 else [],
                 "agency_id": agencies[0] if len(agencies) == 1 else None,
-                "trip_is_within_gtfs_scope": bool(
-                    group["trip_is_within_gtfs_scope"].all()
-                ),
             }
         )
-    return pd.DataFrame(rows, columns=columns)
+    return add_block_feasibility(
+        pd.DataFrame(rows, columns=columns), vehicle_specs or {}
+    )
