@@ -17,7 +17,7 @@ cd "$REPO_ROOT" || exit 1
 PIXI_ENV="${ROUTEE_PIXI_ENV:-hpc}"
 
 # --- Configuration ---
-MOBILITY_DB_DIR="/projects/teta/dmccabe/routee-transit-db-20260922"
+MOBILITY_DB_DIR="${ROUTEE_DB_DIR:-/projects/teta/dmccabe/routee-transit-db-20260922}"
 FEEDS_CSV="$MOBILITY_DB_DIR/feeds.csv"
 DATASETS_CSV="$MOBILITY_DB_DIR/datasets.csv"
 
@@ -33,20 +33,35 @@ PHASES="${ROUTEE_PHASES:-feeds precache analyze}"
 # public server refusing connections.
 export ROUTEE_OSMNX_CACHE="${ROUTEE_OSMNX_CACHE:-$REPO_ROOT/cache}"
 
-# overpass-api.de refuses TCP from NREL's egress NAT (192.174.62.50) on both
-# :80 and :443 — the whole site shares ~2 Overpass slots, so it is effectively
-# always blocked here. These mirrors serve the same worldwide data and were
-# verified reachable from a compute node; re-verify with
-# scripts/hpc/check_overpass_endpoints.py if downloads start failing again.
-export ROUTEE_OVERPASS_URLS="${ROUTEE_OVERPASS_URLS:-https://overpass.kumi.systems/api,https://overpass.private.coffee/api,https://overpass.monicz.dev/api}"
+# Local OSM extract. When this file exists, networks are read from it instead of
+# the Overpass API, which the Overpass project itself documents as the wrong
+# tool for bulk extraction. Unset or missing falls back to Overpass.
+ROUTEE_OSM_PBF="${ROUTEE_OSM_PBF:-/projects/teta/osm/us-latest.osm.pbf}"
+if [ -f "$ROUTEE_OSM_PBF" ]; then
+    export ROUTEE_OSM_PBF
+else
+    unset ROUTEE_OSM_PBF
+fi
+
+# Endpoint rotation order comes from routee.transit.osm_network (main instance
+# first, mirrors as fallback). overpass-api.de IP-banned this site's shared
+# egress NAT for ~2 weeks in Sept 2026; if that recurs, probe with
+# scripts/hpc/check_overpass_endpoints.py and set ROUTEE_OVERPASS_URLS to
+# whatever it reports as usable.
 
 # Datasets downloaded concurrently during pre-caching. The public Overpass
 # server grants ~2 slots per IP and blocks the node IP under heavier sustained
 # load, which is what failed the previous run.
-PRECACHE_PARALLEL_DOWNLOADS=2
+# Spread across the 4 rotating endpoints, so roughly one download each. The
+# benchmark in scripts/hpc/test_overpass_parallel.py saw 100% success at this
+# level; drop back to 2 if servers start refusing or rate-limiting.
+PRECACHE_PARALLEL_DOWNLOADS=4
 
-# Dataset analysis timeout in minutes (set to 0 to disable timeout)
-DATASET_TIMEOUT_MINUTES=240
+# Dataset analysis timeout in minutes (set to 0 to disable timeout).
+# Generous because scale_to_year expands every trip across a year of dates and
+# each one is predicted for all eight vehicle models. The 6-minute runtimes seen
+# while debugging were single-vehicle, date-limited runs and are not a guide.
+DATASET_TIMEOUT_MINUTES=480
 
 # Feed IDs to skip (space-separated list)
 # mdb-2297: Amtrak Vermonter (includes one bus route)
@@ -82,7 +97,8 @@ log "Repository: $REPO_ROOT"
 log "Pixi environment: $PIXI_ENV"
 log "Phases: $PHASES"
 log "osmnx cache: $ROUTEE_OSMNX_CACHE"
-log "Overpass endpoints: $ROUTEE_OVERPASS_URLS"
+log "OSM source: ${ROUTEE_OSM_PBF:-Overpass API}"
+log "Overpass endpoints: ${ROUTEE_OVERPASS_URLS:-<library default>}"
 
 mkdir -p "$MOBILITY_DB_DIR"
 
@@ -191,6 +207,12 @@ while IFS=$'\t' read -r feed_id latest_dataset_id has_shapes has_errors includes
     fi
     if [ ! -d "$GTFS_DIR" ]; then
         log "Warning: GTFS directory $GTFS_DIR does not exist. Skipping."
+        continue
+    fi
+
+    # With ONLY_CACHED=1, skip anything that would have to hit Overpass.
+    if [ "${ONLY_CACHED:-0}" = "1" ] && \
+       [ ! -f "$DATASET_DIR/results/compass_app/transit_speed_model.onnx" ]; then
         continue
     fi
 
