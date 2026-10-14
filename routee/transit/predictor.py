@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 import shutil
 
 import geopandas as gpd
-import osmnx as ox
 import pandas as pd
 import tomlkit
 from gtfsblocks import Feed, filter_blocks_by_route
@@ -53,6 +52,8 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_trips,
 )
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
+from routee.transit.osm_local import graph_from_local_pbf, local_pbf_path
+from routee.transit.osm_network import graph_from_polygon_with_retry
 from routee.transit.speed_model import (
     DEFAULT_SPEED_MODEL_DIR,
     insert_transit_speed_config,
@@ -588,7 +589,7 @@ class GTFSEnergyPredictor:
         Instead of downloading the entire rectangular bounding box of all
         shapes (which wastes memory for long/diagonal routes), this method
         builds a corridor polygon by buffering the actual shape geometries.
-        The polygon is passed to ``ox.graph_from_polygon`` so only road
+        The polygon is passed to ``graph_from_polygon_with_retry`` so only road
         network data near the transit routes is downloaded.
 
         Args:
@@ -768,10 +769,15 @@ class GTFSEnergyPredictor:
             f"(bounds: {new_bbox}, buffer: {buffer_deg}°, deadhead_buffer: {deadhead_buffer_deg}°)"
         )
 
-        graph = ox.graph_from_polygon(
-            corridor_polygon,
-            network_type="drive",
-        )
+        pbf_path = local_pbf_path()
+        if pbf_path is not None:
+            logger.info(f"Building graph from local OSM extract {pbf_path}")
+            graph = graph_from_local_pbf(corridor_polygon, pbf_path)
+        else:
+            graph = graph_from_polygon_with_retry(
+                corridor_polygon,
+                network_type="drive",
+            )
         self.app = cast(
             TransitCompassApp,
             TransitCompassApp.from_graph(
