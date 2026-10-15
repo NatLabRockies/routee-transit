@@ -133,5 +133,78 @@ class TestBlockFeasibility(unittest.TestCase):
         self.assertTrue(empty.empty)
 
 
+class TestMultiAgencyBlocks(unittest.TestCase):
+    def _trips(self, agencies: list[str], dates: list[str]) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "vehicle": ["bus"] * len(agencies) * len(dates),
+                "date": pd.to_datetime([date for date in dates for _ in agencies]),
+                "block_id": ["1"] * len(agencies) * len(dates),
+                "trip_id": [f"T{i}" for i in range(len(agencies) * len(dates))],
+                "trip_type": ["service"] * len(agencies) * len(dates),
+                "route_id": ["101"] * len(agencies) * len(dates),
+                "agency_id": agencies * len(dates),
+                "energy_used": [10.0] * len(agencies) * len(dates),
+                "energy_unit": ["kWh"] * len(agencies) * len(dates),
+            }
+        )
+
+    def test_all_agencies_recorded_sorted_and_deduplicated(self) -> None:
+        blocks = aggregate_block_predictions(
+            self._trips(["B", "A", "B"], ["2026-01-05"])
+        )
+        self.assertEqual(blocks["agency_ids"].tolist(), [["A", "B"]])
+
+    def test_single_agency_is_a_one_element_list(self) -> None:
+        blocks = aggregate_block_predictions(self._trips(["A", "A"], ["2026-01-05"]))
+        self.assertEqual(blocks["agency_ids"].tolist(), [["A"]])
+
+    def test_no_warning_for_multi_agency_blocks(self) -> None:
+        trips = self._trips(["A", "B"], ["2026-01-05", "2026-01-06", "2026-01-07"])
+        with self.assertNoLogs("routee.transit.results", level="WARNING"):
+            blocks = aggregate_block_predictions(trips)
+        self.assertEqual(len(blocks), 3)
+        self.assertTrue(all(a == ["A", "B"] for a in blocks["agency_ids"]))
+
+
+class TestDeadheadOnlyBlocks(unittest.TestCase):
+    def _trips(self, trip_types: list[str], dates: list[str]) -> pd.DataFrame:
+        n = len(trip_types) * len(dates)
+        return pd.DataFrame(
+            {
+                "vehicle": ["bus"] * n,
+                "date": pd.to_datetime([date for date in dates for _ in trip_types]),
+                "block_id": ["1"] * n,
+                "trip_id": [f"T{i}" for i in range(n)],
+                "trip_type": trip_types * len(dates),
+                "route_id": ["101"] * n,
+                "agency_id": ["A"] * n,
+                "energy_used": [10.0] * n,
+                "energy_unit": ["kWh"] * n,
+            }
+        )
+
+    def test_block_without_revenue_service_is_dropped(self) -> None:
+        trips = self._trips(["pull-out", "pull-in"], ["2026-01-05"])
+        with self.assertLogs("routee.transit.results", level="WARNING") as logs:
+            blocks = aggregate_block_predictions(trips)
+        self.assertTrue(blocks.empty)
+        self.assertIn("Dropped 1 block(s)", logs.output[0])
+
+    def test_drop_warning_emitted_once_across_dates(self) -> None:
+        trips = self._trips(["pull-in"], ["2026-01-05", "2026-01-06", "2026-01-07"])
+        with self.assertLogs("routee.transit.results", level="WARNING") as logs:
+            aggregate_block_predictions(trips)
+        self.assertEqual(len(logs.output), 1)
+
+    def test_block_keeps_deadhead_when_service_survives(self) -> None:
+        trips = self._trips(["service", "pull-in"], ["2026-01-05"])
+        with self.assertNoLogs("routee.transit.results", level="WARNING"):
+            blocks = aggregate_block_predictions(trips)
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks["energy_used_without_deadhead"].tolist(), [10.0])
+        self.assertEqual(blocks["energy_used_with_deadhead"].tolist(), [20.0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,7 +35,16 @@ if __name__ == "__main__":
         "Transit_Bus_Electric_60ft_600kWh",
         "Transit_Bus_Diesel_40ft",
         "Transit_Bus_Diesel_60ft",
+        "Transit_Bus_CNG_40ft",
+        "Transit_Bus_CNG_60ft",
+        "Transit_Bus_Hybrid_40ft",
+        "Transit_Bus_Hybrid_60ft",
     ]
+
+    # The app only consumes the aggregated trip results; these exports are large
+    # and only needed for deeper analysis.
+    save_daily_results = False
+    save_link_results = False
 
     # Set to True to (re)download the GTFS feeds before running predictions
     gather_feeds = False
@@ -47,16 +56,15 @@ if __name__ == "__main__":
                 "python",
                 "scripts/feeds/gather_feeds.py",
                 "--db_root",
-                "reports/fta_results_100626",
+                "reports/fta_results_100826",
                 "--feed_ids",
-                "mdb-179",
                 "mdb-205",
                 "mdb-247",
                 "mdb-267",
             ]
         )
 
-    db_root = package_root().parents[1] / "reports" / "fta_results_100626"
+    db_root = package_root().parents[1] / "reports" / "fta_results_100826"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -84,18 +92,50 @@ if __name__ == "__main__":
         )
 
         # Run entire pipeline across all service dates
-        results = predictor.run(
+        daily_results = predictor.run(
             date=None,
             routes=None,
             add_mid_block_deadhead=True,
             add_depot_deadhead=True,
             add_hvac=True,
             scale_to_year=True,
+            save_results=False,
+        )
+        predictor.save_results(
+            save_trip_level=save_daily_results,
+            save_link_level=save_link_results,
         )
 
+        # The FTA app expects one row per (trip, vehicle), so collapse the date
+        # dimension: average the date-varying energy columns and record how many
+        # days each trip operates. All remaining columns are date-invariant.
+        date_varying = {"energy_used", "mpge", "hvac_energy_kWh"}
+        dropped = {"date", "trip_is_within_gtfs_scope"}
+        avg_cols = [c for c in daily_results.columns if c in date_varying]
+        group_cols = [
+            c for c in daily_results.columns if c not in date_varying | dropped
+        ]
+        trip_counts = (
+            daily_results.groupby("trip_id")
+            .agg(trip_count=("date", "nunique"))
+            .reset_index()
+        )
+        results = daily_results.groupby(group_cols, as_index=False, dropna=False)[
+            avg_cols
+        ].mean()
+        results = results.merge(trip_counts, on="trip_id", how="left")
+
+        if save_daily_results:
+            # save_results() already claimed the trip filename for the daily export.
+            daily_path = output_directory / "trip_energy_predictions.csv"
+            daily_path.replace(output_directory / "trip_energy_by_day.csv")
+        results.to_csv(output_directory / "trip_energy_predictions.csv", index=False)
+
         logger.info(
-            "Finished %d daily predictions for %s in %.1f seconds; results are in %s",
+            "Finished %d aggregated predictions (%d daily) for %s in %.1f seconds; "
+            "results are in %s",
             len(results),
+            len(daily_results),
             d_id,
             time.time() - start_time,
             output_directory,

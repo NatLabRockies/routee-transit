@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Mapping
+from typing import cast
 
 import pandas as pd
 from gtfsblocks import Feed
@@ -183,6 +184,36 @@ def add_block_feasibility(
     return blocks
 
 
+def _grouped_id_lists(
+    frame: pd.DataFrame, keys: list[str], column: str, index: pd.MultiIndex
+) -> pd.Series:
+    """Collect each group's sorted, deduplicated non-null values from ``column``.
+
+    Parameters
+    ----------
+    frame : pd.DataFrame
+            Rows to aggregate, containing ``keys`` and optionally ``column``.
+    keys : list of str
+            Grouping columns.
+    column : str
+            Column whose values are collected. Missing columns yield empty lists.
+    index : pd.MultiIndex
+            Groups to report, in output order.
+
+    Returns
+    -------
+    pd.Series
+            Lists aligned to ``index``; groups with no values get an empty list.
+    """
+    if column not in frame:
+        return pd.Series([[] for _ in range(len(index))], index=index, dtype=object)
+    # Deduplicating first keeps the per-group Python list build small.
+    pairs = frame[keys + [column]].dropna(subset=[column]).drop_duplicates()
+    lists = pairs.sort_values(column).groupby(keys, sort=False)[column].agg(list)
+    aligned = lists.reindex(index)
+    return aligned.where(aligned.notna(), pd.Series([[]] * len(index), index=index))
+
+
 def aggregate_block_predictions(
     trips: pd.DataFrame, vehicle_specs: Mapping[str, VehicleSpec] | None = None
 ) -> pd.DataFrame:
@@ -200,7 +231,8 @@ def aggregate_block_predictions(
     -------
     pd.DataFrame
             One row per vehicle/date/block with both energy totals, feasibility
-            flags, revenue route IDs and agency metadata. Unassigned trips are
+            flags, and the revenue route and agency IDs the block covers.
+            Unassigned trips and blocks with no surviving revenue service are
             excluded; an empty result retains its column schema.
     """
     columns = [
@@ -210,42 +242,49 @@ def aggregate_block_predictions(
         "energy_used_without_deadhead",
         "energy_used_with_deadhead",
         "energy_unit",
-        "routes_covered",
-        "agency_id",
+        "route_ids",
+        "agency_ids",
     ]
-    rows: list[dict[str, object]] = []
+    keys = ["vehicle", "date", "block_id"]
+    empty = pd.DataFrame(columns=columns)
     assigned = trips.loc[usable_block_ids(trips)]
     if assigned.empty:
-        return add_block_feasibility(pd.DataFrame(columns=columns), {})
-    for _, group in assigned.groupby(["vehicle", "date", "block_id"], sort=True):
-        units = group["energy_unit"].dropna().unique()
-        if len(units) != 1 or group["energy_unit"].isna().any():
-            raise ValueError("Block predictions have mixed or missing energy units")
-        service = group.loc[group["trip_type"].eq("service")]
-        agencies: list[object] = (
-            service["agency_id"].dropna().drop_duplicates().tolist()
-            if "agency_id" in service
-            else []
-        )
-        if len(agencies) > 1:
-            logger.warning(
-                "Block %s contains multiple agencies", group.iloc[0]["block_id"]
-            )
-        row = group.iloc[0]
-        rows.append(
-            {
-                "vehicle": row["vehicle"],
-                "date": row["date"],
-                "block_id": row["block_id"],
-                "energy_used_without_deadhead": service["energy_used"].sum(),
-                "energy_used_with_deadhead": group["energy_used"].sum(),
-                "energy_unit": units[0],
-                "routes_covered": sorted(service["route_id"].dropna().unique().tolist())
-                if "route_id" in service
-                else [],
-                "agency_id": agencies[0] if len(agencies) == 1 else None,
-            }
-        )
-    return add_block_feasibility(
-        pd.DataFrame(rows, columns=columns), vehicle_specs or {}
+        return add_block_feasibility(empty, {})
+
+    grouped = assigned.groupby(keys, sort=True)
+    units = grouped["energy_unit"].agg(
+        distinct="nunique", present="count", total="size"
     )
+    if (units["distinct"] != 1).any() or (units["present"] != units["total"]).any():
+        raise ValueError("Block predictions have mixed or missing energy units")
+
+    totals = grouped.agg(
+        energy_used_with_deadhead=("energy_used", "sum"),
+        energy_unit=("energy_unit", "first"),
+    )
+    service = assigned.loc[assigned["trip_type"].eq("service")]
+    revenue = service.groupby(keys, sort=True)["energy_used"].sum()
+
+    # Deadhead without revenue service means the block's service trips were
+    # dropped upstream, so the remaining total is not a real block.
+    dropped = totals.index.difference(revenue.index)
+    if not dropped.empty:
+        deadhead_only_blocks = set(dropped.get_level_values("block_id"))
+        sample = sorted(str(block) for block in deadhead_only_blocks)[:5]
+        logger.warning(
+            "Dropped %d block(s) containing only deadhead trips; their revenue "
+            "service was excluded upstream (e.g. %s)",
+            len(deadhead_only_blocks),
+            ", ".join(sample),
+        )
+        totals = totals.drop(index=dropped)
+    if totals.empty:
+        return add_block_feasibility(empty, vehicle_specs or {})
+
+    groups = cast(pd.MultiIndex, totals.index)
+    blocks = totals.assign(
+        energy_used_without_deadhead=revenue,
+        route_ids=_grouped_id_lists(service, keys, "route_id", groups),
+        agency_ids=_grouped_id_lists(service, keys, "agency_id", groups),
+    ).reset_index()
+    return add_block_feasibility(blocks[columns], vehicle_specs or {})

@@ -2027,6 +2027,8 @@ class GTFSEnergyPredictor:
         save_geometry: bool = True,
         save_inputs: bool = False,
         save_tods: bool = True,
+        save_trip_level: bool = True,
+        save_link_level: bool = True,
         save_block_level: bool = True,
         save_vehicle_specs: bool = True,
     ) -> None:
@@ -2036,11 +2038,14 @@ class GTFSEnergyPredictor:
         Args:
             output_dir: Directory to save results. If None, uses self.output_dir,
                 defaulting to the current working directory if that is also None.
-            save_geometry: Whether to save link geometry separately
+            save_geometry: Whether to save link geometry separately. Has no
+                effect if ``save_link_level`` is False.
             save_inputs: Whether to save RouteE input features
             save_tods: Whether to write TODS supplement files for deadhead trips.
                 Files are written to a ``tods/`` subdirectory. Has no effect if
                 no deadhead trips were added.
+            save_trip_level: Whether to export daily trip energy predictions.
+            save_link_level: Whether to export link energy predictions.
             save_block_level: Whether to export daily block energy predictions.
             save_vehicle_specs: Whether to export the vehicle capacity summary
                 that block feasibility flags are derived from.
@@ -2061,7 +2066,7 @@ class GTFSEnergyPredictor:
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Save link-level predictions
-        if "link" in self.energy_predictions:
+        if save_link_level and "link" in self.energy_predictions:
             link_df = self.energy_predictions["link"].copy()
 
             # Optionally save geometry separately
@@ -2077,7 +2082,7 @@ class GTFSEnergyPredictor:
             logger.info(f"Saved link predictions to {link_path}")
 
         # Save trip-level predictions
-        if "trip" in self.energy_predictions:
+        if save_trip_level and "trip" in self.energy_predictions:
             trip_df = self.energy_predictions["trip"].copy()
             # If feed_id and dataset_id are supplied, add these columns
             if self.dataset_id is not None:
@@ -2092,7 +2097,8 @@ class GTFSEnergyPredictor:
 
         if save_block_level and "block" in self.energy_predictions:
             block_df = self.energy_predictions["block"].copy()
-            block_df["routes_covered"] = block_df["routes_covered"].map(json.dumps)
+            for column in ("route_ids", "agency_ids"):
+                block_df[column] = block_df[column].map(json.dumps)
             block_path = output_path / "block_energy_predictions.csv"
             block_df.to_csv(block_path, index=False, date_format="%Y-%m-%d")
             logger.info(f"Saved block predictions to {block_path}")

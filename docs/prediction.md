@@ -102,18 +102,18 @@ Block results have one row per `vehicle`, `date`, and usable `block_id`:
 | `energy_used_without_deadhead` | Sum of modeled revenue service trip energy, including HVAC when enabled |
 | `energy_used_with_deadhead` | Sum of all modeled trip energy, including pull-out, pull-in, and mid-block deadhead |
 | `energy_unit` | The vehicle model's output unit; incompatible units cannot be combined |
-| `routes_covered` | Sorted unique revenue route IDs, excluding synthetic deadhead routes |
-| `agency_id` | Revenue agency ID when unambiguous; unset with a warning for multi-agency blocks |
+| `route_ids` | Sorted unique revenue route IDs, excluding synthetic deadhead routes |
+| `agency_ids` | Sorted unique revenue agency IDs; a block interlined across agencies lists all of them |
 | `feasible_without_deadhead` | Whether revenue energy fits the vehicle's usable capacity; unset for models without declared capacity |
 | `feasible_with_deadhead` | Whether total energy including deadhead fits the vehicle's usable capacity |
 
 Feasibility compares each total against `capacity * usable_capacity_fraction` from the vehicle model config. `save_results()` exports those capacities to `vehicles.csv`; pass `save_vehicle_specs=False` to skip it.
 
-Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. Deadhead-only groups have zero revenue energy and an empty route list.
+Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. A block left with only deadhead trips is dropped entirely, with a single warning counting the affected blocks, since its revenue service was excluded upstream and the remaining total is not a meaningful block.
 
 Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.
 
-`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included in the trip export when supplied. Use `save_results(save_block_level=False)` to omit the block export. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
+`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route and agency lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included in the trip export when supplied. Each export can be skipped independently with `save_trip_level=False`, `save_link_level=False`, or `save_block_level=False`. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
 
 # Using the GTFSEnergyPredictor Class
 

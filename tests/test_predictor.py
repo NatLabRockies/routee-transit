@@ -403,7 +403,7 @@ class TestPredictEnergyMPGe(unittest.TestCase):
                 dtype={"block_id": str},
             )
             self.assertEqual(blocks["block_id"].tolist(), ["001"])
-            self.assertEqual(json.loads(blocks.iloc[0]["routes_covered"]), ["101"])
+            self.assertEqual(json.loads(blocks.iloc[0]["route_ids"]), ["101"])
             self.assertEqual(blocks.iloc[0]["date"], "2026-01-05")
             for column in (
                 "feed_id",
