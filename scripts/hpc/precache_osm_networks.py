@@ -198,9 +198,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--requests-timeout",
-        type=float,
-        default=300.0,
-        help="Per-request Overpass timeout in seconds (default: 300)",
+        type=int,
+        default=300,
+        help=(
+            "Per-request Overpass timeout in seconds (default: 300). Must be an "
+            "integer -- osmnx interpolates it into the query as [timeout:N], and "
+            "Overpass rejects a non-integer with 400 Bad Request."
+        ),
     )
     parser.add_argument(
         "--report",
@@ -223,7 +227,7 @@ def main() -> None:
         Path(cache_folder).mkdir(parents=True, exist_ok=True)
         ox.settings.cache_folder = str(cache_folder)
     # The community mirrors answer far slower than the main instance.
-    ox.settings.requests_timeout = args.requests_timeout
+    ox.settings.requests_timeout = int(args.requests_timeout)
     print(f"osmnx cache folder: {ox.settings.cache_folder}")
     print(f"Overpass endpoints: {', '.join(overpass_endpoints())}")
 

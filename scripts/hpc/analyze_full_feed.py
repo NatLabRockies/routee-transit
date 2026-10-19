@@ -14,12 +14,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
-import geopandas as gpd
 import pandas as pd
-from shapely.geometry import LineString
 
 from routee.transit import GTFSEnergyPredictor
 from routee.transit.speed_model import DEFAULT_SPEED_MODEL_DIR
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# Shared with the FTA sample script so both emit the same route/energy schema.
+from fta_app_sample_results import build_routes_gdf  # noqa: E402
 
 VEHICLE_MODELS = [
     "Transit_Bus_Electric_40ft_300kWh",
@@ -37,51 +40,32 @@ class DatasetTimeout(Exception):
     """Raised when a dataset exceeds its configured wall-clock limit."""
 
 
-def build_routes_gdf(gtfs_path: Path) -> gpd.GeoDataFrame:
-    """Build one representative shape per route for downstream consumers."""
-    routes = pd.read_csv(gtfs_path / "routes.txt")
-    trips = pd.read_csv(gtfs_path / "trips.txt")
-    shapes = pd.read_csv(gtfs_path / "shapes.txt")
+def average_across_dates(results: pd.DataFrame) -> pd.DataFrame:
+    """Collapse the date dimension to one row per (trip, vehicle).
 
-    shape_counts = (
-        trips.groupby(["route_id", "shape_id"])
-        .size()
-        .rename("trip_count")
-        .reset_index()
+    Energy and efficiency are averaged over the dates a trip runs; columns that
+    only vary by date are dropped. ``trip_count`` records how many dates each
+    trip ran, so annual totals stay recoverable from the averaged table.
+    """
+    date_cols = {"date", "hvac_energy_kWh", "trip_is_within_gtfs_scope"}
+    avg_cols = [c for c in results.columns if c in {"energy_used", "mpge"}]
+    group_cols = [c for c in results.columns if c not in date_cols | set(avg_cols)]
+
+    if "date" not in results.columns:
+        averaged = results.copy()
+        averaged["trip_count"] = 1
+        averaged["scenario"] = "median"
+        return averaged
+
+    trip_counts = (
+        results.groupby("trip_id").agg(trip_count=("date", "nunique")).reset_index()
     )
-    representative = shape_counts.loc[
-        shape_counts.groupby("route_id")["trip_count"].idxmax()
-    ].reset_index(drop=True)
-
-    route_columns = ["route_id", "route_short_name"]
-    if "agency_id" in routes.columns:
-        route_columns.append("agency_id")
-    if "route_color" in routes.columns:
-        route_columns.append("route_color")
-    representative = representative.merge(
-        routes[route_columns], on="route_id", how="left"
-    )
-
-    lines: list[dict[str, object]] = []
-    selected_shapes = shapes[shapes["shape_id"].isin(representative["shape_id"])]
-    for shape_id, shape_points in selected_shapes.sort_values(
-        ["shape_id", "shape_pt_sequence"]
-    ).groupby("shape_id"):
-        if len(shape_points) >= 2:
-            lines.append(
-                {
-                    "shape_id": shape_id,
-                    "geometry": LineString(
-                        zip(shape_points["shape_pt_lon"], shape_points["shape_pt_lat"])
-                    ),
-                }
-            )
-
-    shape_lines = pd.DataFrame(lines)
-    output = representative.merge(shape_lines, on="shape_id", how="left").drop(
-        columns="trip_count"
-    )
-    return gpd.GeoDataFrame(output, geometry="geometry", crs="EPSG:4326")
+    averaged = results.groupby(group_cols, as_index=False, dropna=False)[
+        avg_cols
+    ].mean()
+    averaged = averaged.merge(trip_counts, on="trip_id", how="left")
+    averaged["scenario"] = "median"
+    return averaged
 
 
 def calculate_mpge(row: pd.Series) -> float:
@@ -163,6 +147,7 @@ def main() -> int:
             "started_at": started_at,
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "duration_minutes": round((time.time() - start_time) / 60, 2),
+            "includes_deadhead": includes_deadhead,
             "failure_type": failure_type,
             "exception_type": type(error).__name__ if error else None,
             "error_summary": str(error) if error else None,
@@ -188,6 +173,7 @@ def main() -> int:
 
     speed_model_dir = args.speed_model_dir or DEFAULT_SPEED_MODEL_DIR
     logger.info("Using speed model directory: %s", speed_model_dir)
+    includes_deadhead = False
 
     try:
         predictor = GTFSEnergyPredictor(
@@ -199,19 +185,56 @@ def main() -> int:
             speed_model_dir=speed_model_dir,
             overwrite=False,
         )
-        predictions = predictor.run(
-            add_mid_block_deadhead=False,
-            add_depot_deadhead=False,
-            add_hvac=True,
-            save_results=False,
-        )
+        includes_deadhead = True
+        try:
+            predictions = predictor.run(
+                add_mid_block_deadhead=True,
+                add_depot_deadhead=True,
+                add_hvac=True,
+                scale_to_year=True,
+                save_results=False,
+            )
+        except (DatasetTimeout, KeyboardInterrupt):
+            raise
+        except Exception as error:
+            # Cached networks were built around revenue shapes only, so depots
+            # and deadhead paths can fall outside the graph. Revenue-only
+            # results are still worth having.
+            logger.warning(
+                "Deadhead routing failed for %s (%s: %s); retrying without it",
+                dataset_id,
+                type(error).__name__,
+                str(error)[:200],
+            )
+            includes_deadhead = False
+            predictor = GTFSEnergyPredictor(
+                gtfs_path=input_dir,
+                n_processes=args.n_processes,
+                vehicle_models=VEHICLE_MODELS,
+                output_dir=output_dir,
+                dataset_id=dataset_id,
+                speed_model_dir=speed_model_dir,
+                overwrite=False,
+            )
+            predictions = predictor.run(
+                add_mid_block_deadhead=False,
+                add_depot_deadhead=False,
+                add_hvac=True,
+                scale_to_year=True,
+                save_results=False,
+            )
 
         if predictions.empty:
             logger.info("No valid trips to analyze")
             write_status("skipped", 0)
             return 0
 
-        predictions.to_csv(output_dir / "trip_energy_predictions.csv", index=False)
+        predictions.to_csv(
+            output_dir / "trip_energy_predictions_daily.csv", index=False
+        )
+        averaged = average_across_dates(predictions)
+        averaged.to_csv(output_dir / "trip_energy_predictions.csv", index=False)
+
         try:
             get_t3co_inputs(predictions).to_csv(
                 output_dir / "t3co_inputs.csv", index=False
@@ -220,14 +243,19 @@ def main() -> int:
             logger.info("Skipping T3CO output: %s", error)
 
         try:
-            build_routes_gdf(input_dir).to_file(
+            build_routes_gdf(predictor.feed, averaged).to_file(
                 output_dir / "routes.geojson", driver="GeoJSON"
             )
         except Exception as error:
             logger.warning("Failed to generate routes.geojson: %s", error)
 
         write_status("success", 0)
-        logger.info("Completed %s with %d predictions", dataset_id, len(predictions))
+        logger.info(
+            "Completed %s with %d daily / %d averaged predictions",
+            dataset_id,
+            len(predictions),
+            len(averaged),
+        )
         terminate_worker(0)
     except DatasetTimeout as error:
         logger.error("%s", error)
