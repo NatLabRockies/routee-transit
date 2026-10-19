@@ -8,6 +8,7 @@ This module provides functions to:
   with geographic proximity.
 """
 
+import logging
 import re
 from pathlib import Path
 from typing import TypedDict
@@ -17,6 +18,13 @@ import numpy as np
 import pandas as pd
 from geopy.distance import geodesic
 from rapidfuzz.fuzz import WRatio, ratio
+
+logger = logging.getLogger(__name__)
+
+# Give up on geocoding once the service has failed this many times in a row.
+# A blocked or rate-limited geocoder otherwise burns the rate limiter's delay
+# plus retry backoff on every remaining facility.
+MAX_CONSECUTIVE_GEOCODE_FAILURES = 3
 
 # ---------------------------------------------------------------------------
 # NTD facility inventory constants
@@ -122,7 +130,9 @@ def _geocode_facilities(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     df = df.copy()
-    for idx in df.index[missing_mask]:
+    pending = list(df.index[missing_mask])
+    consecutive_failures = 0
+    for position, idx in enumerate(pending):
         row = df.loc[idx]
         parts: list[str] = []
         for field in ("Street Address", "City", "State"):
@@ -152,8 +162,17 @@ def _geocode_facilities(df: pd.DataFrame) -> pd.DataFrame:
             if location is not None:
                 df.at[idx, "Latitude"] = float(location.latitude)
                 df.at[idx, "Longitude"] = float(location.longitude)
+            consecutive_failures = 0
         except (GeocoderTimedOut, GeocoderServiceError):
-            pass
+            consecutive_failures += 1
+            if consecutive_failures >= MAX_CONSECUTIVE_GEOCODE_FAILURES:
+                logger.warning(
+                    "Geocoder unavailable after %d consecutive failures; "
+                    "leaving %d remaining facility address(es) ungeocoded",
+                    consecutive_failures,
+                    len(pending) - position - 1,
+                )
+                break
     return df
 
 
