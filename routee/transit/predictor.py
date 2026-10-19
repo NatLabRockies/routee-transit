@@ -54,7 +54,9 @@ from routee.transit.mid_block_deadhead import (
 )
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.results import (
+    BLOCK_ROUTE_LIST_COLUMNS,
     aggregate_block_predictions,
+    build_route_shapes,
     build_trip_dates,
     usable_block_ids,
 )
@@ -248,6 +250,7 @@ class GTFSEnergyPredictor:
         feed_id: str | None = None,
         dataset_id: str | None = None,
         speed_model_dir: str | Path | None = None,
+        explode_block_routes: bool = False,
     ) -> None:
         """
         Initialize the GTFSEnergyPredictor.
@@ -273,6 +276,12 @@ class GTFSEnergyPredictor:
                 ``export_speed_model_onnx.py``. When omitted, uses the bundled
                 random-forest baseline model. A supplied directory overrides
                 that baseline for specialized applications.
+            explode_block_routes: If True, block results carry one row per
+                block and revenue route with scalar ``route_id`` and
+                ``agency_id`` columns, repeating the block's energy totals on
+                each row. Intended for consumers such as relational databases
+                that cannot store the default ``route_ids``/``agency_ids``
+                lists.
         """
         self.gtfs_path = Path(gtfs_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
@@ -285,6 +294,7 @@ class GTFSEnergyPredictor:
         self.speed_model_dir = (
             Path(speed_model_dir) if speed_model_dir else DEFAULT_SPEED_MODEL_DIR
         )
+        self.explode_block_routes = explode_block_routes
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -1942,7 +1952,9 @@ class GTFSEnergyPredictor:
                     unassigned["trip_id"].nunique(),
                 )
             self.energy_predictions["block"] = aggregate_block_predictions(
-                daily_trips, vehicle_specs=load_vehicle_specs(vehicle_models_list)
+                daily_trips,
+                vehicle_specs=load_vehicle_specs(vehicle_models_list),
+                explode_routes=self.explode_block_routes,
             )
             for model_name in vehicle_models_list:
                 trip_key = f"{model_name}_trip"
@@ -2030,6 +2042,7 @@ class GTFSEnergyPredictor:
         save_trip_level: bool = True,
         save_link_level: bool = True,
         save_block_level: bool = True,
+        save_route_shapes: bool = True,
         save_vehicle_specs: bool = True,
     ) -> None:
         """
@@ -2047,6 +2060,8 @@ class GTFSEnergyPredictor:
             save_trip_level: Whether to export daily trip energy predictions.
             save_link_level: Whether to export link energy predictions.
             save_block_level: Whether to export daily block energy predictions.
+            save_route_shapes: Whether to export per-route energy summaries on
+                each route's most common shape as ``routes.geojson``.
             save_vehicle_specs: Whether to export the vehicle capacity summary
                 that block feasibility flags are derived from.
 
@@ -2097,11 +2112,20 @@ class GTFSEnergyPredictor:
 
         if save_block_level and "block" in self.energy_predictions:
             block_df = self.energy_predictions["block"].copy()
-            for column in ("route_ids", "agency_ids"):
-                block_df[column] = block_df[column].map(json.dumps)
+            for column in BLOCK_ROUTE_LIST_COLUMNS:
+                if column in block_df:
+                    block_df[column] = block_df[column].map(json.dumps)
             block_path = output_path / "block_energy_predictions.csv"
             block_df.to_csv(block_path, index=False, date_format="%Y-%m-%d")
             logger.info(f"Saved block predictions to {block_path}")
+
+        if save_route_shapes and "trip" in self.energy_predictions:
+            routes_gdf = build_route_shapes(
+                self.trips, self.shapes, self.energy_predictions["trip"]
+            )
+            routes_path = output_path / "routes.geojson"
+            routes_gdf.to_file(routes_path, driver="GeoJSON")
+            logger.info(f"Saved {len(routes_gdf)} route shapes to {routes_path}")
 
         if save_vehicle_specs:
             specs_df = vehicle_specs_table(

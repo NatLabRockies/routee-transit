@@ -24,7 +24,7 @@ trip_results = predictor.run(
 block_results = predictor.get_block_predictions()
 ```
 
-Trip predictions are daily for every vehicle model, including runs without HVAC. Block results contain one row per vehicle, service date, and block ID, with `energy_used_without_deadhead` and `energy_used_with_deadhead`. Deadhead totals include only inferred trips requested in `run()`. Results are exported to `block_energy_predictions.csv` alongside the existing trip and link files.
+Trip predictions are daily for every vehicle model, including runs without HVAC. Block results contain one row per vehicle, service date, and block ID, with `energy_used_without_deadhead` and `energy_used_with_deadhead`. Deadhead totals include only inferred trips requested in `run()`. Results are exported to `block_energy_predictions.csv` alongside the existing trip and link files, plus `routes.geojson` mapping per-route energy and efficiency onto each route's most common shape.
 
 Trips with missing or blank block IDs remain in trip results but are skipped in block summaries with a warning. Feeds without usable block IDs produce an empty block table and a header-only block CSV. See [daily trip and block results](docs/prediction.md#daily-trip-and-block-results) for calendar projection, column definitions, and export details.
 

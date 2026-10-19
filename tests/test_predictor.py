@@ -418,15 +418,50 @@ class TestPredictEnergyMPGe(unittest.TestCase):
             self.assertEqual(
                 blocks.iloc[0]["energy_used_with_deadhead"], trips["energy_used"].sum()
             )
+            routes = json.loads((Path(directory) / "routes.geojson").read_text())
+            self.assertEqual(len(routes["features"]), 1)
+            properties = routes["features"][0]["properties"]
+            self.assertEqual(properties["route_id"], "101")
+            self.assertEqual(properties["shape_id"], "SH1")
+            self.assertEqual(
+                properties["mean_energy_used"]["Transit_Bus_Battery_Electric"],
+                {"value": trips["energy_used"].mean(), "unit": "kWh"},
+            )
+            self.assertEqual(
+                properties["mean_efficiency"]["Transit_Bus_Battery_Electric"]["unit"],
+                "kWh/mi",
+            )
         pd.testing.assert_frame_equal(original_trip, results["trip"])
         pd.testing.assert_frame_equal(original_block, results["block"])
         with tempfile.TemporaryDirectory() as directory:
             self.predictor.save_results(
-                directory, save_tods=False, save_block_level=False
+                directory,
+                save_tods=False,
+                save_block_level=False,
+                save_route_shapes=False,
             )
             self.assertFalse(
                 (Path(directory) / "block_energy_predictions.csv").exists()
             )
+            self.assertFalse((Path(directory) / "routes.geojson").exists())
+
+    def test_exploded_block_routes_export_scalar_identifiers(self) -> None:
+        self.predictor.explode_block_routes = True
+        self.predictor.trips["route_id"] = ["101", "102"]
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        results = self._run_predict_energy(["Transit_Bus_Battery_Electric"])
+        self.assertEqual(results["block"]["route_id"].tolist(), ["101", "102"])
+        with tempfile.TemporaryDirectory() as directory:
+            self.predictor.save_results(directory, save_tods=False)
+            blocks = pd.read_csv(
+                Path(directory) / "block_energy_predictions.csv",
+                dtype={"block_id": str, "route_id": str},
+            )
+        self.assertEqual(blocks["route_id"].tolist(), ["101", "102"])
+        self.assertNotIn("route_ids", blocks.columns)
+        self.assertEqual(blocks["block_id"].tolist(), ["001", "001"])
 
     def test_empty_service_calendar(self) -> None:
         assert self.predictor.feed is not None

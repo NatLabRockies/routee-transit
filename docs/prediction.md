@@ -107,13 +107,29 @@ Block results have one row per `vehicle`, `date`, and usable `block_id`:
 | `feasible_without_deadhead` | Whether revenue energy fits the vehicle's usable capacity; unset for models without declared capacity |
 | `feasible_with_deadhead` | Whether total energy including deadhead fits the vehicle's usable capacity |
 
+#### One row per route
+
+Consumers that cannot store list-valued columns — relational databases in particular — can request an exploded block schema with `explode_block_routes=True` on the constructor:
+
+```python
+predictor = GTFSEnergyPredictor(
+    gtfs_path="path/to/gtfs",
+    vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
+    explode_block_routes=True,
+)
+```
+
+The `route_ids` and `agency_ids` lists are then replaced by scalar `route_id` and `agency_id` columns, and each block contributes one row per revenue route it covers, repeating the block's energy totals and feasibility flags on every row. Agency comes from `routes.txt`, so each route contributes exactly one pairing. Summing an energy column across the exploded rows therefore double counts interlined blocks; aggregate over distinct `vehicle`, `date`, and `block_id` first. Blocks whose revenue trips carry no route ID keep a single row with null identifiers. The default rolled-up schema is unchanged.
+
 Feasibility compares each total against `capacity * usable_capacity_fraction` from the vehicle model config. `save_results()` exports those capacities to `vehicles.csv`; pass `save_vehicle_specs=False` to skip it.
 
 Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. A block left with only deadhead trips is dropped entirely, with a single warning counting the affected blocks, since its revenue service was excluded upstream and the remaining total is not a meaningful block.
 
 Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.
 
-`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route and agency lists are JSON arrays in the CSV; dates use `YYYY-MM-DD`. Feed and dataset metadata are included in the trip export when supplied. Each export can be skipped independently with `save_trip_level=False`, `save_link_level=False`, or `save_block_level=False`. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
+`save_results()` writes `block_energy_predictions.csv` beside `trip_energy_predictions.csv` and `link_energy_predictions.csv`, including a header-only block file when no blocks qualify. Route and agency lists are JSON arrays in the CSV, or plain values under `explode_block_routes=True`; dates use `YYYY-MM-DD`. Feed and dataset metadata are included in the trip export when supplied. Each export can be skipped independently with `save_trip_level=False`, `save_link_level=False`, or `save_block_level=False`. The existing trip filename and the trip DataFrame returned by `run()` are unchanged.
+
+`save_results()` also writes `routes.geojson`, one EPSG:4326 feature per revenue route drawn on the shape its trips use most often. Each feature carries the route's identifiers, whichever of `route_short_name`, `agency_id`, and `route_color` the feed supplies, and the `mean_energy_used` and `mean_efficiency` objects keyed by vehicle model, each with a `value` and `unit`. Efficiency is reported as `kWh/mi` for models whose energy is in kWh and `mpg_diesel` otherwise, and mean energy is per trip day. Synthetic deadhead routes are excluded. Pass `save_route_shapes=False` to skip it.
 
 # Using the GTFSEnergyPredictor Class
 

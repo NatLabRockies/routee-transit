@@ -1,15 +1,52 @@
-"""Service dates and daily block totals shared by prediction and HVAC."""
+"""Service dates, daily block totals, and route summaries shared by prediction
+and HVAC."""
 
 import logging
 from collections.abc import Mapping
 from typing import cast
 
+import geopandas as gpd
 import pandas as pd
 from gtfsblocks import Feed
+from shapely.geometry import LineString
 
 from routee.transit.vehicle_specs import VehicleSpec
 
 logger = logging.getLogger(__name__)
+
+ROUTE_METADATA_COLUMNS = ("route_short_name", "agency_id", "route_color")
+BLOCK_ENERGY_COLUMNS = (
+    "vehicle",
+    "date",
+    "block_id",
+    "energy_used_without_deadhead",
+    "energy_used_with_deadhead",
+    "energy_unit",
+)
+#: Route columns of the default block schema, one list per block.
+BLOCK_ROUTE_LIST_COLUMNS = ("route_ids", "agency_ids")
+#: Route columns of the exploded block schema, one route per row.
+BLOCK_ROUTE_SCALAR_COLUMNS = ("route_id", "agency_id")
+
+
+def block_result_columns(explode_routes: bool = False) -> list[str]:
+    """Return the block result schema for the requested route representation.
+
+    Parameters
+    ----------
+    explode_routes : bool
+            If True, name the scalar route columns of the exploded schema
+            instead of the per-block list columns.
+
+    Returns
+    -------
+    list of str
+            Column names, excluding the feasibility flags appended later.
+    """
+    route_columns = (
+        BLOCK_ROUTE_SCALAR_COLUMNS if explode_routes else BLOCK_ROUTE_LIST_COLUMNS
+    )
+    return [*BLOCK_ENERGY_COLUMNS, *route_columns]
 
 
 def usable_block_ids(trips: pd.DataFrame) -> pd.Series:
@@ -214,8 +251,49 @@ def _grouped_id_lists(
     return aligned.where(aligned.notna(), pd.Series([[]] * len(index), index=index))
 
 
+def _exploded_block_routes(
+    blocks: pd.DataFrame, frame: pd.DataFrame, keys: list[str]
+) -> pd.DataFrame:
+    """Repeat each block row once per revenue route the block covers.
+
+    Parameters
+    ----------
+    blocks : pd.DataFrame
+            Block totals with ``keys`` as columns.
+    frame : pd.DataFrame
+            Revenue rows carrying ``keys`` and optionally route_id/agency_id.
+    keys : list of str
+            Grouping columns shared by both frames.
+
+    Returns
+    -------
+    pd.DataFrame
+            ``blocks`` with scalar route_id and agency_id columns. Blocks whose
+            rows carry no route ID keep a single row with null identifiers.
+    """
+    missing = pd.Series(pd.NA, index=blocks.index, dtype="string")
+    if "route_id" not in frame:
+        return blocks.assign(route_id=missing, agency_id=missing)
+    columns = keys + [
+        column for column in BLOCK_ROUTE_SCALAR_COLUMNS if column in frame
+    ]
+    pairs = (
+        frame[columns]
+        .dropna(subset=["route_id"])
+        # routes.txt gives each route one agency, so one pairing per route.
+        .drop_duplicates(subset=keys + ["route_id"])
+        .sort_values(keys + ["route_id"])
+    )
+    exploded = blocks.merge(pairs, on=keys, how="left")
+    if "agency_id" not in exploded:
+        exploded["agency_id"] = pd.Series(pd.NA, index=exploded.index, dtype="string")
+    return exploded
+
+
 def aggregate_block_predictions(
-    trips: pd.DataFrame, vehicle_specs: Mapping[str, VehicleSpec] | None = None
+    trips: pd.DataFrame,
+    vehicle_specs: Mapping[str, VehicleSpec] | None = None,
+    explode_routes: bool = False,
 ) -> pd.DataFrame:
     """Sum daily revenue and deadhead demand for assigned GTFS blocks.
 
@@ -226,25 +304,22 @@ def aggregate_block_predictions(
     vehicle_specs : Mapping of str to VehicleSpec or None
             Capacity metadata used to flag block feasibility. If None, the
             feasibility columns are present but null.
+    explode_routes : bool
+            If True, emit one row per vehicle, date, block and revenue route
+            with scalar route_id and agency_id columns, repeating the block's
+            energy totals on each row. If False (default), emit one row per
+            block carrying route_ids and agency_ids lists.
 
     Returns
     -------
     pd.DataFrame
             One row per vehicle/date/block with both energy totals, feasibility
-            flags, and the revenue route and agency IDs the block covers.
-            Unassigned trips and blocks with no surviving revenue service are
-            excluded; an empty result retains its column schema.
+            flags, and the revenue route and agency IDs the block covers, or one
+            row per covered route when ``explode_routes`` is True. Unassigned
+            trips and blocks with no surviving revenue service are excluded; an
+            empty result retains its column schema.
     """
-    columns = [
-        "vehicle",
-        "date",
-        "block_id",
-        "energy_used_without_deadhead",
-        "energy_used_with_deadhead",
-        "energy_unit",
-        "route_ids",
-        "agency_ids",
-    ]
+    columns = block_result_columns(explode_routes)
     keys = ["vehicle", "date", "block_id"]
     empty = pd.DataFrame(columns=columns)
     assigned = trips.loc[usable_block_ids(trips)]
@@ -282,9 +357,144 @@ def aggregate_block_predictions(
         return add_block_feasibility(empty, vehicle_specs or {})
 
     groups = cast(pd.MultiIndex, totals.index)
-    blocks = totals.assign(
-        energy_used_without_deadhead=revenue,
-        route_ids=_grouped_id_lists(service, keys, "route_id", groups),
-        agency_ids=_grouped_id_lists(service, keys, "agency_id", groups),
-    ).reset_index()
+    totals = totals.assign(energy_used_without_deadhead=revenue)
+    if explode_routes:
+        blocks = _exploded_block_routes(totals.reset_index(), service, keys)
+    else:
+        blocks = totals.assign(
+            route_ids=_grouped_id_lists(service, keys, "route_id", groups),
+            agency_ids=_grouped_id_lists(service, keys, "agency_id", groups),
+        ).reset_index()
     return add_block_feasibility(blocks[columns], vehicle_specs or {})
+
+
+def _route_energy_summary(group: pd.DataFrame) -> pd.Series:
+    """Summarize one route's per-vehicle energy use and efficiency.
+
+    Parameters
+    ----------
+    group : pd.DataFrame
+            One row per vehicle with summed energy_used and miles, the shared
+            energy_unit, and the number of trip days contributing.
+
+    Returns
+    -------
+    pd.Series
+            The mean_energy_used and mean_efficiency mappings, each keyed by
+            vehicle model and carrying a value and its unit.
+    """
+    mean_energy_used: dict[str, dict[str, str | float]] = {}
+    efficiency: dict[str, dict[str, str | float]] = {}
+    for _, row in group.iterrows():
+        vehicle, unit = str(row["vehicle"]), str(row["energy_unit"])
+        mean_energy_used[vehicle] = {
+            "value": row["energy_used"] / row["trip_days"],
+            "unit": unit,
+        }
+        if unit == "kWh":
+            efficiency[vehicle] = {
+                "value": row["energy_used"] / row["miles"],
+                "unit": "kWh/mi",
+            }
+        else:
+            efficiency[vehicle] = {
+                "value": row["miles"] / row["energy_used"],
+                "unit": "mpg_diesel",
+            }
+    return pd.Series(
+        {"mean_energy_used": mean_energy_used, "mean_efficiency": efficiency}
+    )
+
+
+def build_route_shapes(
+    trips: pd.DataFrame, shapes: pd.DataFrame, trip_predictions: pd.DataFrame
+) -> gpd.GeoDataFrame:
+    """Summarize energy by revenue route onto each route's most common shape.
+
+    Parameters
+    ----------
+    trips : pd.DataFrame
+            Trips with trip_id, route_id, shape_id, trip_type, and whatever
+            route metadata the feed supplied.
+    shapes : pd.DataFrame
+            Shape points with shape_id, shape_pt_lat, shape_pt_lon and
+            shape_pt_sequence.
+    trip_predictions : pd.DataFrame
+            Daily trip predictions with route_id, vehicle, energy_used, miles
+            and energy_unit.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+            One EPSG:4326 row per revenue route, carrying mean energy used per
+            trip day and mean efficiency keyed by vehicle model. Synthetic
+            deadhead routes are excluded; an empty result keeps the schema.
+    """
+    metadata = [column for column in ROUTE_METADATA_COLUMNS if column in trips.columns]
+    columns = [
+        "route_id",
+        "shape_id",
+        *metadata,
+        "mean_energy_used",
+        "mean_efficiency",
+        "geometry",
+    ]
+    service = trips.loc[trips["trip_type"].eq("service")]
+    predicted = trip_predictions.loc[trip_predictions["trip_type"].eq("service")]
+    if service.empty or predicted.empty:
+        return gpd.GeoDataFrame(
+            pd.DataFrame(columns=columns), geometry="geometry", crs="EPSG:4326"
+        )
+
+    # Represent each route by the shape its trips use most often.
+    shape_counts = (
+        service.groupby(["route_id", "shape_id"])["trip_id"]
+        .nunique()
+        .rename("trips")
+        .reset_index()
+    )
+    routes = (
+        shape_counts.sort_values(["trips", "shape_id"], ascending=[False, True])
+        .drop_duplicates("route_id")
+        .drop(columns="trips")
+        .reset_index(drop=True)
+    )
+    if metadata:
+        routes = routes.merge(
+            service.groupby("route_id")[metadata].first().reset_index(),
+            on="route_id",
+            how="left",
+        )
+
+    energy_by_vehicle = (
+        predicted.groupby(["route_id", "vehicle"])
+        .agg(
+            energy_used=("energy_used", "sum"),
+            miles=("miles", "sum"),
+            energy_unit=("energy_unit", "first"),
+            trip_days=("energy_used", "count"),
+        )
+        .reset_index()
+    )
+    summary = (
+        energy_by_vehicle.groupby("route_id")
+        # pandas-stubs' apply overloads don't account for the include_groups kwarg
+        .apply(_route_energy_summary, include_groups=False)  # type: ignore[call-overload]
+        .reset_index()
+    )
+    routes = routes.merge(summary, on="route_id", how="left")
+
+    points = shapes.loc[shapes["shape_id"].isin(routes["shape_id"])]
+    lines = (
+        points.sort_values(["shape_id", "shape_pt_sequence"])
+        .groupby("shape_id")
+        # pandas-stubs' apply overloads don't account for the include_groups kwarg
+        .apply(  # type: ignore[call-overload]
+            lambda shape: LineString(zip(shape["shape_pt_lon"], shape["shape_pt_lat"])),
+            include_groups=False,
+        )
+        .rename("geometry")
+        .reset_index()
+    )
+    routes = routes.merge(lines, on="shape_id", how="left")
+    return gpd.GeoDataFrame(routes[columns], geometry="geometry", crs="EPSG:4326")
