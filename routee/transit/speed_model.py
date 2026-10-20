@@ -1,22 +1,11 @@
-"""Integration hook: wires a tuned ML transit-speed model (from
-scripts/gtfs_realtime/fit_speed_models.py + export_speed_model_onnx.py) into a
-CompassApp's generated dataset, so the transit energy models can consume a
-per-edge, per-query ML-predicted speed (``transit_speed``) instead of the
-default OSM-derived ``edge_speed``.
+"""Precompute six daily periods for weekday/weekend speeds on road links.
 
-The ONNX model itself only needs a flat float vector as input (see the
-``input_order`` in its manifest JSON). The per-query temporal features
-(``hour``/``is_weekday``/``is_peak``) are resolved on the Rust side from
-``start_time``/``start_weekday`` query parameters (already sent on every
-routing query — see ``deadhead_router.gtfs_time_to_query_time`` and
-``GTFSEnergyPredictor._shape_start_times``). Everything else — static
-per-edge OSM/GTFS-derived features — must be precomputed here and written as
-dense per-edge files (one value per line, in Compass's ``edge_id`` order) for
-the ``custom`` traversal model type to load.
+ONNX inference runs only during dataset generation, in bounded batches. Speeds
+are rounded to 0.1 mph and deduplicated into a dense edge-to-trace map.
+Rust selects speeds using departure time plus elapsed search time; no inference
+session or static feature loaders are retained in the routing application.
 
-Feature engineering here (highway parsing, functional_class mapping, median
-imputation, missing-value indicators) mirrors the training-side logic in
-scripts/gtfs_realtime/fit_speed_models.py — keep them in sync if either changes.
+Feature engineering matches scripts/gtfs_realtime/fit_poc_speed_model.py.
 """
 
 from __future__ import annotations
@@ -31,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import geopandas as gpd
 import numpy as np
 import numpy.typing as npt
+import onnxruntime as ort
 import pandas as pd
 import tomlkit
 from gtfsblocks import Feed
@@ -41,9 +31,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger("speed_model")
 
 TRANSIT_SPEED_FEATURE_NAME = "transit_speed"
+TIME_BIN_START_HOURS = (0, 6, 9, 15, 19, 22)
+TIME_BIN_FEATURES = [f"time_bin_{i}" for i in range(len(TIME_BIN_START_HOURS))]
+TEMPORAL_FEATURES = TIME_BIN_FEATURES + ["is_weekday"]
+SPEED_TRACE_MODEL_CONFIG: dict[str, Any] = {
+    "type": "transit_speed",
+    "format_version": 2,
+    "edge_trace_input_file": "transit_speed_edge_traces.bin",
+    "traces_input_file": "transit_speed_traces.bin",
+}
 DEFAULT_SPEED_MODEL_DIR = (
     Path(__file__).parent / "resources" / "speed_models" / "random-forest"
 )
+
+
+def compute_stop_density(n_stops: pd.Series, link_length_km: pd.Series) -> pd.Series:
+    """Return stops/km, treating links shorter than 50 m as 50 m.
+
+    Missing or nonpositive lengths produce missing values for model imputation.
+    """
+    length = link_length_km.where(link_length_km > 0).clip(lower=0.05)
+    return n_stops / length
 
 
 def _parse_maxspeed_mph(val: object) -> float:
@@ -122,8 +130,8 @@ def compute_transit_speed_features(
 
     Returns a DataFrame indexed by ``edge_id`` (0..N-1, Compass's enumeration
     order) with one column per name in ``manifest["input_order"]`` EXCEPT the
-    per-query temporal features (``hour``/``is_weekday``/``is_peak``), which
-    are resolved per-query on the Rust side instead.
+    temporal features (period indicators and ``is_weekday``), which are added
+    for each discrete time bin during preprocessing.
     """
     cat = manifest["categorical_feature"]
     cat_name = cat["name"]
@@ -145,12 +153,10 @@ def compute_transit_speed_features(
         pd.to_numeric(edges["distance"], errors="coerce").to_numpy() / 1000.0
     )
     raw["n_stops"] = _compute_n_stops(edges, feed)
-    # No trip-schedule integration for arbitrary network edges (unlike the
-    # training archive, which aggregated real observed-trip schedules per
-    # road): honestly mark as missing rather than fabricate a value. The
-    # model was explicitly trained (via the _was_missing indicators) to
-    # handle this.
-    raw["scheduled_speed_mph"] = np.full(len(edges), np.nan)
+    if "stop_density_per_km" in numeric_cols:
+        raw["stop_density_per_km"] = compute_stop_density(
+            pd.Series(raw["n_stops"]), pd.Series(raw["link_length_km"])
+        ).to_numpy()
 
     highway = edges["highway"].apply(_parse_highway)
     functional_class = highway.map(highway_to_functional_class).fillna(
@@ -230,14 +236,13 @@ def write_transit_speed_model(
     onnx_model_path: Path,
     manifest_path: Path,
 ) -> list[dict[str, Any]]:
-    """Hook: write per-edge dense feature files + copy the ONNX model/manifest.
-
-    Returns the list of TOML ``[[search.traversal.models]]`` entries (one
-    ``custom`` loader per static feature, plus the ``transit_speed`` model
-    itself) that must be inserted BEFORE any ``transit_energy`` block so its
-    output is available when the energy model traverses each edge.
-    """
+    """Precompute deduplicated traces and return the speed traversal config."""
     manifest = json.loads(manifest_path.read_text())
+    if manifest.get("time_bin_start_hours") != list(TIME_BIN_START_HOURS):
+        raise ValueError(
+            "Speed model must use the six-period POC time bins; retrain with "
+            "scripts/gtfs_realtime/fit_poc_speed_model.py"
+        )
 
     out_onnx = params.output_directory / "transit_speed_model.onnx"
     out_manifest = params.output_directory / "transit_speed_model_manifest.json"
@@ -245,91 +250,90 @@ def write_transit_speed_model(
     shutil.copy(manifest_path, out_manifest)
 
     features = compute_transit_speed_features(params.edges, feed, manifest)
+    logger.info("Precomputing 12 speed bins for %d road links", len(features))
 
-    temporal = set(manifest["per_query_temporal_features"])
-    model_blocks: list[dict[str, Any]] = []
-    for name in features.columns:
-        if name in temporal:
-            continue
-        file_name = f"transit_speed_feature__{name}.txt"
-        file_path = params.output_directory / file_name
-        np.savetxt(file_path, features[name].to_numpy(), fmt="%.6f")
-        model_blocks.append(
-            {
-                "type": "custom",
-                "input_file": file_name,
-                # Rust CustomInputFormat has no rename_all, so serde expects
-                # the exact PascalCase variant name, not "dense".
-                "file_format": "Dense",
-                "custom_type": name,
-                "variable_config": {"type": "floating_point", "initial": 0.0},
-                "accumulator": False,
-            }
-        )
-
-    model_blocks.append(
-        {
-            "type": "transit_speed",
-            "onnx_model_input_file": out_onnx.name,
-            "manifest_input_file": out_manifest.name,
-        }
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 1
+    session = ort.InferenceSession(
+        str(onnx_model_path), sess_options=options, providers=["CPUExecutionProvider"]
     )
-    logger.info(
-        f"Wrote {len(model_blocks) - 1} per-edge feature files + transit speed "
-        f"ONNX model for {len(features)} edges to {params.output_directory}"
+    _write_speed_traces(
+        features, manifest["input_order"], session, params.output_directory
     )
-    return model_blocks
+    return [SPEED_TRACE_MODEL_CONFIG.copy()]
 
 
-def write_routing_config(
-    transit_energy_toml_path: Path, routing_toml_path: Path
+def _write_speed_traces(
+    features: pd.DataFrame,
+    input_order: list[str],
+    session: ort.InferenceSession,
+    output_directory: Path,
+    batch_size: int = 4096,
 ) -> None:
-    """Copy the (not-yet-speed-model-wired) ``transit_energy.toml`` aside for
-    use by map matching and deadhead routing, pointed at its own untouched
-    snapshot of the vehicle JSON files.
-
-    Those steps only need cost-comparable candidate paths, not accurate
-    predicted speeds — running the ``transit_speed`` ONNX model (and its 19
-    per-edge ``custom`` feature loaders) on every edge explored during search
-    is pure overhead there, and the ONNX session's internal mutex serializes
-    every call across threads (see ``TransitSpeedModelService`` in Rust),
-    making it a severe bottleneck under parallel search. The vehicle files are
-    snapshotted into ``vehicles_routing/`` (rather than sharing
-    ``vehicles/``) because ``patch_vehicle_speed_feature`` later repoints the
-    latter at ``transit_speed`` for the main config — a feature this
-    lightweight config never computes. Must run BEFORE
-    ``insert_transit_speed_config``/``patch_vehicle_speed_feature`` mutate
-    ``transit_energy_toml_path``/``vehicles/``.
-    """
-    output_directory = transit_energy_toml_path.parent
-    routing_vehicles_dir = output_directory / "vehicles_routing"
-    shutil.copytree(
-        output_directory / "vehicles", routing_vehicles_dir, dirs_exist_ok=True
+    """Write uint32 IDs and 12-float32 mph traces, rounded to 0.1 mph."""
+    if batch_size <= 0 or features.empty:
+        raise ValueError("Speed preprocessing requires edges and a positive batch size")
+    if not np.array_equal(features.index.to_numpy(), np.arange(len(features))):
+        raise ValueError("Speed features must be in dense Compass edge_id order")
+    temporal = set(TEMPORAL_FEATURES)
+    if not temporal.issubset(input_order) or len(set(input_order)) != len(input_order):
+        raise ValueError(
+            "Speed manifest must contain unique inputs including time features"
+        )
+    static_columns = [name for name in input_order if name not in temporal]
+    static_indices = [input_order.index(name) for name in static_columns]
+    trace_ids: dict[bytes, int] = {}
+    with (
+        (output_directory / "transit_speed_edge_traces.bin").open("wb") as mapping,
+        (output_directory / "transit_speed_traces.bin").open("wb") as traces_file,
+    ):
+        for start in range(0, len(features), batch_size):
+            batch = features.iloc[start : start + batch_size]
+            inputs = np.empty((len(batch), len(input_order)), dtype=np.float32)
+            inputs[:, static_indices] = batch[static_columns].to_numpy(dtype=np.float32)
+            traces = np.empty((len(batch), 12), dtype="<f4")
+            for day_type in range(2):
+                inputs[:, input_order.index("is_weekday")] = float(day_type == 0)
+                for period in range(6):
+                    for i, feature in enumerate(TIME_BIN_FEATURES):
+                        inputs[:, input_order.index(feature)] = float(i == period)
+                    predictions = np.asarray(
+                        session.run(None, {"input": inputs})[0], dtype=np.float32
+                    )
+                    if predictions.shape not in ((len(batch),), (len(batch), 1)):
+                        raise ValueError(
+                            f"Speed model returned invalid output shape {predictions.shape}"
+                        )
+                    if not np.isfinite(predictions).all():
+                        raise ValueError("Speed model returned non-finite predictions")
+                    traces[:, day_type * 6 + period] = np.round(
+                        np.maximum(predictions.reshape(-1), 1.0), 1
+                    )
+            ids = np.empty(len(batch), dtype="<u4")
+            for i, trace in enumerate(traces):
+                key = trace.tobytes()
+                trace_id = trace_ids.get(key)
+                if trace_id is None:
+                    trace_id = len(trace_ids)
+                    trace_ids[key] = trace_id
+                    traces_file.write(key)
+                ids[i] = trace_id
+            mapping.write(ids.tobytes())
+    logger.info(
+        "Precomputed %d speed bins for %d edges (%d unique traces)",
+        12,
+        len(features),
+        len(trace_ids),
     )
-
-    with open(transit_energy_toml_path, "r") as f:
-        config = tomlkit.load(f)
-    models = config.get("search", {}).get("traversal", {}).get("models", [])
-    for model in models:
-        if model.get("type") == "transit_energy":
-            model["vehicle_input_files"] = [
-                f"vehicles_routing/{Path(p).name}"
-                for p in model.get("vehicle_input_files", [])
-            ]
-
-    with open(routing_toml_path, "w") as f:
-        tomlkit.dump(config, f)
-    logger.info(f"Wrote lightweight routing config to {routing_toml_path}")
 
 
 def insert_transit_speed_config(
     transit_energy_toml_path: Path, model_blocks: list[dict[str, Any]]
 ) -> None:
-    """Insert speed-model TOML blocks before any ``transit_energy`` block, and
-    point ``transit_energy`` at the new ``transit_speed`` feature.
+    """Replace posted speeds before time accumulation and energy evaluation.
 
-    Must run AFTER the ``transit_energy.toml`` file has already been written
-    (e.g. by ``gtfs_processing.copy_transit_config``).
+    Both ``edge_speed`` and its ``transit_speed`` alias come from the same
+    lookup, so routing costs, elapsed time and energy use consistent speeds.
     """
     with open(transit_energy_toml_path, "r") as f:
         config = tomlkit.load(f)
@@ -339,10 +343,14 @@ def insert_transit_speed_config(
     models = traversal.setdefault("models", tomlkit.aot())
 
     new_models = tomlkit.aot()
-    for block in model_blocks:
-        item = tomlkit.item(block)
-        new_models.append(item)
+    speed_models = [model for model in models if model.get("type") == "speed"]
+    if len(speed_models) != 1:
+        raise ValueError("Transit config must have exactly one posted-speed model")
     for model in models:
+        if model.get("type") == "speed":
+            for block in model_blocks:
+                new_models.append(tomlkit.item(block))
+            continue
         if model.get("type") == "transit_energy":
             model["speed_feature_name"] = TRANSIT_SPEED_FEATURE_NAME
         new_models.append(model)
