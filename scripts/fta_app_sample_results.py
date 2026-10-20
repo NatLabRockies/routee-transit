@@ -5,7 +5,6 @@ to provide sample inputs for the FTA app.
 
 import pandas as pd
 
-
 if __name__ == "__main__":
     import logging
     import os
@@ -104,6 +103,7 @@ if __name__ == "__main__":
         predictor.save_results(
             save_trip_level=save_daily_results,
             save_link_level=save_link_results,
+            save_route_shapes=True,
         )
 
         # The FTA app expects one row per (trip, vehicle), so collapse the date
