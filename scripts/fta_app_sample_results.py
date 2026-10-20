@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # HERE = Path(__file__).parent.resolve()
 
     # Configuration
-    n_proc = 8
+    n_proc = int(os.environ.get("SLURM_CPUS_PER_TASK", "8"))
     routee_vehicle_models = [
         "Transit_Bus_Electric_40ft_300kWh",
         "Transit_Bus_Electric_60ft_600kWh",
@@ -46,25 +46,28 @@ if __name__ == "__main__":
     save_daily_results = False
     save_link_results = False
 
+    db_root = package_root().parents[1] / "reports" / "fta_results_101926"
+
     # Set to True to (re)download the GTFS feeds before running predictions
     gather_feeds = False
     if gather_feeds:
-        import subprocess
+        from scripts.feeds.gather_feeds import main as gather_feeds_main
 
-        subprocess.run(
+        gather_feeds_main(
             [
-                "python",
-                "scripts/feeds/gather_feeds.py",
                 "--db_root",
-                "reports/fta_results_100826",
+                str(db_root),
                 "--feed_ids",
+                "mdb-117",
                 "mdb-205",
                 "mdb-247",
                 "mdb-267",
+                "mdb-368",
+                "mdb-589",
+                "mdb-3521",
             ]
         )
 
-    db_root = package_root().parents[1] / "reports" / "fta_results_100826"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -89,6 +92,7 @@ if __name__ == "__main__":
             feed_id=feeds_incl[ix],
             dataset_id=d_id,
             overwrite=False,
+            explode_block_routes=True,
         )
 
         # Run entire pipeline across all service dates
@@ -104,6 +108,7 @@ if __name__ == "__main__":
         predictor.save_results(
             save_trip_level=save_daily_results,
             save_link_level=save_link_results,
+            save_block_level=True,
         )
 
         # The FTA app expects one row per (trip, vehicle), so collapse the date
