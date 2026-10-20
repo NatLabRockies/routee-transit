@@ -6,15 +6,66 @@ from unittest.mock import MagicMock, patch
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 from shapely.geometry import Point
 
 from routee.transit.thermal_energy import (
+    DEFAULT_CACHE_DIR,
     _densest_window,
     _select_full_year_window,
     add_HVAC_energy,
     compute_HVAC_energy,
+    fetch_counties_gdf,
     load_thermal_lookup_table,
 )
+
+
+class TestFetchCountiesGdf(unittest.TestCase):
+    def _counties(self) -> gpd.GeoDataFrame:
+        return gpd.GeoDataFrame(
+            {
+                "STATEFP": ["08"],
+                "COUNTYFP": ["031"],
+                "geometry": [Point(-105.0, 39.7)],
+            },
+            crs="EPSG:4269",
+        )
+
+    @patch("routee.transit.thermal_energy.gpd.read_file")
+    @patch("routee.transit.thermal_energy.requests.get")
+    def test_archive_downloaded_once_then_read_from_cache(
+        self, mock_get: MagicMock, mock_read_file: MagicMock
+    ) -> None:
+        mock_get.return_value = MagicMock(content=b"shapefile-archive")
+        mock_read_file.return_value = self._counties()
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = Path(directory) / "cache"
+            first = fetch_counties_gdf(cache_dir)
+            second = fetch_counties_gdf(cache_dir)
+            archive = cache_dir / "cb_2022_us_county_20m.zip"
+            self.assertTrue(archive.is_file())
+            self.assertEqual(archive.read_bytes(), b"shapefile-archive")
+            self.assertEqual(list(cache_dir.glob("*.part")), [])
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(mock_read_file.call_count, 2)
+        self.assertEqual(first["county_id"].tolist(), ["G0800310"])
+        self.assertEqual(second["county_id"].tolist(), ["G0800310"])
+
+    @patch("routee.transit.thermal_energy.gpd.read_file")
+    @patch("routee.transit.thermal_energy.requests.get")
+    def test_failed_download_is_not_cached(
+        self, mock_get: MagicMock, mock_read_file: MagicMock
+    ) -> None:
+        response = MagicMock()
+        response.raise_for_status.side_effect = requests.HTTPError("503")
+        mock_get.return_value = response
+        mock_read_file.return_value = self._counties()
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = Path(directory) / "cache"
+            with self.assertRaises(requests.HTTPError):
+                fetch_counties_gdf(cache_dir)
+            self.assertFalse((cache_dir / "cb_2022_us_county_20m.zip").exists())
+        mock_read_file.assert_not_called()
 
 
 class TestThermalEnergy(unittest.TestCase):
@@ -167,6 +218,35 @@ class TestThermalEnergy(unittest.TestCase):
         self.assertIn("trip_is_within_gtfs_scope", result.columns)
         self.assertTrue((result["scenario"] == "TMY").all())
         self.assertEqual(len(result), 2)
+
+    @patch("routee.transit.thermal_energy.fetch_counties_gdf")
+    @patch("routee.transit.thermal_energy.download_tmy_files")
+    @patch("routee.transit.thermal_energy.load_tmy_power_by_day")
+    def test_downloads_are_cached_under_output_dir(
+        self,
+        mock_load_power: MagicMock,
+        mock_download: MagicMock,
+        mock_fetch_counties: MagicMock,
+    ) -> None:
+        mock_feed, trips_df, mock_county_gdf, mock_power_by_day = (
+            self._make_mock_feed_and_trips()
+        )
+        mock_fetch_counties.return_value = mock_county_gdf
+        mock_load_power.return_value = mock_power_by_day
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_directory = Path(directory)
+            add_HVAC_energy(mock_feed, trips_df, output_directory)
+            self.assertEqual(
+                mock_fetch_counties.call_args.args[0], output_directory / "counties"
+            )
+            self.assertEqual(mock_download.call_args.args[1], output_directory / "TMY")
+
+        add_HVAC_energy(mock_feed, trips_df, output_dir=None)
+        self.assertEqual(
+            mock_fetch_counties.call_args.args[0], DEFAULT_CACHE_DIR / "counties"
+        )
+        self.assertEqual(mock_download.call_args.args[1], DEFAULT_CACHE_DIR / "TMY")
 
 
 class TestDateWindowSelection(unittest.TestCase):

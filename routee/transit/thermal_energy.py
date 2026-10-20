@@ -6,6 +6,7 @@ import boto3
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 from botocore import UNSIGNED
 from botocore.config import Config
 from gtfsblocks import Feed
@@ -18,11 +19,40 @@ from routee.transit.results import (
 
 logger = logging.getLogger(__name__)
 
+COUNTY_SHAPEFILE_URL = (
+    "https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip"
+)
+DEFAULT_CACHE_DIR = Path.home() / "cache" / "routee-transit"
 
-def fetch_counties_gdf() -> gpd.GeoDataFrame:
-    gdf_county = gpd.read_file(
-        "https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip"
-    )
+
+def fetch_counties_gdf(cache_dir: Path | None = None) -> gpd.GeoDataFrame:
+    """Load US county boundaries, downloading the Census archive only once.
+
+    Parameters
+    ----------
+    cache_dir : Path or None
+        Directory holding the cached shapefile archive. Defaults to
+        ``~/cache/routee-transit/counties``.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        County polygons with a ``county_id`` column matching the naming scheme
+        used by the TMY weather files.
+    """
+    cache_dir = cache_dir if cache_dir is not None else DEFAULT_CACHE_DIR / "counties"
+    archive = cache_dir / COUNTY_SHAPEFILE_URL.rsplit("/", 1)[-1]
+    if not archive.is_file():
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Downloading county boundaries from %s", COUNTY_SHAPEFILE_URL)
+        response = requests.get(COUNTY_SHAPEFILE_URL, timeout=120)
+        response.raise_for_status()
+        # Write aside and rename so an interrupted download is never cached.
+        partial = archive.with_suffix(".part")
+        partial.write_bytes(response.content)
+        partial.replace(archive)
+
+    gdf_county = gpd.read_file(archive)
     gdf_county["county_id"] = (
         "G" + gdf_county["STATEFP"] + "0" + gdf_county["COUNTYFP"] + "0"
     )
@@ -228,7 +258,8 @@ def add_HVAC_energy(
         Must contain ``trip_id`` and ``service_id`` columns.
     output_dir : Path or None
         Directory used to store downloaded TMY weather files (in a ``TMY/``
-        subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
+        subdirectory) and county boundaries (in a ``counties/`` subdirectory).
+        If None, defaults to ``~/cache/routee-transit``.
     max_days : int, default=365
         Width in calendar days of the window to model.  The algorithm selects the
         ``max_days``-wide window that contains the greatest number of service dates,
@@ -254,10 +285,8 @@ def add_HVAC_energy(
         ``trip_is_within_gtfs_scope`` is True when the date is part of the
         feed's actual calendar, False when synthesized via ``scale_to_year``.
     """
-    if output_dir is not None:
-        tmy_dir = output_dir / "TMY"
-    else:
-        tmy_dir = Path.home() / "cache" / "routee-transit" / "TMY"
+    cache_root = output_dir if output_dir is not None else DEFAULT_CACHE_DIR
+    tmy_dir = cache_root / "TMY"
 
     # Based on gtfs stops data, get counties served
     df_stops = feed.stops
@@ -268,7 +297,7 @@ def add_HVAC_energy(
         crs=4269,
     )
 
-    gdf_county = fetch_counties_gdf()
+    gdf_county = fetch_counties_gdf(cache_root / "counties")
 
     # Make sure that both GDFs use the same CRS
     if gdf_stops.crs != gdf_county.crs:
