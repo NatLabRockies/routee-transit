@@ -1,5 +1,6 @@
 {
   "name": "Transit_Bus_CNG_60ft",
+  "display_name": "60' CNG",
   "type": "ice",
   "mass_estimate_lbs": 43000,
   "model_input_file": "Transit_Bus_CNG_60ft.bin",

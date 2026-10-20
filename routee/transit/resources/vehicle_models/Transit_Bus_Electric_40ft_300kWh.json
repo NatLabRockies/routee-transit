@@ -1,5 +1,6 @@
 {
   "name": "Transit_Bus_Electric_40ft_300kWh",
+  "display_name": "40' Electric (300 kWh)",
   "type": "bev",
   "mass_estimate_lbs": 32000,
   "model_input_file": "Transit_Bus_Electric_40ft_300kWh.bin",

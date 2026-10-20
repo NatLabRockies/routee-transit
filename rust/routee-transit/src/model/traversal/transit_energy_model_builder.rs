@@ -28,6 +28,8 @@ pub struct TransitEnergyModelBuilder {}
 struct TransitBevVehicleConfig {
     #[serde(flatten)]
     prediction_model: PredictionModelConfig,
+    #[allow(dead_code)]
+    display_name: Option<String>,
     battery_capacity: f64,
     battery_capacity_unit: EnergyUnit,
     /// Share of nameplate capacity available in service. Declared here so it
@@ -49,6 +51,8 @@ struct TransitBevVehicleConfig {
 struct TransitIceVehicleConfig {
     #[serde(flatten)]
     prediction_model: PredictionModelConfig,
+    #[allow(dead_code)]
+    display_name: Option<String>,
     /// Tank size, declared here so it survives `deny_unknown_fields`. Only the
     /// Python layer consumes it (range/feasibility reporting); the traversal
     /// model does not constrain energy against it.
@@ -216,5 +220,62 @@ impl TraversalModelBuilder for TransitEnergyModelBuilder {
         let service = TransitEnergyModelService::new(vehicle_library)?;
 
         Ok(Arc::new(service))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_vehicle_metadata_is_accepted() {
+        let model_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../routee/transit/resources/vehicle_models");
+        let mut count = 0;
+        for entry in std::fs::read_dir(model_dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                continue;
+            }
+            let json: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            let (mut config, vehicle_type) = strip_type_from_config(&json).unwrap();
+            for with_display_name in [true, false] {
+                if !with_display_name {
+                    config.as_object_mut().unwrap().remove("display_name");
+                }
+                let display_name = match vehicle_type.as_str() {
+                    "bev" => {
+                        serde_json::from_value::<TransitBevVehicleConfig>(config.clone())
+                            .unwrap()
+                            .display_name
+                    }
+                    "ice" => {
+                        serde_json::from_value::<TransitIceVehicleConfig>(config.clone())
+                            .unwrap()
+                            .display_name
+                    }
+                    other => panic!("unexpected vehicle type: {other}"),
+                };
+                assert_eq!(
+                    display_name.as_deref(),
+                    config.get("display_name").and_then(|value| value.as_str()),
+                    "{}",
+                    path.display()
+                );
+            }
+            config["unexpected_field"] = serde_json::json!(true);
+            match vehicle_type.as_str() {
+                "bev" => {
+                    assert!(serde_json::from_value::<TransitBevVehicleConfig>(config).is_err());
+                }
+                "ice" => {
+                    assert!(serde_json::from_value::<TransitIceVehicleConfig>(config).is_err());
+                }
+                _ => unreachable!(),
+            }
+            count += 1;
+        }
+        assert_eq!(count, 8);
     }
 }
