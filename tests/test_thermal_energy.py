@@ -35,10 +35,38 @@ class TestThermalEnergy(unittest.TestCase):
         power_array = np.full(24, 10.0)
 
         energy = compute_HVAC_energy(start_hours, end_hours, power_array)
-        # Power is 10kW, time is 1h.
-        # Integration uses np.arange(0, 1, 0.01) which stops at 0.99.
-        # np.trapezoid on [0, ..., 0.99] with constant 10 gives 9.9.
-        self.assertAlmostEqual(energy[0], 9.9, places=1)
+        self.assertAlmostEqual(energy[0], 10.0)
+
+    def test_compute_HVAC_energy_integrates_a_ramping_profile(self) -> None:
+        # Power ramps 0, 1, 2, ... kW, so hour h spans a trapezoid of area h + 0.5.
+        power_array = np.arange(24, dtype=float)
+        energy = compute_HVAC_energy(
+            pd.Series([0.0, 2.0, 2.5]), pd.Series([1.0, 4.0, 3.0]), power_array
+        )
+        self.assertAlmostEqual(energy[0], 0.5)
+        self.assertAlmostEqual(energy[1], 6.0)
+        self.assertAlmostEqual(energy[2], 1.375)
+
+    def test_compute_HVAC_energy_counts_intervals_shorter_than_a_minute(self) -> None:
+        energy = compute_HVAC_energy(
+            pd.Series([10.0]), pd.Series([10.008]), np.full(24, 10.0)
+        )
+        self.assertAlmostEqual(energy[0], 0.08)
+
+    def test_compute_HVAC_energy_wraps_past_midnight(self) -> None:
+        power_array = np.full(24, 10.0)
+        # 23:30 to 24:30 the next morning, and a full day plus an hour.
+        energy = compute_HVAC_energy(
+            pd.Series([23.5, 0.0]), pd.Series([24.5, 25.0]), power_array
+        )
+        self.assertAlmostEqual(energy[0], 10.0)
+        self.assertAlmostEqual(energy[1], 250.0)
+
+    def test_compute_HVAC_energy_handles_empty_input(self) -> None:
+        energy = compute_HVAC_energy(
+            pd.Series([], dtype=float), pd.Series([], dtype=float), np.full(24, 10.0)
+        )
+        self.assertEqual(len(energy), 0)
 
     def _make_mock_feed_and_trips(
         self,

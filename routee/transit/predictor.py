@@ -8,6 +8,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 from __future__ import annotations
 
 import filecmp
+import json
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -1709,6 +1710,22 @@ class GTFSEnergyPredictor:
                 edges.append(edge_entry)
             shapes_edge_ids[str(shape_id)] = edges
 
+        # HVAC demand depends only on the schedule and weather, so compute it
+        # once and reuse it for every electric model.
+        hvac_energy: pd.DataFrame | None = None
+        if add_hvac and any(
+            VEHICLE_MODELS[name]["energy_field"] == "trip_energy_electric"
+            for name in vehicle_models_list
+        ):
+            logger.info("Adding HVAC energy impacts...")
+            hvac_energy = add_HVAC_energy(
+                self.feed,
+                self.trips,
+                self.output_dir,
+                service_date=self._service_date,
+                scale_to_year=scale_to_year,
+            )
+
         # Run run_calculate_path for each vehicle model
         all_link_results: list[pd.DataFrame] = []
         all_trip_results: list[pd.DataFrame] = []
@@ -1848,15 +1865,10 @@ class GTFSEnergyPredictor:
             # Optionally add HVAC to trip-level results (electric vehicles only).
             # Gate on the electric energy field rather than the unit, since
             # combustion models may also report energy in kWh.
-            if add_hvac and model_config["energy_field"] == "trip_energy_electric":
-                logger.info("Adding HVAC energy impacts...")
-                hvac_energy = add_HVAC_energy(
-                    self.feed,
-                    self.trips,
-                    self.output_dir,
-                    service_date=self._service_date,
-                    scale_to_year=scale_to_year,
-                )
+            if (
+                hvac_energy is not None
+                and model_config["energy_field"] == "trip_energy_electric"
+            ):
                 trip_results = trip_results.merge(
                     hvac_energy.drop(columns="trip_is_within_gtfs_scope"),
                     on=["trip_id", "date"],

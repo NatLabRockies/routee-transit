@@ -128,6 +128,10 @@ def compute_HVAC_energy(
     """
     Calculate HVAC + BTMS energy consumption between time intervals.
 
+    The hourly power values define a piecewise-linear profile that wraps at
+    midnight, so each interval's energy is evaluated from the profile's exact
+    antiderivative rather than by numerical sampling.
+
     Args:
         start_hours (array-like): fractional start times in hours
         end_hours (array-like): fractional end times in hours (can be > 24)
@@ -136,24 +140,26 @@ def compute_HVAC_energy(
     Returns:
         np.ndarray: energy consumption [kWh] for each interval
     """
-    power_array = np.asarray(power_array)
-    power_24 = np.concatenate((power_array, [power_array[0]]))  # wrap for interpolation
+    knots = np.asarray(power_array, dtype=float)
+    knots = np.concatenate((knots, [knots[0]]))  # wrap midnight for interpolation
+    # Energy accumulated from midnight to each whole hour, plus a full day total.
+    cumulative = np.concatenate(([0.0], np.cumsum((knots[:-1] + knots[1:]) / 2)))
 
-    def interp_power(t: np.number) -> float:
-        """Linearly interpolate power at fractional hour t."""
-        i = int(np.floor(t)) % 24
-        frac = t - np.floor(t)
-        return float((1 - frac) * power_24[i] + frac * power_24[i + 1])
+    def integral(hours: pd.Series) -> np.typing.NDArray[np.float64]:
+        """Energy consumed from midnight of the first day through ``hours``."""
+        days, hour = np.divmod(np.asarray(hours, dtype=float), 24.0)
+        index = np.floor(hour).astype(int)
+        fraction = hour - index
+        # Area of the partial trapezoid between hour ``index`` and ``hour``.
+        partial = fraction * (
+            knots[index] + 0.5 * fraction * (knots[index + 1] - knots[index])
+        )
+        return cast(
+            np.typing.NDArray[np.float64],
+            days * cumulative[24] + cumulative[index] + partial,
+        )
 
-    energies = []
-    for s, e in zip(start_hours, end_hours):
-        # sample in small steps for accurate integration
-        ts = np.arange(s, e, 0.01)  # 0.01 h = 36 s resolution
-        ps = np.array([interp_power(t) for t in ts])
-        energy = np.trapezoid(ps, ts)  # integrate kW over hours → kWh
-        energies.append(energy)
-
-    return np.array(energies)
+    return integral(end_hours) - integral(start_hours)
 
 
 def load_tmy_power_by_day(

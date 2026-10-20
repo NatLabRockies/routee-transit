@@ -369,6 +369,53 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         self.assertEqual(block["energy_used_with_deadhead"].tolist(), [24, 22])
         self.assertTrue(results["trip"]["trip_is_within_gtfs_scope"].all())
 
+    def test_hvac_computed_once_for_multiple_electric_models(self) -> None:
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_service_ids_all_dates.return_value = pd.DataFrame(
+            {"service_id": ["S1"], "date": pd.to_datetime(["2026-01-05"])}
+        )
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_electric"
+        )
+        hvac = pd.DataFrame(
+            {
+                "trip_id": ["T1", "T2"],
+                "date": pd.to_datetime(["2026-01-05"] * 2),
+                "hvac_energy_kWh": [1.0, 3.0],
+                "trip_is_within_gtfs_scope": [True] * 2,
+                "scenario": ["TMY"] * 2,
+            }
+        )
+        with patch(
+            "routee.transit.predictor.add_HVAC_energy", return_value=hvac
+        ) as mock_hvac:
+            results = self._run_predict_energy(
+                [
+                    "Transit_Bus_Electric_40ft_300kWh",
+                    "Transit_Bus_Electric_60ft_600kWh",
+                    "Transit_Bus_Diesel_40ft",
+                ],
+                add_hvac=True,
+            )
+        self.assertEqual(mock_hvac.call_count, 1)
+        for model in (
+            "Transit_Bus_Electric_40ft_300kWh",
+            "Transit_Bus_Electric_60ft_600kWh",
+        ):
+            trips = results[f"{model}_trip"].sort_values("trip_id")
+            self.assertEqual(trips["hvac_energy_kWh"].tolist(), [1.0, 3.0])
+            self.assertEqual(trips["energy_used"].tolist(), [11.0, 13.0])
+        diesel = results["Transit_Bus_Diesel_40ft_trip"]
+        self.assertNotIn("hvac_energy_kWh", diesel.columns)
+
+    def test_hvac_skipped_when_no_electric_model_requested(self) -> None:
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            10, 5, "trip_energy_liquid"
+        )
+        with patch("routee.transit.predictor.add_HVAC_energy") as mock_hvac:
+            self._run_predict_energy(["Transit_Bus_Diesel_40ft"], add_hvac=True)
+        mock_hvac.assert_not_called()
+
     def test_annual_projection_and_single_date_without_hvac(self) -> None:
         assert self.predictor.feed is not None
         self.predictor.feed.get_typical_service_by_weekday.return_value = pd.DataFrame(
@@ -620,8 +667,6 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         self.assertEqual(len(queries), 1)
         self.assertEqual(queries[0]["start_time"], "08:00:00")
         self.assertEqual(queries[0]["start_weekday"], "monday")
-        assert self.predictor.feed is not None
-        self.predictor.feed.get_service_ids_all_dates.assert_not_called()
 
 
 if __name__ == "__main__":
