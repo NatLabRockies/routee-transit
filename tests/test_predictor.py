@@ -607,6 +607,22 @@ class TestPredictEnergyMPGe(unittest.TestCase):
         for col in ["trip_id", "energy_used", "miles", "mpge", "energy_unit"]:
             self.assertIn(col, trip_df.columns, f"Column '{col}' should be present")
 
+    def test_queries_are_per_shape_not_trip_or_service_date(self) -> None:
+        self.predictor.trips["start_time"] = ["08:00:00", "09:00:00"]
+        self.mock_app.run_calculate_path.return_value = self._make_compass_result(
+            energy_value=1.0,
+            distance_value=10.0,
+            energy_field="trip_energy_electric",
+        )
+        self._run_predict_energy(["Transit_Bus_Battery_Electric"])
+        self.mock_app.run_calculate_path.assert_called_once()
+        queries = self.mock_app.run_calculate_path.call_args.args[0]
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(queries[0]["start_time"], "08:00:00")
+        self.assertEqual(queries[0]["start_weekday"], "monday")
+        assert self.predictor.feed is not None
+        self.predictor.feed.get_service_ids_all_dates.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
