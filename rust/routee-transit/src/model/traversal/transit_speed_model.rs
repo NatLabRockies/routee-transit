@@ -1,211 +1,189 @@
-use ndarray::Array2;
-use ort::session::Session;
 use routee_compass_core::{
     algorithm::search::SearchTree,
     model::{
         network::Vertex,
         state::{InputFeature, StateModel, StateVariable, StateVariableConfig},
         traversal::{
-            EdgeFrontierContext, TraversalModel, TraversalModelBuilder, TraversalModelError,
-            TraversalModelService,
+            default::fieldname, EdgeFrontierContext, TraversalModel, TraversalModelBuilder,
+            TraversalModelError, TraversalModelService,
         },
         unit::SpeedUnit,
     },
 };
 use serde::Deserialize;
-use std::sync::{Arc, Mutex};
-use uom::si::{f64::Velocity, velocity::mile_per_hour};
+use std::{str::FromStr, sync::Arc};
+use uom::si::{f64::Velocity, time::second, velocity::mile_per_hour};
 
-/// Name of the state feature this model writes: a per-edge, per-query
-/// ML-predicted transit bus speed (mph), for consumption by an energy model
-/// configured with `speed_feature_name = "transit_speed"` instead of the
-/// default OSM-derived `edge_speed`.
 pub const TRANSIT_SPEED: &str = "transit_speed";
+const BIN_START_HOURS: [usize; 6] = [0, 6, 9, 15, 19, 22];
+const BINS: usize = 12;
+const WEEKDAYS: [&str; 7] = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+];
 
-/// Below this, division-by-speed and kinetic-energy computations downstream
-/// become unstable; matches the SPEED_FLOOR_MPH used to clean the training data.
-const MIN_SPEED_MPH: f64 = 1.0;
-
-/// The subset of `input_order` that is resolved per-query (from
-/// `start_time`/`start_weekday`) rather than read from per-edge state.
-const TEMPORAL_FEATURE_NAMES: [&str; 3] = ["hour", "is_weekday", "is_peak"];
-
-/// Minimal view of the manifest JSON written by
-/// `scripts/gtfs_realtime/fit_speed_models.py` — only the field ordering is
-/// needed here; the rest (feature engineering, medians, etc.) is Python-side
-/// bookkeeping for reproducing the same preprocessing when writing the
-/// per-edge feature files consumed by `custom` traversal models upstream.
-#[derive(Deserialize)]
-struct SpeedModelManifest {
-    input_order: Vec<String>,
+struct SpeedTraces {
+    edge_traces: Box<[u32]>,
+    speeds: Box<[f32]>,
+    max_speed: Velocity,
 }
 
-/// Shared, query-independent state: the loaded ONNX session (behind a mutex,
-/// since `Session::run` requires `&mut self`) and the exact ordering of
-/// features the model expects as input.
-struct TransitSpeedModelCore {
-    session: Mutex<Session>,
-    input_order: Vec<String>,
+impl SpeedTraces {
+    fn new(edge_traces: Vec<u32>, speeds: Vec<f32>) -> Result<Self, TraversalModelError> {
+        if edge_traces.is_empty()
+            || speeds.is_empty()
+            || !speeds.len().is_multiple_of(BINS)
+            || speeds.iter().any(|s| !s.is_finite() || *s < 1.0)
+            || edge_traces
+                .iter()
+                .any(|id| *id as usize >= speeds.len() / BINS)
+        {
+            return Err(TraversalModelError::BuildError(
+                "invalid transit speed traces or edge-to-trace IDs".into(),
+            ));
+        }
+        let max_mph = speeds.iter().copied().fold(1.0_f32, f32::max);
+        Ok(Self {
+            edge_traces: edge_traces.into_boxed_slice(),
+            speeds: speeds.into_boxed_slice(),
+            max_speed: Velocity::new::<mile_per_hour>(max_mph as f64),
+        })
+    }
+
+    fn speed(&self, edge_id: usize, bin: usize) -> Result<Velocity, TraversalModelError> {
+        let trace_id = self.edge_traces.get(edge_id).ok_or_else(|| {
+            TraversalModelError::TraversalModelFailure(format!(
+                "no transit speed trace for edge {edge_id}"
+            ))
+        })?;
+        Ok(Velocity::new::<mile_per_hour>(
+            self.speeds[*trace_id as usize * BINS + bin] as f64,
+        ))
+    }
 }
 
-/// Per-query transit bus speed model. Static per-edge features (road
-/// attributes, functional_class one-hot, missing-value indicators) are read
-/// from state, having been populated by upstream `custom` traversal models
-/// (one per feature, loaded from per-edge dense files). Temporal features
-/// (`hour`/`is_weekday`/`is_peak`) are resolved once per query from
-/// `start_time`/`start_weekday` and closed over here, since they don't vary
-/// by edge.
 #[derive(Clone)]
 pub struct TransitSpeedModel {
-    core: Arc<TransitSpeedModelCore>,
-    hour: f64,
-    is_weekday: f64,
-    is_peak: f64,
+    traces: Arc<SpeedTraces>,
+    start_seconds: f64,
+    start_weekday: usize,
+    speed_limit: Option<Velocity>,
 }
 
 impl TransitSpeedModel {
-    fn predict_mph(
-        &self,
-        state: &[StateVariable],
-        state_model: &StateModel,
-    ) -> Result<f64, TraversalModelError> {
-        let mut features: Vec<f32> = Vec::with_capacity(self.core.input_order.len());
-        for name in self.core.input_order.iter() {
-            let value = match name.as_str() {
-                "hour" => self.hour,
-                "is_weekday" => self.is_weekday,
-                "is_peak" => self.is_peak,
-                other => state_model.get_custom_f64(state, other).map_err(|e| {
-                    TraversalModelError::TraversalModelFailure(format!(
-                        "transit speed model missing feature '{other}': {e}"
-                    ))
-                })?,
-            };
-            features.push(value as f32);
+    fn bin(&self, elapsed_seconds: f64) -> Result<usize, TraversalModelError> {
+        let seconds = self.start_seconds + elapsed_seconds;
+        if !seconds.is_finite() || !elapsed_seconds.is_finite() || elapsed_seconds < 0.0 {
+            return Err(TraversalModelError::TraversalModelFailure(
+                "transit speed lookup requires finite, nonnegative elapsed time".into(),
+            ));
         }
+        let day = (self.start_weekday + (seconds / 86400.0).floor().rem_euclid(7.0) as usize) % 7;
+        let hour = (seconds.rem_euclid(86400.0) / 3600.0).floor() as usize;
+        let period = BIN_START_HOURS.partition_point(|start| *start <= hour) - 1;
+        Ok(usize::from(day >= 5) * 6 + period)
+    }
 
-        let n_features = features.len();
-        let array = Array2::from_shape_vec((1, n_features), features).map_err(|e| {
-            TraversalModelError::TraversalModelFailure(format!(
-                "failed to build ONNX input array: {e}"
-            ))
-        })?;
-        let input_tensor = ort::value::Value::from_array(array).map_err(|e| {
-            TraversalModelError::TraversalModelFailure(format!(
-                "failed to build ONNX input tensor: {e}"
-            ))
-        })?;
-
-        let mut session = self.core.session.lock().map_err(|e| {
-            TraversalModelError::TraversalModelFailure(format!("failed to lock ONNX session: {e}"))
-        })?;
-        let outputs = session
-            .run(ort::inputs!["input" => input_tensor])
-            .map_err(|e| {
-                TraversalModelError::TraversalModelFailure(format!(
-                    "transit speed ONNX inference failed: {e}"
-                ))
-            })?;
-        let (_name, output_tensor) = outputs.iter().next().ok_or_else(|| {
-            TraversalModelError::TraversalModelFailure(
-                "transit speed ONNX model returned no outputs".to_string(),
-            )
-        })?;
-        let tensor_data = output_tensor.try_extract_tensor::<f32>().map_err(|e| {
-            TraversalModelError::TraversalModelFailure(format!(
-                "failed to extract transit speed ONNX output: {e}"
-            ))
-        })?;
-        let predicted_mph = *tensor_data.1.first().ok_or_else(|| {
-            TraversalModelError::TraversalModelFailure(
-                "transit speed ONNX output tensor is empty".to_string(),
-            )
-        })? as f64;
-
-        Ok(predicted_mph.max(MIN_SPEED_MPH))
+    fn set_speed(
+        &self,
+        speed: Velocity,
+        state: &mut [StateVariable],
+        state_model: &StateModel,
+    ) -> Result<(), TraversalModelError> {
+        let speed = self.speed_limit.map_or(speed, |limit| speed.min(limit));
+        state_model.set_speed(state, fieldname::EDGE_SPEED, &speed)?;
+        state_model.set_speed(state, TRANSIT_SPEED, &speed)?;
+        Ok(())
     }
 }
 
 impl TraversalModel for TransitSpeedModel {
     fn name(&self) -> String {
-        "Transit Speed Model (ML, ONNX)".to_string()
+        "Transit Speed Traces".into()
     }
 
     fn input_features(&self) -> Vec<InputFeature> {
-        self.core
-            .input_order
-            .iter()
-            .filter(|name| !TEMPORAL_FEATURE_NAMES.contains(&name.as_str()))
-            .map(|name| InputFeature::Custom {
-                name: name.clone(),
-                unit: "raw".to_string(),
-            })
-            .collect()
+        // trip_time is accumulated by the subsequent time model, not an
+        // upstream dependency (which would create a dependency cycle).
+        vec![]
     }
 
     fn output_features(&self) -> Vec<(String, StateVariableConfig)> {
-        vec![(
-            String::from(TRANSIT_SPEED),
-            StateVariableConfig::Speed {
-                initial: Velocity::new::<mile_per_hour>(0.0),
-                accumulator: false,
-                output_unit: Some(SpeedUnit::MPH),
-            },
-        )]
+        [
+            (fieldname::EDGE_SPEED, SpeedUnit::KPH),
+            (TRANSIT_SPEED, SpeedUnit::MPH),
+        ]
+        .iter()
+        .map(|(name, unit)| {
+            (
+                name.to_string(),
+                StateVariableConfig::Speed {
+                    initial: self.traces.max_speed,
+                    accumulator: false,
+                    output_unit: Some(*unit),
+                },
+            )
+        })
+        .collect()
     }
 
     fn traverse_edge(
         &self,
-        _ctx: &EdgeFrontierContext,
+        ctx: &EdgeFrontierContext,
         state: &mut Vec<StateVariable>,
         state_model: &StateModel,
     ) -> Result<(), TraversalModelError> {
-        let predicted_mph = self.predict_mph(state, state_model)?;
-        let speed = Velocity::new::<mile_per_hour>(predicted_mph);
-        state_model.set_speed(state, TRANSIT_SPEED, &speed)?;
-        Ok(())
+        let elapsed = state_model.get_time(state, fieldname::TRIP_TIME)?;
+        let bin = self.bin(elapsed.get::<second>())?;
+        self.set_speed(
+            self.traces.speed(ctx.edge.edge_id.0, bin)?,
+            state,
+            state_model,
+        )
     }
 
     fn estimate_traversal(
         &self,
         _od: (&Vertex, &Vertex),
-        _state: &mut Vec<StateVariable>,
+        state: &mut Vec<StateVariable>,
         _tree: &SearchTree,
-        _state_model: &StateModel,
+        state_model: &StateModel,
     ) -> Result<(), TraversalModelError> {
-        // No per-edge context is available for an OD-pair heuristic estimate
-        // (no edge_id to look up static features for), so transit_speed keeps
-        // its initial value here; this only affects A* pruning, not reported
-        // trip results, which are computed via traverse_edge.
-        Ok(())
+        self.set_speed(self.traces.max_speed, state, state_model)
     }
 }
 
-fn parse_start_hour(start_time: Option<&str>) -> f64 {
-    start_time
-        .and_then(|s| s.split(':').next())
-        .and_then(|h| h.parse::<u32>().ok())
-        .map(|h| (h % 24) as f64)
-        .unwrap_or(12.0)
+fn parse_clock(time: &str, weekday: &str) -> Result<(f64, usize), TraversalModelError> {
+    let invalid = || {
+        TraversalModelError::BuildError(format!(
+            "invalid transit speed start_time '{time}' or start_weekday '{weekday}'"
+        ))
+    };
+    let parts: Vec<u32> = time
+        .split(':')
+        .map(str::parse)
+        .collect::<Result<_, _>>()
+        .map_err(|_| invalid())?;
+    if parts.len() != 3 || parts[1] >= 60 || parts[2] >= 60 {
+        return Err(invalid());
+    }
+    let day = WEEKDAYS
+        .iter()
+        .position(|name| *name == weekday.to_lowercase())
+        .ok_or_else(invalid)?;
+    Ok((
+        parts[0] as f64 * 3600.0 + parts[1] as f64 * 60.0 + parts[2] as f64,
+        day,
+    ))
 }
 
-fn is_weekday_name(day: &str) -> bool {
-    matches!(
-        day.to_lowercase().as_str(),
-        "monday" | "tuesday" | "wednesday" | "thursday" | "friday"
-    )
-}
-
-fn is_peak_hour(hour: f64) -> bool {
-    (7.0..=9.0).contains(&hour) || (16.0..=18.0).contains(&hour)
-}
-
-/// Service that holds the shared ONNX session and builds per-query models,
-/// resolving `hour`/`is_weekday`/`is_peak` from `start_time`/`start_weekday`
-/// query parameters (already sent on every routing query — see
-/// `deadhead_router.gtfs_time_to_query_time` / `predictor._shape_start_times`).
 pub struct TransitSpeedModelService {
-    core: Arc<TransitSpeedModelCore>,
+    traces: Arc<SpeedTraces>,
 }
 
 impl TraversalModelService for TransitSpeedModelService {
@@ -213,28 +191,69 @@ impl TraversalModelService for TransitSpeedModelService {
         &self,
         query: &serde_json::Value,
     ) -> Result<Arc<dyn TraversalModel>, TraversalModelError> {
-        let start_time = query.get("start_time").and_then(|v| v.as_str());
-        let start_weekday = query
-            .get("start_weekday")
-            .and_then(|v| v.as_str())
-            .unwrap_or("monday");
-
-        let hour = parse_start_hour(start_time);
-        let is_weekday = if is_weekday_name(start_weekday) {
-            1.0
-        } else {
-            0.0
+        let string = |key: &str, default: &str| -> Result<String, TraversalModelError> {
+            match query.get(key) {
+                None => Ok(default.to_string()),
+                Some(value) => value.as_str().map(str::to_string).ok_or_else(|| {
+                    TraversalModelError::BuildError(format!("'{key}' must be a string"))
+                }),
+            }
         };
-        let is_peak = if is_peak_hour(hour) { 1.0 } else { 0.0 };
-
-        let model = TransitSpeedModel {
-            core: self.core.clone(),
-            hour,
-            is_weekday,
-            is_peak,
+        let (start_seconds, start_weekday) = parse_clock(
+            &string("start_time", "12:00:00")?,
+            &string("start_weekday", "monday")?,
+        )?;
+        let speed_limit = match query.get("speed_limit") {
+            None => None,
+            Some(value) => {
+                let limit = value
+                    .as_f64()
+                    .filter(|v| v.is_finite() && *v > 0.0)
+                    .ok_or_else(|| {
+                        TraversalModelError::BuildError(
+                            "speed_limit must be positive and finite".into(),
+                        )
+                    })?;
+                let unit = SpeedUnit::from_str(&string("speed_limit_unit", "")?).map_err(|_| {
+                    TraversalModelError::BuildError(
+                        "speed_limit requires a valid speed_limit_unit".into(),
+                    )
+                })?;
+                Some(unit.to_uom(limit))
+            }
         };
-        Ok(Arc::new(model))
+        Ok(Arc::new(TransitSpeedModel {
+            traces: self.traces.clone(),
+            start_seconds,
+            start_weekday,
+            speed_limit,
+        }))
     }
+}
+
+#[derive(Deserialize)]
+struct TraceConfig {
+    format_version: u32,
+    edge_trace_input_file: String,
+    traces_input_file: String,
+}
+
+fn read_words<T>(
+    path: &str,
+    convert: impl Fn([u8; 4]) -> T,
+) -> Result<Vec<T>, TraversalModelError> {
+    let bytes = std::fs::read(path).map_err(|e| {
+        TraversalModelError::BuildError(format!("cannot read transit speed file '{path}': {e}"))
+    })?;
+    if !bytes.len().is_multiple_of(4) {
+        return Err(TraversalModelError::BuildError(format!(
+            "truncated transit speed file '{path}'"
+        )));
+    }
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|b| convert([b[0], b[1], b[2], b[3]]))
+        .collect())
 }
 
 pub struct TransitSpeedModelBuilder {}
@@ -244,48 +263,80 @@ impl TraversalModelBuilder for TransitSpeedModelBuilder {
         &self,
         parameters: &serde_json::Value,
     ) -> Result<Arc<dyn TraversalModelService>, TraversalModelError> {
-        let onnx_path = parameters
-            .get("onnx_model_input_file")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                TraversalModelError::BuildError(String::from("missing key 'onnx_model_input_file'"))
-            })?;
-        let manifest_path = parameters
-            .get("manifest_input_file")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                TraversalModelError::BuildError(String::from("missing key 'manifest_input_file'"))
-            })?;
-
-        let manifest_str = std::fs::read_to_string(manifest_path).map_err(|e| {
-            TraversalModelError::BuildError(format!(
-                "failed to read transit speed manifest file '{manifest_path}': {e}"
-            ))
+        let config: TraceConfig = serde_json::from_value(parameters.clone()).map_err(|e| {
+            TraversalModelError::BuildError(format!("invalid transit speed trace config: {e}"))
         })?;
-        let manifest: SpeedModelManifest = serde_json::from_str(&manifest_str).map_err(|e| {
-            TraversalModelError::BuildError(format!(
-                "failed to parse transit speed manifest file '{manifest_path}': {e}"
-            ))
-        })?;
+        if config.format_version != 2 {
+            return Err(TraversalModelError::BuildError(
+                "unsupported transit speed trace format; rebuild the Compass dataset".into(),
+            ));
+        }
+        let traces = SpeedTraces::new(
+            read_words(&config.edge_trace_input_file, u32::from_le_bytes)?,
+            read_words(&config.traces_input_file, f32::from_le_bytes)?,
+        )?;
+        Ok(Arc::new(TransitSpeedModelService {
+            traces: Arc::new(traces),
+        }))
+    }
+}
 
-        let session = Session::builder()
-            .map_err(|e| {
-                TraversalModelError::BuildError(format!(
-                    "failed to build ONNX Runtime session: {e}"
-                ))
-            })?
-            .commit_from_file(onnx_path)
-            .map_err(|e| {
-                TraversalModelError::BuildError(format!(
-                    "failed to load transit speed ONNX model '{onnx_path}': {e}"
-                ))
-            })?;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        let core = Arc::new(TransitSpeedModelCore {
-            session: Mutex::new(session),
-            input_order: manifest.input_order,
-        });
+    fn model(time: &str, day: &str) -> TransitSpeedModel {
+        let (start_seconds, start_weekday) = parse_clock(time, day).unwrap();
+        TransitSpeedModel {
+            traces: Arc::new(
+                SpeedTraces::new(vec![0, 0], (1..=12).map(|n| n as f32).collect()).unwrap(),
+            ),
+            start_seconds,
+            start_weekday,
+            speed_limit: None,
+        }
+    }
 
-        Ok(Arc::new(TransitSpeedModelService { core }))
+    #[test]
+    fn clock_advances_hour_and_weekday() {
+        let friday = model("23:59:00", "friday");
+        assert_eq!(friday.bin(0.0).unwrap(), 5);
+        assert_eq!(friday.bin(60.0).unwrap(), 6);
+        assert_eq!(model("23:00:00", "sunday").bin(3600.0).unwrap(), 0);
+        assert_eq!(model("25:30:00", "friday").bin(0.0).unwrap(), 6);
+        assert_eq!(model("12:00:00", "monday").bin(7.0 * 86400.0).unwrap(), 2);
+        for (hour, expected) in [(0, 0), (6, 1), (9, 2), (15, 3), (19, 4), (22, 5)] {
+            assert_eq!(
+                model(&format!("{hour:02}:00:00"), "monday")
+                    .bin(0.0)
+                    .unwrap(),
+                expected
+            );
+            if hour > 0 {
+                assert_eq!(
+                    model(&format!("{:02}:59:59", hour - 1), "monday")
+                        .bin(0.0)
+                        .unwrap(),
+                    expected - 1
+                );
+            }
+        }
+        assert!(friday.bin(f64::NAN).is_err());
+        assert!(friday.bin(-1.0).is_err());
+    }
+
+    #[test]
+    fn validates_clock_and_traces() {
+        for time in ["bad", "12:60:00", "12:00", "-1:00:00"] {
+            assert!(parse_clock(time, "monday").is_err());
+        }
+        assert!(parse_clock("12:00:00", "holiday").is_err());
+        assert!(SpeedTraces::new(vec![1], vec![10.0; BINS]).is_err());
+        assert!(SpeedTraces::new(vec![0], vec![f32::NAN; BINS]).is_err());
+        assert!(SpeedTraces::new(vec![0], vec![0.0; BINS]).is_err());
+        assert!(SpeedTraces::new(vec![0], vec![10.0; BINS - 1]).is_err());
+        let m = model("12:00:00", "monday");
+        assert!((m.traces.speed(1, 2).unwrap().get::<mile_per_hour>() - 3.0).abs() < 1e-10);
+        assert!(m.traces.speed(2, 2).is_err());
     }
 }

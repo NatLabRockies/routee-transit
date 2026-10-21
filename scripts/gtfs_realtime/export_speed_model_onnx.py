@@ -4,13 +4,9 @@ Converts one of the tuned models persisted by
 ``fit_speed_models.fit_and_evaluate_models`` (``tuned_{model_key}_speed_model.joblib``,
 default ``rf`` — ``RandomForestRegressor``, chosen for its ONNX support and
 performance nearly matching the non-exportable tuned HGB) into an ONNX graph
-that a Rust ``TransitSpeedModel`` traversal model can load and run per-edge,
-per-query. The ONNX graph takes a single float vector input matching
-``tuned_{model_key}_speed_model_manifest.json``'s ``input_order`` — the Rust
-side is responsible for assembling that vector (static per-edge attributes +
-one-hot ``functional_class`` from ``custom`` traversal models, plus
-query-resolved ``hour``/``is_weekday``/``is_peak``) and does not need to know
-about the sklearn/one-hot-encoding details, only the manifest's column order.
+used during network preprocessing. The ONNX graph accepts batches of feature
+vectors in the manifest's ``input_order``; the routing runtime only loads the
+resulting speed traces, not the ONNX model.
 
 Note: ``hgb`` (HistGradientBoostingRegressor) cannot be exported with this
 environment's skl2onnx/sklearn versions (boolean-attribute serialization bug
@@ -56,7 +52,13 @@ class _CategoricalFeatureManifest(TypedDict):
     default: str
 
 
-class SpeedModelManifest(TypedDict):
+class _TraceManifest(TypedDict, total=False):
+    time_bin_start_hours: list[int]
+    trace_rounding_mph: float
+    training: dict[str, object]
+
+
+class SpeedModelManifest(_TraceManifest):
     """Schema of ``tuned_{model_key}_speed_model_manifest.json`` (written by
     ``fit_speed_models._tune_and_persist_model``)."""
 
@@ -74,7 +76,7 @@ def build_inference_matrix(
 ) -> npt.NDArray[np.float32]:
     """Assemble the model's input matrix from an aggregated training DataFrame.
 
-    Mirrors what the Rust side will do per-edge/per-query: numeric + temporal
+    Mirrors network preprocessing: numeric + temporal
     columns pulled directly, and the categorical feature one-hot expanded in
     the exact column order recorded in the manifest. If the manifest carries
     ``feature_medians`` (models trained on imputed data, e.g. RF/GBR — unlike

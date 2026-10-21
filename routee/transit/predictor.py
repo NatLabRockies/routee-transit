@@ -7,7 +7,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 
 from __future__ import annotations
 
-import json
+import filecmp
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -56,9 +56,9 @@ from routee.transit.osm_local import graph_from_local_pbf, local_pbf_path
 from routee.transit.osm_network import graph_from_polygon_with_retry
 from routee.transit.speed_model import (
     DEFAULT_SPEED_MODEL_DIR,
+    SPEED_TRACE_MODEL_CONFIG,
     insert_transit_speed_config,
     patch_vehicle_speed_feature,
-    write_routing_config,
     write_transit_speed_model,
 )
 from routee.transit.thermal_energy import add_HVAC_energy
@@ -84,39 +84,45 @@ def _speed_model_cache_is_valid(cache_dir: Path, speed_model_dir: Path) -> bool:
     source_manifest = speed_model_dir / "tuned_rf_speed_model_manifest.json"
     cached_model = cache_dir / "transit_speed_model.onnx"
     cached_manifest = cache_dir / "transit_speed_model_manifest.json"
-    routing_config = cache_dir / "transit_routing.toml"
-    routing_vehicles = cache_dir / "vehicles_routing"
+    edge_traces = cache_dir / "transit_speed_edge_traces.bin"
+    traces = cache_dir / "transit_speed_traces.bin"
 
     required = (
         source_model,
         source_manifest,
         cached_model,
         cached_manifest,
-        routing_config,
+        edge_traces,
+        traces,
     )
-    if not all(path.is_file() for path in required) or not routing_vehicles.is_dir():
+    if not all(path.is_file() for path in required):
         return False
-    if source_model.read_bytes() != cached_model.read_bytes():
+    if not filecmp.cmp(source_model, cached_model, shallow=False):
         return False
-    if source_manifest.read_bytes() != cached_manifest.read_bytes():
+    if not filecmp.cmp(source_manifest, cached_manifest, shallow=False):
         return False
 
-    manifest = json.loads(source_manifest.read_text())
-    temporal = set(manifest["per_query_temporal_features"])
-    feature_files = (
-        cache_dir / f"transit_speed_feature__{name}.txt"
-        for name in manifest["input_order"]
-        if name not in temporal
-    )
-    if not all(path.is_file() for path in feature_files):
+    if (
+        edge_traces.stat().st_size == 0
+        or edge_traces.stat().st_size % 4
+        or traces.stat().st_size == 0
+        or traces.stat().st_size % (12 * 4)
+    ):
         return False
 
     config = tomlkit.loads((cache_dir / "transit_energy.toml").read_text())
     models = config.get("search", {}).get("traversal", {}).get("models", [])
-    return any(model.get("type") == "transit_speed" for model in models) and any(
-        model.get("type") == "transit_energy"
-        and model.get("speed_feature_name") == "transit_speed"
-        for model in models
+    return (
+        any(
+            model.get("type") == "transit_speed" and model.get("format_version") == 2
+            for model in models
+        )
+        and not any(model.get("type") == "speed" for model in models)
+        and any(
+            model.get("type") == "transit_energy"
+            and model.get("speed_feature_name") == "transit_speed"
+            for model in models
+        )
     )
 
 
@@ -287,10 +293,6 @@ class GTFSEnergyPredictor:
         self.shapes: pd.DataFrame = pd.DataFrame()
         self.matched_shapes: pd.DataFrame = pd.DataFrame()
         self.routee_inputs: pd.DataFrame = pd.DataFrame()
-        # Lightweight CompassApp (no transit_speed ONNX model / custom feature
-        # loaders) used for map matching and deadhead routing, which only need
-        # cost-comparable candidate paths, not accurate speed predictions.
-        self.routing_app: TransitCompassApp | None = None
         # Lower-case weekday name for the analysis service date, derived in run()
         # from its ``date`` argument; used to stamp deadhead routing queries for
         # time-of-day traversal models. None when no date filter is applied.
@@ -560,22 +562,6 @@ class GTFSEnergyPredictor:
         logger.info(f"Loaded {len(self.trips)} trips and {len(shape_ids)} shapes")
         return self
 
-    def _load_routing_app(self, cache_dir: Path) -> TransitCompassApp:
-        """Load the lightweight routing config if the speed model wrote one,
-        otherwise reuse the full ``self.app`` (no separate config needed).
-        """
-        routing_config_path = cache_dir / "transit_routing.toml"
-        if routing_config_path.exists():
-            logger.info(f"Loading lightweight routing CompassApp from {cache_dir}")
-            return cast(
-                TransitCompassApp,
-                TransitCompassApp.from_config_file(
-                    routing_config_path, parallelism=self.n_processes
-                ),
-            )
-        assert self.app is not None
-        return self.app
-
     def load_compass_app(
         self,
         buffer_deg: float = 0.01,
@@ -638,6 +624,7 @@ class GTFSEnergyPredictor:
 
         # Check for existing CompassApp in output_dir
         cache_dir = None
+        rebuild_cache = False
         phases = [
             GeneratePipelinePhase.GRAPH,
             GeneratePipelinePhase.CONFIG,
@@ -686,13 +673,6 @@ class GTFSEnergyPredictor:
                     transit_energy_toml_path = (
                         params.output_directory / "transit_energy.toml"
                     )
-                    # Copy aside BEFORE wiring in transit_speed, so routing
-                    # (map matching, deadhead) can use a config without the
-                    # ONNX speed model / custom feature loaders.
-                    write_routing_config(
-                        transit_energy_toml_path,
-                        params.output_directory / "transit_routing.toml",
-                    )
                     model_blocks = write_transit_speed_model(
                         params,
                         feed=cast(Feed, self.feed),
@@ -700,9 +680,6 @@ class GTFSEnergyPredictor:
                         manifest_path=manifest_path,
                     )
                     insert_transit_speed_config(transit_energy_toml_path, model_blocks)
-                    # Repoint the (now-shared-with-main-config-only) vehicle
-                    # files' own speed input at transit_speed, so it drives
-                    # the primary energy-rate calc, not just stop penalties.
                     patch_vehicle_speed_feature(
                         params.output_directory / "vehicles", compass_vehicle_models
                     )
@@ -721,6 +698,7 @@ class GTFSEnergyPredictor:
                     cache_dir, self.speed_model_dir
                 )
                 if not cache_has_requested_speed_model:
+                    rebuild_cache = True
                     logger.info(
                         "Cached CompassApp is missing or has a stale transit "
                         "speed model; rebuilding the cache"
@@ -745,6 +723,13 @@ class GTFSEnergyPredictor:
                         copy_custom_vehicle_models(
                             cache_dir, vehicle_models=compass_vehicle_models
                         )
+                        insert_transit_speed_config(
+                            config_path,
+                            [SPEED_TRACE_MODEL_CONFIG.copy()],
+                        )
+                        patch_vehicle_speed_feature(
+                            cache_dir / "vehicles", compass_vehicle_models
+                        )
 
                     logger.info(f"Loading existing CompassApp from {cache_dir}")
                     self.app = cast(
@@ -753,7 +738,6 @@ class GTFSEnergyPredictor:
                             config_path, parallelism=self.n_processes
                         ),
                     )
-                    self.routing_app = self._load_routing_app(cache_dir)
                     self._bbox = new_bbox
                     return
 
@@ -778,6 +762,8 @@ class GTFSEnergyPredictor:
                 corridor_polygon,
                 network_type="drive",
             )
+        # Release any previous graph before constructing its replacement.
+        self.app = None
         self.app = cast(
             TransitCompassApp,
             TransitCompassApp.from_graph(
@@ -792,24 +778,11 @@ class GTFSEnergyPredictor:
                 # (transit_energy, transit_speed, GTFS stop penalties, etc.)
                 # written by copy_transit_config/insert_transit_speed_config.
                 config_file="transit_energy.toml",
+                overwrite=self.overwrite or rebuild_cache,
             ),
         )
-        self.routing_app = self._load_routing_app(cache_dir) if cache_dir else self.app
         self._bbox = new_bbox
         logger.info("CompassApp initialized")
-
-        if cache_dir is not None:
-            # Always reload from the hook-written config so the in-memory app
-            # picks up the [map_matching] section and custom vehicle models the
-            # generate hooks wrote to disk; the from_graph app alone omits them,
-            # which makes every map-match query error.
-            self.app = cast(
-                TransitCompassApp,
-                TransitCompassApp.from_config_file(
-                    cache_dir / "transit_energy.toml",
-                    parallelism=self.n_processes,
-                ),
-            )
 
     def filter_trips(
         self,
@@ -988,12 +961,9 @@ class GTFSEnergyPredictor:
 
         logger.info("Routing mid-block deadhead trips...")
 
-        # Generate shapes for unique O-D pairs. Uses the lightweight
-        # routing_app (falls back to self.app) — deadhead routing only needs
-        # cost-comparable candidate paths, not accurate transit_speed.
-        routing_app = self.routing_app or self.app
+        # Generate shapes for unique O-D pairs using the shared speed traces.
         deadhead_shapes, od_mapping = create_deadhead_shapes(
-            app=routing_app,
+            app=self.app,
             df=deadhead_ods,
             start_weekday=self._service_weekday,
             model_name=self._deadhead_routing_model(),
@@ -1206,13 +1176,9 @@ class GTFSEnergyPredictor:
 
         logger.info("Routing depot deadhead trips...")
 
-        # Generate shapes for trips from depot to first stop. Uses the
-        # lightweight routing_app (falls back to self.app) — deadhead routing
-        # only needs cost-comparable candidate paths, not accurate
-        # transit_speed.
-        routing_app = self.routing_app or self.app
+        # Generate shapes for trips from depot to first stop.
         from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=routing_app,
+            app=self.app,
             df=first_stops_gdf,
             start_weekday=self._service_weekday,
             model_name=self._deadhead_routing_model(),
@@ -1226,7 +1192,7 @@ class GTFSEnergyPredictor:
 
         # Generate shapes for trips from last stop to depot
         to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
-            app=routing_app,
+            app=self.app,
             df=last_stops_gdf,
             start_weekday=self._service_weekday,
             model_name=self._deadhead_routing_model(),
@@ -1484,11 +1450,7 @@ class GTFSEnergyPredictor:
         logger.info(f"Running map matching for {len(queries)} shapes...")
 
         # Run map matching with CompassApp (handles parallelism natively).
-        # Uses the lightweight routing_app (falls back to self.app) since map
-        # matching only needs cost-comparable candidate paths, not accurate
-        # per-edge transit_speed predictions.
-        routing_app = self.routing_app or self.app
-        results = routing_app.map_match(queries)
+        results = self.app.map_match(queries)
 
         # Process results into a combined DataFrame
         return self._process_map_match_results(results, shape_ids)
