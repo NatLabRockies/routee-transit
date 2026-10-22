@@ -33,25 +33,16 @@ PHASES="${ROUTEE_PHASES:-feeds precache analyze}"
 # public server refusing connections.
 export ROUTEE_OSMNX_CACHE="${ROUTEE_OSMNX_CACHE:-$REPO_ROOT/cache}"
 
-# Per-dataset OSM extracts, cut from the national PBF by
-# scripts/hpc/split_osm_extracts.py. This is the fast path: a .osm.pbf has no
-# spatial index and pyrosm's cost grows superlinearly with file size, so a
-# per-dataset extract reads in ~0.7s where the 12 GB national file takes >10min.
-ROUTEE_OSM_EXTRACT_DIR="${ROUTEE_OSM_EXTRACT_DIR:-/projects/teta/osm/extracts}"
-if [ -d "$ROUTEE_OSM_EXTRACT_DIR" ]; then
-    export ROUTEE_OSM_EXTRACT_DIR
+# Geofabrik state extracts, populated by scripts/hpc/prefetch_state_pbfs.py.
+# When present, networks are read from these instead of the Overpass API, which
+# the Overpass project documents as the wrong tool for bulk extraction. The
+# states read per dataset are chosen from the corridor polygon, so a corridor
+# crossing a state line reads both files.
+ROUTEE_OSM_PBF_DIR="${ROUTEE_OSM_PBF_DIR:-/projects/teta/osm/states}"
+if [ -d "$ROUTEE_OSM_PBF_DIR" ]; then
+    export ROUTEE_OSM_PBF_DIR
 else
-    unset ROUTEE_OSM_EXTRACT_DIR
-fi
-
-# Source PBF for the splitter. Not read directly during analysis -- only
-# datasets with no extract would fall back to it, which is slow on purpose so
-# the missing extract is noticed.
-ROUTEE_OSM_PBF="${ROUTEE_OSM_PBF:-}"
-if [ -n "$ROUTEE_OSM_PBF" ] && [ -f "$ROUTEE_OSM_PBF" ]; then
-    export ROUTEE_OSM_PBF
-else
-    unset ROUTEE_OSM_PBF
+    unset ROUTEE_OSM_PBF_DIR
 fi
 
 # Endpoint rotation order comes from routee.transit.osm_network (main instance
@@ -108,7 +99,7 @@ log "Repository: $REPO_ROOT"
 log "Pixi environment: $PIXI_ENV"
 log "Phases: $PHASES"
 log "osmnx cache: $ROUTEE_OSMNX_CACHE"
-log "OSM source: ${ROUTEE_OSM_EXTRACT_DIR:-${ROUTEE_OSM_PBF:-Overpass API}}"
+log "OSM source: ${ROUTEE_OSM_PBF_DIR:-Overpass API}"
 log "Overpass endpoints: ${ROUTEE_OVERPASS_URLS:-<library default>}"
 
 mkdir -p "$MOBILITY_DB_DIR"
