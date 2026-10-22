@@ -224,9 +224,14 @@ def load_tmy_power_by_day(
     tmy_df = pd.read_csv(local_file, parse_dates=["date_time"])[
         ["date_time", "Dry Bulb Temperature [°C]"]
     ]
-    tmy_df["month"] = tmy_df["date_time"].dt.month
-    tmy_df["day_of_month"] = tmy_df["date_time"].dt.day
-    tmy_df["hour"] = tmy_df["date_time"].dt.hour
+    # TMY timestamps are hour-ending (01:00 ... 24:00), and each month is drawn
+    # from a different source year. Shift to hour-beginning so every calendar
+    # day gets exactly hours 0-23; otherwise a February taken from a leap year
+    # ends at "Feb 29 00:00", leaving March 1 with only 23 hours.
+    hour_start = tmy_df["date_time"] - pd.Timedelta(hours=1)
+    tmy_df["month"] = hour_start.dt.month
+    tmy_df["day_of_month"] = hour_start.dt.day
+    tmy_df["hour"] = hour_start.dt.hour
     tmy_df["Dry Bulb Temperature [°C]"] = tmy_df["Dry Bulb Temperature [°C]"].round(1)
     tmy_df = tmy_df.merge(
         df_temp_energy,

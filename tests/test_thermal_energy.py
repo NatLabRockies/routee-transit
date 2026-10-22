@@ -17,6 +17,7 @@ from routee.transit.thermal_energy import (
     compute_HVAC_energy,
     fetch_counties_gdf,
     load_thermal_lookup_table,
+    load_tmy_power_by_day,
 )
 
 
@@ -426,6 +427,29 @@ class TestScaleToYear(unittest.TestCase):
         # Only the 6 real dates appear, all flagged True
         self.assertEqual(len(result), 6)
         self.assertTrue(result["trip_is_within_gtfs_scope"].all())
+
+
+class TestLoadTmyPowerByDay(unittest.TestCase):
+    def test_leap_year_february_gives_every_day_24_hours(self) -> None:
+        # Hour-ending TMY timestamps with February drawn from a leap year, so
+        # the last February hour is stamped "Feb 29 00:00".
+        feb = pd.date_range("2004-02-01 01:00", "2004-02-29 00:00", freq="h")
+        mar = pd.date_range("1999-03-01 01:00", "1999-03-03 00:00", freq="h")
+        times = feb.append(mar)
+        with tempfile.TemporaryDirectory() as tmp:
+            pd.DataFrame(
+                {
+                    "date_time": times,
+                    "Dry Bulb Temperature [°C]": np.full(len(times), 20.0),
+                }
+            ).to_csv(Path(tmp) / "G0000010.csv", index=False)
+            lookup = pd.DataFrame({"Temp_C": [20.0], "Power": [5.0]})
+            result = load_tmy_power_by_day("G0000010", Path(tmp), lookup)
+
+        hours_per_day = result.groupby(["month", "day_of_month"]).size()
+        self.assertTrue((hours_per_day == 24).all(), hours_per_day.to_dict())
+        self.assertNotIn((2, 29), hours_per_day.index)
+        self.assertEqual(sorted(result["hour"].unique()), list(range(24)))
 
 
 if __name__ == "__main__":
