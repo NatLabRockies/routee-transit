@@ -1,5 +1,6 @@
 {
   "name": "Transit_Bus_Hybrid_40ft",
+  "display_name": "40' Hybrid",
   "type": "ice",
   "mass_estimate_lbs": 32000,
   "model_input_file": "Transit_Bus_Hybrid_40ft.bin",

@@ -1,5 +1,6 @@
 {
   "name": "Transit_Bus_Diesel_40ft",
+  "display_name": "40' Diesel",
   "type": "ice",
   "mass_estimate_lbs": 28000,
   "model_input_file": "Transit_Bus_Diesel_40ft.bin",

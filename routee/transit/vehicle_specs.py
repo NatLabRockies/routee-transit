@@ -31,8 +31,8 @@ _UNIT_ALIASES: dict[str, str] = {
 
 VEHICLE_SPEC_COLUMNS = [
     "vehicle",
+    "display_name",
     "powertrain",
-    "mass_estimate_lbs",
     "capacity",
     "capacity_unit",
     "usable_capacity_fraction",
@@ -75,6 +75,7 @@ class VehicleSpec:
     capacity_unit: str
     usable_capacity_fraction: float
     mass_estimate_lbs: float | None
+    display_name: str | None = None
 
     @property
     def usable_capacity(self) -> float:
@@ -90,6 +91,13 @@ def _as_float(value: object, name: str, key: str) -> float:
 
 def _spec_from_config(config: dict[str, object]) -> VehicleSpec | None:
     name = str(config["name"])
+    display_name = config.get("display_name")
+    if display_name is not None and (
+        not isinstance(display_name, str) or not display_name.strip()
+    ):
+        raise ValueError(
+            f"Vehicle model '{name}' has an invalid 'display_name': {display_name!r}"
+        )
     if "battery_capacity" in config:
         capacity = _as_float(config["battery_capacity"], name, "battery_capacity")
         unit = str(config["battery_capacity_unit"])
@@ -123,6 +131,7 @@ def _spec_from_config(config: dict[str, object]) -> VehicleSpec | None:
         mass_estimate_lbs=None
         if mass is None
         else _as_float(mass, name, "mass_estimate_lbs"),
+        display_name=display_name,
     )
 
 
@@ -175,8 +184,8 @@ def vehicle_specs_table(specs: Mapping[str, VehicleSpec]) -> pd.DataFrame:
     rows = [
         {
             "vehicle": spec.name,
+            "display_name": spec.display_name,
             "powertrain": spec.powertrain,
-            "mass_estimate_lbs": spec.mass_estimate_lbs,
             "capacity": spec.capacity,
             "capacity_unit": spec.capacity_unit,
             "usable_capacity_fraction": spec.usable_capacity_fraction,

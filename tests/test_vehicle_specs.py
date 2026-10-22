@@ -1,12 +1,15 @@
 """Tests for vehicle capacity specs and block feasibility flags."""
 
+import io
 import unittest
+from dataclasses import replace
 
 import pandas as pd
 
 from routee.transit.results import add_block_feasibility, aggregate_block_predictions
 from routee.transit.vehicle_specs import (
     VehicleSpec,
+    _spec_from_config,
     load_vehicle_specs,
     normalize_energy_unit,
     vehicle_specs_table,
@@ -59,8 +62,8 @@ class TestVehicleSpecs(unittest.TestCase):
             list(table.columns),
             [
                 "vehicle",
+                "display_name",
                 "powertrain",
-                "mass_estimate_lbs",
                 "capacity",
                 "capacity_unit",
                 "usable_capacity_fraction",
@@ -73,6 +76,49 @@ class TestVehicleSpecs(unittest.TestCase):
             table["usable_capacity"],
             check_names=False,
         )
+
+    def test_display_names_export_to_csv(self) -> None:
+        table = vehicle_specs_table(load_vehicle_specs())
+        exported = pd.read_csv(io.StringIO(table.to_csv(index=False)))
+        self.assertNotIn("mass_estimate_lbs", exported.columns)
+        self.assertEqual(
+            exported.set_index("vehicle")["display_name"].to_dict(),
+            {
+                "Transit_Bus_CNG_40ft": "40' CNG",
+                "Transit_Bus_CNG_60ft": "60' CNG",
+                "Transit_Bus_Diesel_40ft": "40' Diesel",
+                "Transit_Bus_Diesel_60ft": "60' Diesel",
+                "Transit_Bus_Electric_40ft_300kWh": "40' Electric (300 kWh)",
+                "Transit_Bus_Electric_60ft_600kWh": "60' Electric (600 kWh)",
+                "Transit_Bus_Hybrid_40ft": "40' Hybrid",
+                "Transit_Bus_Hybrid_60ft": "60' Hybrid",
+            },
+        )
+
+    def test_display_name_is_passed_through(self) -> None:
+        config: dict[str, object] = {
+            "name": "custom_model",
+            "display_name": "Custom bus label",
+            "battery_capacity": 300,
+            "battery_capacity_unit": "kWh",
+            "usable_capacity_fraction": 0.8,
+        }
+        spec = _spec_from_config(config)
+        assert spec is not None
+        table = vehicle_specs_table({spec.name: spec})
+        self.assertEqual(table["display_name"].tolist(), ["Custom bus label"])
+        for invalid in ("", "  ", 40):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                _spec_from_config({**config, "display_name": invalid})
+        del config["display_name"]
+        legacy = _spec_from_config(config)
+        self.assertEqual(legacy, replace(spec, display_name=None))
+
+    def test_empty_specs_table_keeps_schema(self) -> None:
+        table = vehicle_specs_table({})
+        self.assertTrue(table.empty)
+        self.assertIn("display_name", table.columns)
+        self.assertNotIn("mass_estimate_lbs", table.columns)
 
 
 class TestBlockFeasibility(unittest.TestCase):

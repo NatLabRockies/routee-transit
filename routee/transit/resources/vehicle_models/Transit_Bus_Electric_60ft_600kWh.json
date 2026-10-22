@@ -1,5 +1,6 @@
 {
   "name": "Transit_Bus_Electric_60ft_600kWh",
+  "display_name": "60' Electric (600 kWh)",
   "type": "bev",
   "mass_estimate_lbs": 40000,
   "model_input_file": "Transit_Bus_Electric_60ft_600kWh.bin",

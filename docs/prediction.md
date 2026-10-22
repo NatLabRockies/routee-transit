@@ -123,6 +123,8 @@ The `route_ids` and `agency_ids` lists are then replaced by scalar `route_id` an
 
 Feasibility compares each total against `capacity * usable_capacity_fraction` from the vehicle model config. `save_results()` exports those capacities to `vehicles.csv`; pass `save_vehicle_specs=False` to skip it.
 
+The vehicle table contains `vehicle`, `display_name`, `powertrain`, `capacity`, `capacity_unit`, `usable_capacity_fraction`, and `usable_capacity`. Display names come directly from the vehicle model JSON's `display_name` field, for example `40' CNG` or `60' Electric (600 kWh)`; older configs without that field leave the column blank. Mass estimates remain in the model configs but are not exported. After changing Rust vehicle config fields, rebuild the extension (`pixi run -e hpc build_hpc` on HPC) before running predictions.
+
 Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. A block left with only deadhead trips is dropped entirely, with a single warning counting the affected blocks, since its revenue service was excluded upstream and the remaining total is not a meaningful block.
 
 Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.
