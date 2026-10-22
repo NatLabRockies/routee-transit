@@ -1175,10 +1175,15 @@ class GTFSEnergyPredictor:
                     agency_name,
                 )
 
+        # Only geocode the matched agencies' own facilities. The national
+        # fallback uses facilities that already have coordinates: geocoding all
+        # ~1,100 uncoordinated depots takes 20+ minutes at Nominatim's rate
+        # limit and gets the IP throttled when several datasets run at once.
         try:
-            depots_gdf = load_ntd_facilities(
-                ntd_ids=matched_ntd_ids if matched_ntd_ids else None
-            )
+            if matched_ntd_ids:
+                depots_gdf = load_ntd_facilities(ntd_ids=matched_ntd_ids)
+            else:
+                depots_gdf = load_ntd_facilities(geocode_missing=False)
         except (FileNotFoundError, ValueError):
             if matched_ntd_ids:
                 logger.warning(
@@ -1186,7 +1191,7 @@ class GTFSEnergyPredictor:
                     "falling back to all bus facilities.",
                     matched_ntd_ids,
                 )
-                depots_gdf = load_ntd_facilities()
+                depots_gdf = load_ntd_facilities(geocode_missing=False)
             else:
                 raise
 
