@@ -80,9 +80,10 @@ DATASET_TIMEOUT_MINUTES=480
 # tld-5741: Coach USA
 SKIP_FEED_IDS="mdb-2297 mdb-2321 mdb-419 tld-5741"
 
-# Parallel processing configuration
-MAX_PARALLEL_DATASETS=10
-N_PROCESSES_PER_DATASET=8
+# Parallel processing configuration (override via the environment, e.g. to fit
+# a smaller-memory partition)
+MAX_PARALLEL_DATASETS="${MAX_PARALLEL_DATASETS:-10}"
+N_PROCESSES_PER_DATASET="${N_PROCESSES_PER_DATASET:-8}"
 
 # Run ID: use SLURM job ID if available, otherwise generate from timestamp
 RUN_ID="${SLURM_JOB_ID:-local-$(date +%Y%m%d%H%M%S)}"

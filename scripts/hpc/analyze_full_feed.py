@@ -17,7 +17,6 @@ from typing import NoReturn
 import pandas as pd
 
 from routee.transit import GTFSEnergyPredictor
-from routee.transit.results import build_route_shapes
 from routee.transit.speed_model import DEFAULT_SPEED_MODEL_DIR
 
 VEHICLE_MODELS = [
@@ -39,60 +38,21 @@ class DatasetTimeout(Exception):
 def average_across_dates(results: pd.DataFrame) -> pd.DataFrame:
     """Collapse the date dimension to one row per (trip, vehicle).
 
-    Energy and efficiency are averaged over the dates a trip runs; columns that
-    only vary by date are dropped. ``trip_count`` records how many dates each
-    trip ran, so annual totals stay recoverable from the averaged table.
+    Matches ``fta_app_sample_results.py``: date-varying energy columns are
+    averaged over the dates a trip runs, and ``trip_count`` records how many
+    dates each trip operates. All remaining columns are date-invariant.
     """
-    date_cols = {"date", "hvac_energy_kWh", "trip_is_within_gtfs_scope"}
-    avg_cols = [c for c in results.columns if c in {"energy_used", "mpge"}]
-    group_cols = [c for c in results.columns if c not in date_cols | set(avg_cols)]
-
-    if "date" not in results.columns:
-        averaged = results.copy()
-        averaged["trip_count"] = 1
-        averaged["scenario"] = "median"
-        return averaged
-
+    date_varying = {"energy_used", "mpge", "hvac_energy_kWh"}
+    dropped = {"date", "trip_is_within_gtfs_scope"}
+    avg_cols = [c for c in results.columns if c in date_varying]
+    group_cols = [c for c in results.columns if c not in date_varying | dropped]
     trip_counts = (
         results.groupby("trip_id").agg(trip_count=("date", "nunique")).reset_index()
     )
     averaged = results.groupby(group_cols, as_index=False, dropna=False)[
         avg_cols
     ].mean()
-    averaged = averaged.merge(trip_counts, on="trip_id", how="left")
-    averaged["scenario"] = "median"
-    return averaged
-
-
-def calculate_mpge(row: pd.Series) -> float:
-    if row["energy_unit"] == "kWh":
-        return float(row["miles"] / (row["energy_used"] / 33.7))
-    if row["energy_unit"] == "gallons_diesel":
-        return float(row["miles"] / (row["energy_used"] * 1.136))
-    raise ValueError(f"Unsupported energy unit: {row['energy_unit']}")
-
-
-def get_t3co_inputs(predictions: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate trip predictions by vehicle and block for T3CO."""
-    block_predictions = predictions.dropna(subset=["block_id"]).copy()
-    if block_predictions.empty:
-        raise ValueError("No block IDs are available for T3CO aggregation")
-
-    group_columns = ["vehicle", "block_id"]
-    if "scenario" in block_predictions.columns:
-        group_columns.append("scenario")
-    grouped = block_predictions.groupby(group_columns, dropna=False)
-    result = grouped[["energy_used", "miles"]].sum()
-    result["energy_unit"] = grouped["energy_unit"].first()
-    result["mpge"] = result.apply(calculate_mpge, axis=1)
-    result["range"] = result.apply(
-        lambda row: float(
-            (500 if row["energy_unit"] == "kWh" else 100)
-            / (row["energy_used"] / row["miles"])
-        ),
-        axis=1,
-    )
-    return result.reset_index()
+    return averaged.merge(trip_counts, on="trip_id", how="left")
 
 
 def classify_failure(error: Exception) -> str:
@@ -117,6 +77,7 @@ def main() -> int:
     args = parser.parse_args()
 
     dataset_id = args.dataset
+    feed_id = dataset_id.rsplit("-", 1)[0]
     input_dir = args.db_root / dataset_id / "gtfs"
     output_dir = args.db_root / dataset_id / "results"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -177,9 +138,11 @@ def main() -> int:
             n_processes=args.n_processes,
             vehicle_models=VEHICLE_MODELS,
             output_dir=output_dir,
+            feed_id=feed_id,
             dataset_id=dataset_id,
             speed_model_dir=speed_model_dir,
             overwrite=False,
+            explode_block_routes=True,
         )
         includes_deadhead = True
         try:
@@ -208,9 +171,11 @@ def main() -> int:
                 n_processes=args.n_processes,
                 vehicle_models=VEHICLE_MODELS,
                 output_dir=output_dir,
+                feed_id=feed_id,
                 dataset_id=dataset_id,
                 speed_model_dir=speed_model_dir,
                 overwrite=False,
+                explode_block_routes=True,
             )
             predictions = predictor.run(
                 add_mid_block_deadhead=False,
@@ -225,25 +190,16 @@ def main() -> int:
             write_status("skipped", 0)
             return 0
 
-        predictions.to_csv(
-            output_dir / "trip_energy_predictions_daily.csv", index=False
+        # Same outputs as fta_app_sample_results.py: block-level results and
+        # routes.geojson, but no daily trip or link exports.
+        predictor.save_results(
+            save_trip_level=False,
+            save_link_level=False,
+            save_route_shapes=True,
+            save_block_level=True,
         )
         averaged = average_across_dates(predictions)
         averaged.to_csv(output_dir / "trip_energy_predictions.csv", index=False)
-
-        try:
-            get_t3co_inputs(predictions).to_csv(
-                output_dir / "t3co_inputs.csv", index=False
-            )
-        except ValueError as error:
-            logger.info("Skipping T3CO output: %s", error)
-
-        try:
-            build_route_shapes(predictor.trips, predictor.shapes, averaged).to_file(
-                output_dir / "routes.geojson", driver="GeoJSON"
-            )
-        except Exception as error:
-            logger.warning("Failed to generate routes.geojson: %s", error)
 
         write_status("success", 0)
         logger.info(
