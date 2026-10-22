@@ -325,6 +325,10 @@ class GTFSEnergyPredictor:
         self._deadhead_trips: pd.DataFrame = pd.DataFrame()
         self._deadhead_stop_times: pd.DataFrame = pd.DataFrame()
         self._deadhead_stops: pd.DataFrame = pd.DataFrame()
+        # Road-network edges of deadhead shapes that were routed over the Compass
+        # graph. These shapes already lie on the network, so they are reused in
+        # place of map matching results rather than being matched again.
+        self._deadhead_route_edges: pd.DataFrame = pd.DataFrame()
         # Snapshot of GTFS stops before any deadhead stops are added — used to
         # filter stops_supplement.txt to only genuinely new stops.
         self._gtfs_stops: pd.DataFrame = pd.DataFrame()
@@ -1002,12 +1006,13 @@ class GTFSEnergyPredictor:
         logger.info("Routing mid-block deadhead trips...")
 
         # Generate shapes for unique O-D pairs using the shared speed traces.
-        deadhead_shapes, od_mapping = create_deadhead_shapes(
+        deadhead_shapes, od_mapping, route_edges = create_deadhead_shapes(
             app=self.app,
             df=deadhead_ods,
             start_weekday=self._service_weekday,
             model_name=self._deadhead_routing_model(),
         )
+        self._add_deadhead_route_edges(route_edges)
 
         # Assign shape_id to each trip based on O-D mapping
         # The od_mapping has block_id which matches trip_id for mid-block deadhead
@@ -1223,11 +1228,13 @@ class GTFSEnergyPredictor:
         logger.info("Routing depot deadhead trips...")
 
         # Generate shapes for trips from depot to first stop.
-        from_depot_shapes, from_depot_mapping = create_deadhead_shapes(
-            app=self.app,
-            df=first_stops_gdf,
-            start_weekday=self._service_weekday,
-            model_name=self._deadhead_routing_model(),
+        from_depot_shapes, from_depot_mapping, from_depot_edges = (
+            create_deadhead_shapes(
+                app=self.app,
+                df=first_stops_gdf,
+                start_weekday=self._service_weekday,
+                model_name=self._deadhead_routing_model(),
+            )
         )
         from_depot_shapes["shape_id"] = from_depot_shapes["shape_id"].apply(
             lambda x: f"from_depot_{x}"
@@ -1235,9 +1242,10 @@ class GTFSEnergyPredictor:
         from_depot_mapping["shape_id"] = from_depot_mapping["shape_id"].apply(
             lambda x: f"from_depot_{x}"
         )
+        self._add_deadhead_route_edges(from_depot_edges, prefix="from_depot_")
 
         # Generate shapes for trips from last stop to depot
-        to_depot_shapes, to_depot_mapping = create_deadhead_shapes(
+        to_depot_shapes, to_depot_mapping, to_depot_edges = create_deadhead_shapes(
             app=self.app,
             df=last_stops_gdf,
             start_weekday=self._service_weekday,
@@ -1249,6 +1257,7 @@ class GTFSEnergyPredictor:
         to_depot_mapping["shape_id"] = to_depot_mapping["shape_id"].apply(
             lambda x: f"to_depot_{x}"
         )
+        self._add_deadhead_route_edges(to_depot_edges, prefix="to_depot_")
 
         # Combine all depot deadhead shapes
         deadhead_shapes = pd.concat(
@@ -1416,18 +1425,9 @@ class GTFSEnergyPredictor:
 
         logger.info("Matching shapes to road network...")
 
-        # Step 1: Upsample all shapes to ~1 Hz
-        shape_groups = [
-            group.sort_values("shape_pt_sequence")
-            for _, group in self.shapes.groupby("shape_id")
-        ]
-        with mp.Pool(self.n_processes) as pool:
-            upsampled_shapes = pool.map(upsample_shape, shape_groups)
-
-        logger.debug(f"Upsampled {len(shape_groups)} shapes")
-
-        # Step 2: Match to network (no energy model — just geometry + road attributes)
-        matched_shapes = self._match_shapes_to_network(upsampled_shapes)
+        # Step 1-2: Upsample shapes to ~1 Hz and match to the network (no energy
+        # model — just geometry + road attributes)
+        matched_shapes = self._get_shape_link_results()
         self.matched_shapes = matched_shapes
 
         logger.info("Finished map matching")
@@ -1445,6 +1445,63 @@ class GTFSEnergyPredictor:
         self.routee_inputs = self.aggregate_inputs_by_link(trips_ext)
 
         return self
+
+    def _add_deadhead_route_edges(
+        self, route_edges: pd.DataFrame, prefix: str = ""
+    ) -> None:
+        """Record routed deadhead edges so those shapes skip map matching."""
+        if route_edges.empty:
+            return
+        route_edges = route_edges.drop(columns="match_id", errors="ignore")
+        route_edges["shape_id"] = prefix + route_edges["shape_id"].astype(str)
+        if not self._deadhead_route_edges.empty:
+            existing = self._deadhead_route_edges[
+                ~self._deadhead_route_edges["shape_id"].isin(route_edges["shape_id"])
+            ]
+            route_edges = pd.concat([existing, route_edges], ignore_index=True)
+        self._deadhead_route_edges = route_edges
+
+    def _get_shape_link_results(self) -> pd.DataFrame:
+        """Get road-network edges for every shape in ``self.shapes``.
+
+        Shapes with routed deadhead edges reuse them directly since they were
+        produced by routing over the same graph. All other shapes (GTFS shapes
+        and straight-line deadhead fallbacks) are sorted by
+        ``shape_pt_sequence``, upsampled to ~1 Hz, and map matched.
+        """
+        shape_ids = self.shapes["shape_id"].astype(str)
+        routed = self._deadhead_route_edges
+        if not routed.empty:
+            routed = routed[routed["shape_id"].isin(set(shape_ids))]
+        routed_ids = set(routed["shape_id"]) if not routed.empty else set()
+
+        # GTFS does not require shapes.txt rows to be ordered, and an unsorted
+        # shape becomes a wildly zigzagging trace that can exhaust memory during
+        # map matching.
+        shapes_to_match = self.shapes[~shape_ids.isin(routed_ids)]
+        shape_groups = [
+            group.sort_values("shape_pt_sequence")
+            for _, group in shapes_to_match.groupby("shape_id")
+        ]
+        logger.info(
+            "Map matching %d shapes; reusing routed edges for %d deadhead shapes",
+            len(shape_groups),
+            len(routed_ids),
+        )
+
+        if not shape_groups:
+            return routed.reset_index(drop=True)
+
+        with mp.Pool(self.n_processes) as pool:
+            upsampled_shapes = pool.map(upsample_shape, shape_groups)
+        logger.debug(f"Upsampled {len(shape_groups)} shapes")
+
+        matched = self._match_shapes_to_network(upsampled_shapes)
+        if routed.empty:
+            return matched
+        if matched.empty:
+            return routed.reset_index(drop=True)
+        return pd.concat([matched, routed], ignore_index=True)
 
     def _match_shapes_to_network(
         self, upsampled_shapes: list[pd.DataFrame]
@@ -1700,14 +1757,8 @@ class GTFSEnergyPredictor:
         if self.app is None:
             self.load_compass_app()
 
-        # Run map matching ONCE to get edge-level results
-        shape_groups = [group for _, group in self.shapes.groupby("shape_id")]
-        with mp.Pool(self.n_processes) as pool:
-            upsampled_shapes = pool.map(upsample_shape, shape_groups)
-
-        logger.debug(f"Upsampled {len(shape_groups)} shapes")
-
-        link_results = self._match_shapes_to_network(upsampled_shapes)
+        # Get edge-level results ONCE (map matching, or routed deadhead edges)
+        link_results = self._get_shape_link_results()
         if link_results.empty:
             logger.warning("No map matching results — cannot predict energy")
             return self.energy_predictions

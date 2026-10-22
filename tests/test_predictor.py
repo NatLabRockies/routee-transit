@@ -671,3 +671,71 @@ class TestPredictEnergyMPGe(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestShapeLinkResults(unittest.TestCase):
+    """Tests for _get_shape_link_results(): sorting and routed-edge reuse."""
+
+    def setUp(self) -> None:
+        self.predictor = GTFSEnergyPredictor("/tmp/fake_gtfs", n_processes=1)
+        # Rows deliberately out of shape_pt_sequence order
+        self.predictor.shapes = pd.DataFrame(
+            {
+                "shape_id": ["SH1", "SH1", "SH1", "DH1", "DH1"],
+                "shape_pt_lat": [39.72, 39.70, 39.71, 39.70, 39.75],
+                "shape_pt_lon": [-104.97, -104.99, -104.98, -104.99, -104.90],
+                "shape_pt_sequence": [3, 1, 2, 1, 2],
+            }
+        )
+
+    def _run(self) -> tuple[pd.DataFrame, list[pd.DataFrame], MagicMock]:
+        captured: list[pd.DataFrame] = []
+
+        def fake_pool_map(func: object, groups: list[pd.DataFrame]) -> list[str]:
+            captured.extend(groups)
+            return [str(g["shape_id"].iloc[0]) for g in groups]
+
+        mock_pool = MagicMock()
+        mock_pool.__enter__ = MagicMock(return_value=mock_pool)
+        mock_pool.__exit__ = MagicMock(return_value=False)
+        mock_pool.map.side_effect = fake_pool_map
+        matched = pd.DataFrame({"shape_id": ["SH1"], "edge_id": [1]})
+        with (
+            patch("routee.transit.predictor.mp.Pool", return_value=mock_pool),
+            patch.object(
+                self.predictor, "_match_shapes_to_network", return_value=matched
+            ) as mock_match,
+        ):
+            result = self.predictor._get_shape_link_results()
+        return result, captured, mock_match
+
+    def test_shapes_sorted_before_upsampling(self) -> None:
+        _, captured, _ = self._run()
+        sh1 = next(g for g in captured if g["shape_id"].iloc[0] == "SH1")
+        self.assertEqual(sh1["shape_pt_sequence"].tolist(), [1, 2, 3])
+
+    def test_routed_deadhead_shapes_skip_map_matching(self) -> None:
+        self.predictor._add_deadhead_route_edges(
+            pd.DataFrame(
+                {"shape_id": ["DH1", "DH1"], "edge_id": [7, 8], "match_id": [0, 0]}
+            )
+        )
+        result, captured, mock_match = self._run()
+
+        self.assertEqual([g["shape_id"].iloc[0] for g in captured], ["SH1"])
+        self.assertEqual(mock_match.call_args[0][0], ["SH1"])
+        self.assertEqual(
+            result[result["shape_id"] == "DH1"]["edge_id"].tolist(), [7, 8]
+        )
+        self.assertEqual(result[result["shape_id"] == "SH1"]["edge_id"].tolist(), [1])
+        self.assertNotIn("match_id", result.columns)
+
+    def test_route_edges_prefixed_and_replaced(self) -> None:
+        edges = pd.DataFrame({"shape_id": ["A"], "edge_id": [1]})
+        self.predictor._add_deadhead_route_edges(edges, prefix="to_depot_")
+        self.predictor._add_deadhead_route_edges(
+            pd.DataFrame({"shape_id": ["A"], "edge_id": [2]}), prefix="to_depot_"
+        )
+        stored = self.predictor._deadhead_route_edges
+        self.assertEqual(stored["shape_id"].tolist(), ["to_depot_A"])
+        self.assertEqual(stored["edge_id"].tolist(), [2])
