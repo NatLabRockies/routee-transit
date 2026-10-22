@@ -21,9 +21,9 @@ import argparse
 import os
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
-from threading import Lock
 
 import osmnx as ox
 import pandas as pd
@@ -139,6 +139,25 @@ def precache_network(
     return False
 
 
+def _precache_worker(
+    db_root: Path,
+    dataset_id: str,
+    speed_model_dir: Path,
+    n_processes: int,
+    max_attempts: int,
+    retry_wait: float,
+    cache_folder: str,
+    requests_timeout: int,
+) -> tuple[str, bool]:
+    """Process-pool entry point; osmnx settings don't carry over to spawned workers."""
+    ox.settings.cache_folder = cache_folder
+    ox.settings.requests_timeout = requests_timeout
+    success = precache_network(
+        db_root, dataset_id, speed_model_dir, n_processes, max_attempts, retry_wait
+    )
+    return dataset_id, success
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -152,9 +171,11 @@ def main() -> None:
         type=int,
         default=2,
         help=(
-            "Number of datasets to download concurrently (default: 2). The "
-            "public Overpass server grants ~2 slots per IP; going higher risks "
-            "an IP block that fails every remaining dataset."
+            "Number of datasets to process concurrently, each in its own "
+            "process (default: 2). With Overpass, keep this at ~2: the public "
+            "server grants ~2 slots per IP and heavier use gets the IP blocked. "
+            "With local PBF extracts ($ROUTEE_OSM_PBF_DIR) it is bounded only "
+            "by CPU and memory."
         ),
     )
     parser.add_argument(
@@ -268,39 +289,68 @@ def main() -> None:
             f"worker(s); {args.n_processes} process(es) per dataset."
         )
 
-        progress_lock = Lock()
         done_count = 0
-
-        def worker(dataset_id: str) -> tuple[str, bool]:
-            success = precache_network(
-                db_root,
-                dataset_id,
-                speed_model_dir,
-                args.n_processes,
-                args.max_attempts,
-                args.retry_wait,
-            )
-            return dataset_id, success
-
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
-            futures = []
-            for dataset_id in todo:
-                futures.append(pool.submit(worker, dataset_id))
-                if args.pause_between > 0:
-                    time.sleep(args.pause_between)
-            for fut in as_completed(futures):
-                dataset_id, success = fut.result()
-                outcomes[dataset_id] = "downloaded" if success else "failed"
-                with progress_lock:
+        pending = list(todo)
+        while pending:
+            crashed: list[str] = []
+            # Separate processes rather than threads: building a network from a
+            # local PBF is CPU-bound Python, so threads serialize on the GIL.
+            # Each worker handles one dataset and then exits to free its memory.
+            with ProcessPoolExecutor(
+                max_workers=n_workers, max_tasks_per_child=1
+            ) as pool:
+                future_ids = {
+                    pool.submit(
+                        _precache_worker,
+                        db_root,
+                        dataset_id,
+                        speed_model_dir,
+                        args.n_processes,
+                        args.max_attempts,
+                        args.retry_wait,
+                        str(ox.settings.cache_folder),
+                        ox.settings.requests_timeout,
+                    ): dataset_id
+                    for dataset_id in pending
+                }
+                for fut in as_completed(future_ids):
+                    dataset_id = future_ids[fut]
+                    try:
+                        success = fut.result()[1]
+                    except BrokenProcessPool:
+                        # A worker died (e.g. OOM-killed), which fails every
+                        # queued dataset too; retry those with fewer workers.
+                        crashed.append(dataset_id)
+                        continue
+                    outcomes[dataset_id] = "downloaded" if success else "failed"
                     done_count += 1
                     tag = "OK" if success else "FAIL"
                     print(
                         f"[{done_count}/{len(todo)}] {dataset_id} — {tag}", flush=True
                     )
-                if success:
-                    downloaded += 1
-                else:
+                    if success:
+                        downloaded += 1
+                    else:
+                        failed += 1
+
+            if crashed and n_workers > 1:
+                n_workers = max(1, n_workers // 2)
+                print(
+                    f"Worker pool broke; retrying {len(crashed)} dataset(s) with "
+                    f"{n_workers} worker(s).",
+                    flush=True,
+                )
+                pending = crashed
+            else:
+                for dataset_id in crashed:
+                    outcomes[dataset_id] = "failed"
                     failed += 1
+                    done_count += 1
+                    print(
+                        f"[{done_count}/{len(todo)}] {dataset_id} — FAIL (crashed)",
+                        flush=True,
+                    )
+                pending = []
 
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

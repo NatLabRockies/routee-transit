@@ -57,7 +57,15 @@ fi
 # Spread across the 4 rotating endpoints, so roughly one download each. The
 # benchmark in scripts/hpc/test_overpass_parallel.py saw 100% success at this
 # level; drop back to 2 if servers start refusing or rate-limiting.
-PRECACHE_PARALLEL_DOWNLOADS=4
+# With local PBF extracts there is no server to protect, so run many datasets
+# at once (each in its own process), bounded by CPU and memory (~40 GB each).
+if [ -n "${ROUTEE_OSM_PBF_DIR:-}" ]; then
+    PRECACHE_PARALLEL_DOWNLOADS="${PRECACHE_PARALLEL_DOWNLOADS:-24}"
+    PRECACHE_N_PROCESSES=4
+else
+    PRECACHE_PARALLEL_DOWNLOADS="${PRECACHE_PARALLEL_DOWNLOADS:-4}"
+    PRECACHE_N_PROCESSES=8
+fi
 
 # Dataset analysis timeout in minutes (set to 0 to disable timeout).
 # Generous because scale_to_year expands every trip across a year of dates and
@@ -137,7 +145,7 @@ if run_phase precache; then
     pixi run -e "$PIXI_ENV" python scripts/hpc/precache_osm_networks.py \
         "$MOBILITY_DB_DIR" \
         --parallel-downloads "$PRECACHE_PARALLEL_DOWNLOADS" \
-        --n_processes 8 \
+        --n_processes "$PRECACHE_N_PROCESSES" \
         --report "$MOBILITY_DB_DIR/precache_report.csv"
     if [ $? -ne 0 ]; then
         log "WARNING: Some OSM network downloads failed. See precache_report.csv."
