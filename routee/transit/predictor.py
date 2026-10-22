@@ -555,8 +555,17 @@ class GTFSEnergyPredictor:
                 "departure_time",
                 "stop_id",
             ],
-            "routes": ["route_color"],
         }
+        # route_color is optional in GTFS, but gtfsblocks treats requested
+        # columns as required AND drops any column it wasn't told about. So ask
+        # for it only when the feed supplies it: requesting it unconditionally
+        # rejects valid feeds, and never requesting it loses the colors.
+        routes_file = self.gtfs_path / "routes.txt"
+        if routes_file.is_file():
+            header = pd.read_csv(routes_file, nrows=0).columns
+            if "route_color" in header:
+                req_cols["routes"] = ["route_color"]
+
         self.feed = Feed.from_dir(self.gtfs_path, columns=req_cols)
 
         agencies = self.feed.agency.agency_name.unique().tolist()
