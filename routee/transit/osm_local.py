@@ -52,8 +52,26 @@ _ONEWAY_TRUE = frozenset({"yes", "true", "1", "-1", "reversible"})
 _IMPLICIT_ONEWAY_JUNCTIONS = frozenset({"roundabout", "circular"})
 
 
-def local_pbf_path() -> Path | None:
-    """Return the configured local OSM extract, or None to use Overpass."""
+def local_pbf_path(dataset_id: str | None = None) -> Path | None:
+    """Return the local OSM extract to read, or None to use Overpass.
+
+    A per-dataset extract from ``$ROUTEE_OSM_EXTRACT_DIR`` is strongly
+    preferred: pyrosm has no spatial index and its cost scales superlinearly
+    with file size, so reading a national PBF per dataset is unusably slow
+    (0.1s for a 44 MB state file vs >10 min for the 12 GB US file).
+    ``$ROUTEE_OSM_PBF`` names a single file and is only practical for
+    region-sized extracts.
+    """
+    extract_dir = os.environ.get("ROUTEE_OSM_EXTRACT_DIR", "").strip()
+    if extract_dir and dataset_id:
+        candidate = Path(extract_dir) / f"{dataset_id}.osm.pbf"
+        if candidate.is_file():
+            return candidate
+        logger.warning(
+            f"No OSM extract for {dataset_id} in {extract_dir}; "
+            f"falling back to $ROUTEE_OSM_PBF or Overpass"
+        )
+
     configured = os.environ.get("ROUTEE_OSM_PBF", "").strip()
     return Path(configured) if configured else None
 

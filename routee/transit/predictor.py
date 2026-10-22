@@ -771,7 +771,7 @@ class GTFSEnergyPredictor:
             f"(bounds: {new_bbox}, buffer: {buffer_deg}°, deadhead_buffer: {deadhead_buffer_deg}°)"
         )
 
-        pbf_path = local_pbf_path()
+        pbf_path = local_pbf_path(self.dataset_id)
         if pbf_path is not None:
             logger.info(f"Building graph from local OSM extract {pbf_path}")
             graph = graph_from_local_pbf(corridor_polygon, pbf_path)

@@ -16,6 +16,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Build road networks from a local OSM extract instead of the Overpass API.
+# Needs the osmium CLI too, which is not installable from PyPI -- see
+# scripts/hpc/split_osm_extracts.py.
+local-osm = [
+    "pyrosm>=0.6,<1",
+]
 dev = [
     "pytest>=8.3,<9.0",
     "mypy>=1.14,<2.0",
@@ -77,6 +83,11 @@ git = "*"
 cmake = ">=3.28,<4"
 uv = "*"
 patchelf = "*"
+# osmium-tool cuts per-dataset extracts from a national PBF and has no PyPI
+# distribution, so it has to come from conda. pyrosm is deliberately NOT here:
+# the conda build pulls pandas 3.x, which conflicts with this project's
+# pandas>=2.3.3,<3 pin. Install it from the local-osm extra instead.
+osmium-tool = "*"
 
 [tool.pixi.feature.hpc.activation.env]
 ONNXRUNTIME_DIR = "$PIXI_PROJECT_ROOT/build/onnxruntime"
