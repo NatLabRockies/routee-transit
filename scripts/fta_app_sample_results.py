@@ -46,7 +46,7 @@ if __name__ == "__main__":
     save_link_results = False
 
     # Set to True to (re)download the GTFS feeds before running predictions
-    gather_feeds = False
+    gather_feeds = True
     if gather_feeds:
         import subprocess
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                 "python",
                 "scripts/feeds/gather_feeds.py",
                 "--db_root",
-                "reports/fta_results_100826",
+                "reports/fta_results_102126",
                 "--feed_ids",
                 "mdb-205",
                 "mdb-247",
@@ -63,7 +63,7 @@ if __name__ == "__main__":
             ]
         )
 
-    db_root = package_root().parents[1] / "reports" / "fta_results_100826"
+    db_root = package_root().parents[1] / "reports" / "fta_results_102126"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -87,7 +87,8 @@ if __name__ == "__main__":
             output_dir=output_directory,
             feed_id=feeds_incl[ix],
             dataset_id=d_id,
-            overwrite=False,
+            overwrite=True,
+            explode_block_routes=True,
         )
 
         # Run entire pipeline across all service dates
