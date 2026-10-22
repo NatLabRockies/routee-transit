@@ -33,7 +33,7 @@ PHASES="${ROUTEE_PHASES:-feeds precache analyze}"
 # public server refusing connections.
 export ROUTEE_OSMNX_CACHE="${ROUTEE_OSMNX_CACHE:-$REPO_ROOT/cache}"
 
-# Geofabrik state extracts, populated by scripts/hpc/prefetch_state_pbfs.py.
+# Geofabrik state extracts, populated by scripts/hpc/fetch_state_extracts.py.
 # When present, networks are read from these instead of the Overpass API, which
 # the Overpass project documents as the wrong tool for bulk extraction. The
 # states read per dataset are chosen from the corridor polygon, so a corridor

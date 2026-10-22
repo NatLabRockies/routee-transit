@@ -12,7 +12,7 @@ buffered corridor crosses into a neighbouring state still gets a complete
 network. Anything missed here is fetched on demand.
 
 Usage:
-    python scripts/hpc/prefetch_state_pbfs.py /path/to/db --out-dir /projects/teta/osm/states
+    python scripts/hpc/fetch_state_extracts.py /path/to/db --out-dir /projects/teta/osm/states
 """
 
 from __future__ import annotations
