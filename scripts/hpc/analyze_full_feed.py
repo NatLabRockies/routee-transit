@@ -17,12 +17,8 @@ from typing import NoReturn
 import pandas as pd
 
 from routee.transit import GTFSEnergyPredictor
+from routee.transit.results import build_route_shapes
 from routee.transit.speed_model import DEFAULT_SPEED_MODEL_DIR
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-# Shared with the FTA sample script so both emit the same route/energy schema.
-from fta_app_sample_results import build_routes_gdf  # noqa: E402
 
 VEHICLE_MODELS = [
     "Transit_Bus_Electric_40ft_300kWh",
@@ -243,7 +239,7 @@ def main() -> int:
             logger.info("Skipping T3CO output: %s", error)
 
         try:
-            build_routes_gdf(predictor.feed, averaged).to_file(
+            build_route_shapes(predictor.trips, predictor.shapes, averaged).to_file(
                 output_dir / "routes.geojson", driver="GeoJSON"
             )
         except Exception as error:
