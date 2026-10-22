@@ -30,6 +30,10 @@ struct TransitBevVehicleConfig {
     prediction_model: PredictionModelConfig,
     battery_capacity: f64,
     battery_capacity_unit: EnergyUnit,
+    /// Share of nameplate capacity available in service. Declared here so it
+    /// survives `deny_unknown_fields`; only the Python layer reads it.
+    #[allow(dead_code)]
+    usable_capacity_fraction: Option<f64>,
     include_trip_energy: Option<bool>,
     /// Speed state feature to use for the stop-penalty kinetic-energy calc
     /// (default: `fieldname::EDGE_SPEED`; set to `"transit_speed"` to consume
@@ -45,6 +49,15 @@ struct TransitBevVehicleConfig {
 struct TransitIceVehicleConfig {
     #[serde(flatten)]
     prediction_model: PredictionModelConfig,
+    /// Tank size, declared here so it survives `deny_unknown_fields`. Only the
+    /// Python layer consumes it (range/feasibility reporting); the traversal
+    /// model does not constrain energy against it.
+    #[allow(dead_code)]
+    fuel_capacity: Option<f64>,
+    #[allow(dead_code)]
+    fuel_capacity_unit: Option<EnergyUnit>,
+    #[allow(dead_code)]
+    usable_capacity_fraction: Option<f64>,
     include_trip_energy: Option<bool>,
     /// Speed state feature to use for the stop-penalty kinetic-energy calc
     /// (default: `fieldname::EDGE_SPEED`; set to `"transit_speed"` to consume

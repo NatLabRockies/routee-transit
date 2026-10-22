@@ -20,13 +20,12 @@ from typing import cast
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import LineString
-
 from realtime_speeds import (
     aggregate_gtfs_features_by_edge,
     compute_scheduled_speeds_between_stops,
     project_stops_to_route,
 )
+from shapely.geometry import LineString
 
 # ---------------------------------------------------------------------------
 # Shared geometry helpers

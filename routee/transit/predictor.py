@@ -8,6 +8,7 @@ the complete workflow for predicting transit bus energy consumption from GTFS da
 from __future__ import annotations
 
 import filecmp
+import json
 import logging
 import multiprocessing as mp
 from pathlib import Path
@@ -54,6 +55,13 @@ from routee.transit.mid_block_deadhead import (
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
 from routee.transit.osm_local import graph_from_local_pbf, local_pbf_path
 from routee.transit.osm_network import graph_from_polygon_with_retry
+from routee.transit.results import (
+    BLOCK_ROUTE_LIST_COLUMNS,
+    aggregate_block_predictions,
+    build_route_shapes,
+    build_trip_dates,
+    usable_block_ids,
+)
 from routee.transit.speed_model import (
     DEFAULT_SPEED_MODEL_DIR,
     SPEED_TRACE_MODEL_CONFIG,
@@ -63,6 +71,7 @@ from routee.transit.speed_model import (
 )
 from routee.transit.thermal_energy import add_HVAC_energy
 from routee.transit.tods_export import write_tods_deadhead
+from routee.transit.vehicle_specs import load_vehicle_specs, vehicle_specs_table
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +258,7 @@ class GTFSEnergyPredictor:
         feed_id: str | None = None,
         dataset_id: str | None = None,
         speed_model_dir: str | Path | None = None,
+        explode_block_routes: bool = False,
     ) -> None:
         """
         Initialize the GTFSEnergyPredictor.
@@ -274,6 +284,12 @@ class GTFSEnergyPredictor:
                 ``export_speed_model_onnx.py``. When omitted, uses the bundled
                 random-forest baseline model. A supplied directory overrides
                 that baseline for specialized applications.
+            explode_block_routes: If True, block results carry one row per
+                block and revenue route with scalar ``route_id`` and
+                ``agency_id`` columns, repeating the block's energy totals on
+                each row. Intended for consumers such as relational databases
+                that cannot store the default ``route_ids``/``agency_ids``
+                lists.
         """
         self.gtfs_path = Path(gtfs_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
@@ -286,6 +302,7 @@ class GTFSEnergyPredictor:
         self.speed_model_dir = (
             Path(speed_model_dir) if speed_model_dir else DEFAULT_SPEED_MODEL_DIR
         )
+        self.explode_block_routes = explode_block_routes
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
@@ -407,7 +424,8 @@ class GTFSEnergyPredictor:
         Returns
         -------
         pd.DataFrame
-            Trip-level energy predictions with columns for each vehicle model.
+            Daily trip-level energy predictions for each vehicle model. Daily
+            block summaries are available through get_block_predictions().
 
         Examples
         --------
@@ -836,6 +854,8 @@ class GTFSEnergyPredictor:
         if date is not None:
             sids = self.feed.get_service_ids_from_date(date)
             self.trips = self.trips[self.trips["service_id"].isin(sids)].copy()
+            self._service_date = pd.Timestamp(date.replace("/", "-"))
+            self._service_weekday = self._service_date.day_name().lower()
 
             if len(self.trips) == 0:
                 raise ValueError(f"Feed does not contain any bus trips on {date}")
@@ -844,12 +864,19 @@ class GTFSEnergyPredictor:
         if routes is not None:
             if use_block_filter:
                 pre_filter_trips = self.trips
-                self.trips = filter_blocks_by_route(
-                    trips=self.trips,
-                    routes=routes,
-                    route_column="route_short_name",
-                    route_method="exclusive",
-                )
+                assigned = usable_block_ids(self.trips)
+                assigned_trips = self.trips.loc[assigned]
+                if not assigned_trips.empty:
+                    assigned_trips = filter_blocks_by_route(
+                        trips=assigned_trips,
+                        routes=routes,
+                        route_column="route_short_name",
+                        route_method="exclusive",
+                    )
+                unassigned_trips = self.trips.loc[
+                    ~assigned & self.trips["route_short_name"].isin(routes)
+                ]
+                self.trips = pd.concat([assigned_trips, unassigned_trips])
                 if len(self.trips) == 0:
                     # Check whether trip-level filtering would have kept any
                     # trips.  This tells the user whether the issue is that
@@ -904,8 +931,12 @@ class GTFSEnergyPredictor:
         logger.info("Preparing mid-block deadhead trips...")
 
         # Create between-trip deadhead trips
+        assigned_trips = self.trips.loc[usable_block_ids(self.trips)]
+        if assigned_trips.empty:
+            logger.warning("No usable block IDs; skipping mid-block deadhead inference")
+            return None
         deadhead_trips = create_mid_block_deadhead_trips(
-            self.trips, self.feed.stop_times
+            assigned_trips, self.feed.stop_times
         )
 
         if deadhead_trips.empty:
@@ -1059,7 +1090,13 @@ class GTFSEnergyPredictor:
         logger.info("Preparing depot deadhead trips...")
 
         # Create depot deadhead trip records
-        deadhead_trips = create_depot_deadhead_trips(self.trips, self.feed.stop_times)
+        assigned_trips = self.trips.loc[usable_block_ids(self.trips)]
+        if assigned_trips.empty:
+            logger.warning("No usable block IDs; skipping depot deadhead inference")
+            return None
+        deadhead_trips = create_depot_deadhead_trips(
+            assigned_trips, self.feed.stop_times
+        )
 
         if deadhead_trips.empty:
             logger.info("No depot deadhead trips needed")
@@ -1598,6 +1635,7 @@ class GTFSEnergyPredictor:
         1. Runs map matching ONCE to get road-level attributes (distance, speed, grade)
         2. Extracts edge_ids from the map-matched paths
         3. Runs CompassApp.run_calculate_path for each vehicle model with model_name
+        4. Expands trips to service dates for every model and aggregates blocks
 
         This is much more efficient than the previous approach of running
         map matching per vehicle model, since map matching is computationally
@@ -1615,6 +1653,8 @@ class GTFSEnergyPredictor:
                 - 'trip': DataFrame with trip-level predictions for all models
                 - '<model_name>_link': Link-level predictions for specific model
                 - '<model_name>_trip': Trip-level predictions for specific model
+                - 'block': Daily block-level predictions for all models
+                - '<model_name>_block': Daily block predictions for specific model
 
         Raises:
             RuntimeError: If GTFS data hasn't been loaded yet
@@ -1639,6 +1679,13 @@ class GTFSEnergyPredictor:
 
         logger.info(
             f"Predicting energy for {len(vehicle_models_list)} vehicle model(s)..."
+        )
+        self.energy_predictions = {}
+        trip_dates = build_trip_dates(
+            self.feed,
+            self.trips,
+            service_date=self._service_date,
+            scale_to_year=scale_to_year,
         )
 
         if self.app is None:
@@ -1668,6 +1715,22 @@ class GTFSEnergyPredictor:
                     edge_entry["edge_list_id"] = int(row["edge_list_id"])
                 edges.append(edge_entry)
             shapes_edge_ids[str(shape_id)] = edges
+
+        # HVAC demand depends only on the schedule and weather, so compute it
+        # once and reuse it for every electric model.
+        hvac_energy: pd.DataFrame | None = None
+        if add_hvac and any(
+            VEHICLE_MODELS[name]["energy_field"] == "trip_energy_electric"
+            for name in vehicle_models_list
+        ):
+            logger.info("Adding HVAC energy impacts...")
+            hvac_energy = add_HVAC_energy(
+                self.feed,
+                self.trips,
+                self.output_dir,
+                service_date=self._service_date,
+                scale_to_year=scale_to_year,
+            )
 
         # Run run_calculate_path for each vehicle model
         all_link_results: list[pd.DataFrame] = []
@@ -1801,20 +1864,23 @@ class GTFSEnergyPredictor:
             trip_results = energy_by_shape.merge(shape_to_trips, on="shape_id").drop(
                 columns=["shape_id"]
             )
+            trip_results = trip_results.merge(
+                trip_dates, on="trip_id", validate="one_to_many"
+            )
 
             # Optionally add HVAC to trip-level results (electric vehicles only).
             # Gate on the electric energy field rather than the unit, since
             # combustion models may also report energy in kWh.
-            if add_hvac and model_config["energy_field"] == "trip_energy_electric":
-                logger.info("Adding HVAC energy impacts...")
-                hvac_energy = add_HVAC_energy(
-                    self.feed,
-                    self.trips,
-                    self.output_dir,
-                    service_date=self._service_date,
-                    scale_to_year=scale_to_year,
+            if (
+                hvac_energy is not None
+                and model_config["energy_field"] == "trip_energy_electric"
+            ):
+                trip_results = trip_results.merge(
+                    hvac_energy.drop(columns="trip_is_within_gtfs_scope"),
+                    on=["trip_id", "date"],
+                    how="left",
+                    validate="one_to_one",
                 )
-                trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
                 missing_hvac = trip_results["hvac_energy_kWh"].isna()
                 if missing_hvac.any():
                     logger.warning(
@@ -1858,6 +1924,26 @@ class GTFSEnergyPredictor:
             self.energy_predictions["trip"] = pd.concat(
                 all_trip_results, ignore_index=True
             )
+            daily_trips = self.energy_predictions["trip"]
+            unassigned = daily_trips.loc[~usable_block_ids(daily_trips)]
+            if not unassigned.empty:
+                logger.warning(
+                    "Excluded %d trips without block IDs from block results",
+                    unassigned["trip_id"].nunique(),
+                )
+            self.energy_predictions["block"] = aggregate_block_predictions(
+                daily_trips,
+                vehicle_specs=load_vehicle_specs(vehicle_models_list),
+                explode_routes=self.explode_block_routes,
+            )
+            for model_name in vehicle_models_list:
+                trip_key = f"{model_name}_trip"
+                if trip_key in self.energy_predictions:
+                    self.energy_predictions[f"{model_name}_block"] = (
+                        self.energy_predictions["block"]
+                        .loc[self.energy_predictions["block"]["vehicle"] == model_name]
+                        .reset_index(drop=True)
+                    )
 
         logger.info("Energy prediction complete")
         return self.energy_predictions
@@ -1901,12 +1987,43 @@ class GTFSEnergyPredictor:
             )
         return self.energy_predictions[key]
 
+    def get_block_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
+        """Get daily block demand with and without modeled deadhead.
+
+        Parameters
+        ----------
+        vehicle_model : str or None
+            Specific model name, or None for all models.
+
+        Returns
+        -------
+        pd.DataFrame
+            Block predictions, empty if no modeled trips have usable block IDs.
+
+        Raises
+        ------
+        KeyError
+            If predictions for the requested model have not been generated.
+        """
+        key = f"{vehicle_model}_block" if vehicle_model else "block"
+        if key not in self.energy_predictions:
+            raise KeyError(
+                f"No block-level predictions found for '{key}'. "
+                "Call predict_energy() before accessing results."
+            )
+        return self.energy_predictions[key]
+
     def save_results(
         self,
         output_dir: str | Path | None = None,
         save_geometry: bool = True,
         save_inputs: bool = False,
         save_tods: bool = True,
+        save_trip_level: bool = True,
+        save_link_level: bool = True,
+        save_block_level: bool = True,
+        save_route_shapes: bool = True,
+        save_vehicle_specs: bool = True,
     ) -> None:
         """
         Save prediction results to CSV files.
@@ -1914,11 +2031,19 @@ class GTFSEnergyPredictor:
         Args:
             output_dir: Directory to save results. If None, uses self.output_dir,
                 defaulting to the current working directory if that is also None.
-            save_geometry: Whether to save link geometry separately
+            save_geometry: Whether to save link geometry separately. Has no
+                effect if ``save_link_level`` is False.
             save_inputs: Whether to save RouteE input features
             save_tods: Whether to write TODS supplement files for deadhead trips.
                 Files are written to a ``tods/`` subdirectory. Has no effect if
                 no deadhead trips were added.
+            save_trip_level: Whether to export daily trip energy predictions.
+            save_link_level: Whether to export link energy predictions.
+            save_block_level: Whether to export daily block energy predictions.
+            save_route_shapes: Whether to export per-route energy summaries on
+                each route's most common shape as ``routes.geojson``.
+            save_vehicle_specs: Whether to export the vehicle capacity summary
+                that block feasibility flags are derived from.
 
         Raises:
             RuntimeError: If no predictions have been generated yet
@@ -1936,7 +2061,7 @@ class GTFSEnergyPredictor:
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Save link-level predictions
-        if "link" in self.energy_predictions:
+        if save_link_level and "link" in self.energy_predictions:
             link_df = self.energy_predictions["link"].copy()
 
             # Optionally save geometry separately
@@ -1952,21 +2077,43 @@ class GTFSEnergyPredictor:
             logger.info(f"Saved link predictions to {link_path}")
 
         # Save trip-level predictions
-        if "trip" in self.energy_predictions:
+        if save_trip_level and "trip" in self.energy_predictions:
+            trip_df = self.energy_predictions["trip"].copy()
             # If feed_id and dataset_id are supplied, add these columns
             if self.dataset_id is not None:
-                self.energy_predictions["trip"].insert(
-                    loc=0, column="dataset_id", value=self.dataset_id
-                )
+                trip_df["dataset_id"] = self.dataset_id
 
             if self.feed_id is not None:
-                self.energy_predictions["trip"].insert(
-                    loc=0, column="feed_id", value=self.feed_id
-                )
+                trip_df["feed_id"] = self.feed_id
 
             trip_path = output_path / "trip_energy_predictions.csv"
-            self.energy_predictions["trip"].to_csv(trip_path, index=False)
+            trip_df.to_csv(trip_path, index=False, date_format="%Y-%m-%d")
             logger.info(f"Saved trip predictions to {trip_path}")
+
+        if save_block_level and "block" in self.energy_predictions:
+            block_df = self.energy_predictions["block"].copy()
+            for column in BLOCK_ROUTE_LIST_COLUMNS:
+                if column in block_df:
+                    block_df[column] = block_df[column].map(json.dumps)
+            block_path = output_path / "block_energy_predictions.csv"
+            block_df.to_csv(block_path, index=False, date_format="%Y-%m-%d")
+            logger.info(f"Saved block predictions to {block_path}")
+
+        if save_route_shapes and "trip" in self.energy_predictions:
+            routes_gdf = build_route_shapes(
+                self.trips, self.shapes, self.energy_predictions["trip"]
+            )
+            routes_path = output_path / "routes.geojson"
+            routes_gdf.to_file(routes_path, driver="GeoJSON")
+            logger.info(f"Saved {len(routes_gdf)} route shapes to {routes_path}")
+
+        if save_vehicle_specs:
+            specs_df = vehicle_specs_table(
+                load_vehicle_specs(self.vehicle_models or list(VEHICLE_MODELS.keys()))
+            )
+            specs_path = output_path / "vehicles.csv"
+            specs_df.to_csv(specs_path, index=False)
+            logger.info(f"Saved vehicle specifications to {specs_path}")
 
         # Save RouteE inputs
         if save_inputs and not self.routee_inputs.empty:

@@ -4,6 +4,9 @@
   "mass_estimate_lbs": 43000,
   "model_input_file": "Transit_Bus_CNG_60ft.bin",
   "energy_rate_unit": "kilowatt hour/kilometer",
+  "fuel_capacity": 7957.4,
+  "fuel_capacity_unit": "kilowatt hour",
+  "usable_capacity_fraction": 1.0,
   "real_world_energy_adjustment": 1.0,
   "a_star_heuristic_energy_rate": 1.5,
   "input_features": [
