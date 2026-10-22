@@ -45,7 +45,7 @@ if __name__ == "__main__":
     save_daily_results = False
     save_link_results = False
 
-    db_root = package_root().parents[1] / "reports" / "fta_results_101926"
+    db_root = package_root().parents[1] / "reports" / "fta_results_102126"
 
     # Set to True to (re)download the GTFS feeds before running predictions
     gather_feeds = True
@@ -67,7 +67,6 @@ if __name__ == "__main__":
             ]
         )
 
-    db_root = package_root().parents[1] / "reports" / "fta_results_100826"
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -92,7 +91,6 @@ if __name__ == "__main__":
             feed_id=feeds_incl[ix],
             dataset_id=d_id,
             overwrite=True,
-            explode_block_routes=True,
             explode_block_routes=True,
         )
 
