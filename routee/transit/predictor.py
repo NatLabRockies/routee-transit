@@ -53,7 +53,7 @@ from routee.transit.mid_block_deadhead import (
     create_mid_block_deadhead_trips,
 )
 from routee.transit.ntd import load_ntd_facilities, match_agency_to_ntd
-from routee.transit.osm_local import graph_from_local_pbf, local_pbf_path
+from routee.transit.osm_local import graph_from_local_pbf, local_pbf_dir
 from routee.transit.osm_network import graph_from_polygon_with_retry
 from routee.transit.results import (
     BLOCK_ROUTE_LIST_COLUMNS,
@@ -780,10 +780,10 @@ class GTFSEnergyPredictor:
             f"(bounds: {new_bbox}, buffer: {buffer_deg}°, deadhead_buffer: {deadhead_buffer_deg}°)"
         )
 
-        pbf_path = local_pbf_path(self.dataset_id)
-        if pbf_path is not None:
-            logger.info(f"Building graph from local OSM extract {pbf_path}")
-            graph = graph_from_local_pbf(corridor_polygon, pbf_path)
+        pbf_dir = local_pbf_dir()
+        if pbf_dir is not None:
+            logger.info(f"Building graph from local OSM extracts in {pbf_dir}")
+            graph = graph_from_local_pbf(corridor_polygon, pbf_dir)
         else:
             graph = graph_from_polygon_with_retry(
                 corridor_polygon,
