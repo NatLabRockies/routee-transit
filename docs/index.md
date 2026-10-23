@@ -18,7 +18,7 @@ from routee.transit import GTFSEnergyPredictor
 # Create predictor - vehicle_models and output_dir are set here
 predictor = GTFSEnergyPredictor(
     gtfs_path="path/to/gtfs",
-    vehicle_models=["Transit_Bus_Diesel", "Transit_Bus_Battery_Electric"],
+    vehicle_models=["Transit_Bus_Diesel_40ft", "Transit_Bus_Electric_40ft_300kWh"],
 )
 
 # Run the complete workflow with a single method call
@@ -48,12 +48,21 @@ predictor.run(
 For a full example, see [](examples/Utah_Transit_Agency_example).
 
 ## Available Models
-Two pre-trained transit bus models are bundled with RouteE-Transit and are accessed via the `vehicle_models` parameter:
+Eight pre-trained transit bus models are bundled with RouteE-Transit and are selected via the `vehicle_models` parameter:
 
-| Model Name | Energy Unit |
-|---|---|
-| `Transit_Bus_Battery_Electric` | kWh |
-| `Transit_Bus_Diesel` | gallons_diesel |
+| Model Name | Powertrain | Bus Length | Reported Energy Unit |
+|---|---|---|---|
+| `Transit_Bus_Electric_40ft_300kWh` | Battery electric (300 kWh pack) | 40 ft | kWh |
+| `Transit_Bus_Electric_60ft_600kWh` | Battery electric (600 kWh pack) | 60 ft | kWh |
+| `Transit_Bus_Diesel_40ft` | Diesel | 40 ft | gallons_diesel |
+| `Transit_Bus_Diesel_60ft` | Diesel | 60 ft | gallons_diesel |
+| `Transit_Bus_Hybrid_40ft` | Diesel hybrid | 40 ft | gallons_diesel |
+| `Transit_Bus_Hybrid_60ft` | Diesel hybrid | 60 ft | gallons_diesel |
+| `Transit_Bus_CNG_40ft` | Compressed natural gas | 40 ft | kWh |
+| `Transit_Bus_CNG_60ft` | Compressed natural gas | 60 ft | kWh |
 
-Both models are implemented as RouteE-Compass traversal models in Rust and predict energy based on speed, road grade, and distance.
+If `vehicle_models` is omitted, every supported model is run. All bundled models are
+[RouteE-Powertrain](https://github.com/NatLabRockies/routee-powertrain) models evaluated
+inside RouteE-Compass, predicting energy from link speed and road grade. See
+[](prediction) for details on how they are applied.
 

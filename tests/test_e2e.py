@@ -39,7 +39,7 @@ def test_e2e_uta() -> None:
     predictor = GTFSEnergyPredictor(
         gtfs_path=input_directory,
         output_dir=output_directory,
-        vehicle_models=["Transit_Bus_Battery_Electric"],
+        vehicle_models=["Transit_Bus_Electric_40ft_300kWh"],
         overwrite=True,
     )
 

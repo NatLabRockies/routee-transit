@@ -13,14 +13,21 @@ dependencies = [
     "nrel.routee.compass>=0.19.3,<0.20",
     "rapidfuzz>=3.0,<4",
     "openpyxl>=3.1,<4",
+    "onnxruntime>=1.20,<2",
 ]
 
 [project.optional-dependencies]
+# Build road networks from a local OSM extract instead of the Overpass API.
+# Needs the osmium CLI too, which is not installable from PyPI -- see
+# scripts/hpc/split_osm_extracts.py.
+local-osm = [
+    "pyrosm>=0.6,<1",
+]
 dev = [
     "pytest>=8.3,<9.0",
     "mypy>=1.14,<2.0",
     "pytest-order>=1.3,<2.0",
-    "ruff>=0.14,<1.0",
+    "ruff>=0.14,<0.16",
     "hatch>=1.14,<2.0",
     "ipykernel>6.29,<7.0",
     "jupyter-book>=1.0,<2.0",
@@ -29,6 +36,11 @@ dev = [
     "folium>=0.19",
     "python-dotenv>=1.2.1,<2",
     "maturin>=1.0,<2.0",
+    "scikit-learn>=1.7.2,<2",
+    "matplotlib",
+    "seaborn",
+    "skl2onnx>=1.18,<2",
+    "onnx>=1.17,<2",
 ]
 
 [build-system]
@@ -71,6 +83,11 @@ git = "*"
 cmake = ">=3.28,<4"
 uv = "*"
 patchelf = "*"
+# osmium-tool cuts per-dataset extracts from a national PBF and has no PyPI
+# distribution, so it has to come from conda. pyrosm is deliberately NOT here:
+# the conda build pulls pandas 3.x, which conflicts with this project's
+# pandas>=2.3.3,<3 pin. Install it from the local-osm extra instead.
+osmium-tool = "*"
 
 [tool.pixi.feature.hpc.activation.env]
 ONNXRUNTIME_DIR = "$PIXI_PROJECT_ROOT/build/onnxruntime"
@@ -128,6 +145,7 @@ ci = { depends-on = ["fmt_check", "lint_check", "typing", "test"] }
 [tool.pixi.dependencies]
 gdal = "3.12.*"
 rust = "1.93.*"
+pyarrow = ">=14.0"
 
 [tool.pixi.feature.package.pypi-dependencies]
 routee-transit = { path = ".", editable = true }

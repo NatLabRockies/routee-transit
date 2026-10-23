@@ -119,7 +119,10 @@ if [[ -n "${CXX:-}" && -f "${CACHE}" ]]; then
   fi
 fi
 
-cmake_defs=("FETCHCONTENT_SOURCE_DIR_EIGEN=${EIGEN_SRC_DIR}")
+# Force ORT to build its vendored deps (abseil, re2, protobuf, onnx) instead of
+# find_package-ing incompatible copies from the active conda/pixi env.
+cmake_defs=("FETCHCONTENT_SOURCE_DIR_EIGEN=${EIGEN_SRC_DIR}"
+            "FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER")
 [[ -n "${CC:-}" ]] && cmake_defs+=("CMAKE_C_COMPILER=${CC}")
 [[ -n "${CXX:-}" ]] && cmake_defs+=("CMAKE_CXX_COMPILER=${CXX}")
 extra_args=()

@@ -1,14 +1,69 @@
 import logging
-from typing import Any
+from typing import Any, NamedTuple, cast
 
 import geopandas as gpd
 import pandas as pd
 import shapely
+from nrel.routee.compass.map_matching.utils import match_result_to_geopandas
 from nrel.routee.compass.utils.geometry import geometry_from_route
 
 from .compass_app import TransitCompassApp
 
 log = logging.getLogger(__name__)
+
+
+class DeadheadRoutes(NamedTuple):
+    """Output of :func:`create_deadhead_shapes`.
+
+    Attributes
+    ----------
+    shapes : pd.DataFrame
+        GTFS-style shape points with columns ['shape_id', 'shape_pt_sequence',
+        'shape_pt_lon', 'shape_pt_lat', 'shape_dist_traveled'].
+    od_mapping : pd.DataFrame
+        Mapping with columns ['block_id', 'od_key', 'shape_id'].
+    route_edges : pd.DataFrame
+        Road-network edges traversed by each successfully routed shape, in the
+        same schema as map matching output (``shape_id``, ``edge_index``,
+        ``edge_id``, ``edge_list_id``, per-edge state columns and ``geometry``).
+        Straight-line fallback shapes have no entries here because they were
+        not routed over the network.
+    """
+
+    shapes: pd.DataFrame
+    od_mapping: pd.DataFrame
+    route_edges: pd.DataFrame
+
+
+def _route_edges_from_results(routes: dict[str, dict[str, Any]]) -> pd.DataFrame:
+    """Convert routed paths into map-match-style edge records, keyed by shape_id.
+
+    Routes whose path is not a GeoJSON FeatureCollection with edge ids (e.g. a
+    different traversal output format) are omitted, so those shapes are simply
+    map matched downstream instead.
+    """
+    shape_ids: list[str] = []
+    pseudo_results: list[dict[str, Any]] = []
+    for shape_id, route in routes.items():
+        path = route.get("path")
+        if not isinstance(path, dict) or path.get("type") != "FeatureCollection":
+            continue
+        features = path.get("features", [])
+        if not features or any(
+            f.get("properties", {}).get("edge_id") is None for f in features
+        ):
+            continue
+        shape_ids.append(shape_id)
+        pseudo_results.append({"matched_path": path})
+
+    if not pseudo_results:
+        return pd.DataFrame()
+
+    edges = match_result_to_geopandas(pseudo_results)
+    if edges.empty:
+        return pd.DataFrame()
+    edges["shape_id"] = edges["match_id"].map(dict(enumerate(shape_ids)))
+    return cast(pd.DataFrame, edges)
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -155,7 +210,8 @@ def create_deadhead_shapes(
     min_distance_m: float = 200.0,
     start_weekday: str | None = None,
     time_col: str = "departure_time",
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    model_name: str = "Transit_Bus_Battery_Electric",
+) -> DeadheadRoutes:
     """
     Compute deadhead route shapes for unique origin-destination pairs.
 
@@ -188,6 +244,11 @@ def create_deadhead_shapes(
         (offset from the service day's midnight). When present, the departure time
         of the first trip seen for each unique O-D pair is attached to that pair's
         query as ``start_time``/``start_weekday``. (default: ``"departure_time"``)
+    model_name : str, optional
+        Vehicle model name used to build the routing traversal model. Deadhead
+        routing only optimizes ``trip_time``, so this only needs to be a model
+        that is loaded in ``app``; it does not affect the resulting geometry.
+        (default: ``"Transit_Bus_Battery_Electric"``)
 
     Notes
     -----
@@ -199,13 +260,16 @@ def create_deadhead_shapes(
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        A tuple of (shapes_df, od_mapping_df):
+    DeadheadRoutes
+        A named tuple of (shapes, od_mapping, route_edges):
 
-        - shapes_df: DataFrame with columns ['shape_id', 'shape_pt_sequence',
+        - shapes: DataFrame with columns ['shape_id', 'shape_pt_sequence',
           'shape_pt_lon', 'shape_pt_lat', 'shape_dist_traveled']
-        - od_mapping_df: DataFrame with columns ['block_id', 'od_key', 'shape_id']
+        - od_mapping: DataFrame with columns ['block_id', 'od_key', 'shape_id']
           mapping each input block_id to its assigned shape
+        - route_edges: road-network edges of each routed shape in map matching
+          output schema, so these shapes need not be map matched again.
+          Straight-line fallback shapes are absent.
     """
     # Step 1: Compute od_key and distance for each row
     od_data = []
@@ -243,6 +307,7 @@ def create_deadhead_shapes(
     far_ods = unique_ods[unique_ods["distance_m"] >= min_distance_m]
 
     shape_rows: list[dict[str, Any]] = []
+    routed_paths: dict[str, dict[str, Any]] = {}
 
     # Step 4: Create straight-line fallback for close O-D pairs
     for _, row in close_ods.iterrows():
@@ -265,7 +330,7 @@ def create_deadhead_shapes(
                 "origin_y": row["origin_y"],
                 "destination_x": row["dest_x"],
                 "destination_y": row["dest_y"],
-                "model_name": "Transit_Bus_Battery_Electric",
+                "model_name": model_name,
                 "weights": {"trip_time": 1.0},
             }
             # Time-of-day traversal models (e.g. speed_time_of_day) require
@@ -355,6 +420,7 @@ def create_deadhead_shapes(
                 continue
 
             coords = shapely.get_coordinates(line)
+            routed_paths[od_key] = result["route"]
             prev_lat, prev_lon = None, None
             cum_km = 0.0
             for seq, (lon, lat) in enumerate(coords, start=1):
@@ -405,4 +471,8 @@ def create_deadhead_shapes(
     od_mapping_df = od_df[["block_id", "od_key"]].copy()
     od_mapping_df["shape_id"] = od_mapping_df["od_key"]
 
-    return shapes_df, od_mapping_df
+    return DeadheadRoutes(
+        shapes=shapes_df,
+        od_mapping=od_mapping_df,
+        route_edges=_route_edges_from_results(routed_paths),
+    )
