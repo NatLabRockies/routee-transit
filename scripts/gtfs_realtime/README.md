@@ -28,10 +28,42 @@ Portland, ME: `uv run scraper.py --interval 10 --log-dir greater_portland_me htt
 
 
 ### Processing scraped data to estimate speeds
-The current (clunky) process for processing results to estimate and analyze speeds is:
+The original (clunky) process for processing live-scraped results to estimate and analyze speeds is:
 
 1) Run `aggregate_agency_records.py` for a particular feed. Use `--single-day` for one JSONL file or `--data-dir` to process all days in a directory (skipping already-processed days). This can be very time consuming (multiple hours) for a large feed.
 2) To plot the calculated speeds, use `build_speeds_map.py`
+
+### Speed model training pipeline (current)
+
+The bundled speed model was trained from the public [gtfsrt.io](https://gtfsrt.io)
+archive, not from the live scraper above. Methodology, training data and
+accuracy are documented in the package docs (`docs/data.md`, "Transit Speed
+Model"). The pipeline is:
+
+| Step | Script | Output |
+|---|---|---|
+| 1. Cache OSM networks per agency | `archive_speeds.py --stage networks` (`scripts/hpc/sbatch_fetch_networks.sh`) | osmnx cache under `--out-root` |
+| 2. Estimate per-trip link speeds for 3 sampled weeks | `archive_speeds.py --stage analyze --sample-weeks 3` (`scripts/hpc/sbatch_run_speeds.sh`, one SLURM array task per agency) | `<out-root>/link_observations/agency=<slug>/date=<date>/` |
+| 3. Train, evaluate and export the 12-bin model | `fit_poc_speed_model.py` (below) | ONNX model + manifest |
+| 4. Ship it | copy `tuned_rf_speed_model.onnx` and `tuned_rf_speed_model_manifest.json` into `routee/transit/resources/speed_models/random-forest/` | bundled model |
+
+`realtime_speeds.py` holds the shared map-matching, link-timing and dwell
+detection code used by step 2. `export_speed_model_onnx.py` holds the ONNX
+export/validation helpers used by step 3. To add an agency, add it to
+`AGENCIES` in `archive_speeds.py` and the SLURM array in
+`sbatch_run_speeds.sh`, and add its timezone to `AGENCY_TIMEZONES` in
+`fit_poc_speed_model.py`.
+
+`fit_speed_models.py` and `fit_archive_speed_models.py` trained the earlier
+hourly model, which used scheduled speed as an input and ran ONNX inference
+per edge inside Compass. That model format is no longer accepted by the
+package; the scripts are kept because `fit_poc_speed_model.py` imports shared
+constants from `fit_speed_models.py`.
+
+Training with `--aggregated-csv` reproduces the bundled model's metrics to
+about 0.001 mph, but predictions differ slightly because the CSV round-trip
+loses some floating-point precision. Training from `--link-observations-root`
+reproduces the bundled model's predictions exactly.
 
 ### 12-bin speed model proof of concept
 

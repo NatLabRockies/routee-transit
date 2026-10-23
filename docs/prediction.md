@@ -11,7 +11,7 @@ The full workflow proceeds in four stages:
 
 ## 1) Load and Filter GTFS Trips
 
-RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.
+RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces are used downstream to identify the road links each trip travels, and scheduled stop times set each trip's departure time and duration.
 
 ### Route filtering
 
@@ -54,7 +54,7 @@ Shape traces (both revenue and deadhead) are upsampled to approximately 1 Hz res
 
 - **Distance** — derived from OSM road geometry
 - **Grade** — elevation data from the USGS National Map, fetched automatically
-- **Speed** — estimated from the scheduled time between GTFS stops and the cumulative shape distance traveled
+- **Speed** — predicted by a bundled machine-learning model trained on archived GTFS Realtime bus speeds, with separate values for six local-time periods on weekdays and weekends. Speeds are precomputed for every road link when the network is built and shared by map matching, deadhead routing, and energy prediction. See {ref}`Transit Speed Model <speed-model>`.
 
 ## 4) Energy Prediction and Thermal Impacts
 
@@ -176,7 +176,7 @@ predictor.predict_energy(add_hvac=True)
 
 # Assumptions and Limitations
 
-- **Speed estimation**: Trip speed is assumed constant along each shape and is derived from scheduled stop times and cumulative shape distance. Actual in-service speed variation is not captured.
+- **Speed estimation**: Link speeds come from a generic model trained on nine agencies' realtime data, not from the modeled agency's own schedule or realtime feed. Held-out-agency error averages about 3.9 mph MAE. Each shape uses one representative departure time, and predicted speeds vary little by time of day. See {ref}`Transit Speed Model <speed-model>` for accuracy and limitations.
 - **Deadhead speed**: Deadhead trips assume a uniform average speed of 30 km/h for travel time estimation.
 - **Depot matching**: The nearest depot is chosen by minimising total pull-out + pull-in distance. Actual depot assignments may differ from operational practice.
 - **TMY weather**: HVAC loads use typical (not actual) meteorological year data.

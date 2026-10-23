@@ -279,11 +279,11 @@ class GTFSEnergyPredictor:
                 If None, all supported models are used.
             overwrite: If True (default), regenerate the CompassApp graph and results
                 even if cached outputs already exist in ``output_dir``.
-            speed_model_dir: Optional directory containing a tuned speed model
-                bundle from ``scripts/gtfs_realtime/fit_speed_models.py`` +
-                ``export_speed_model_onnx.py``. When omitted, uses the bundled
-                random-forest baseline model. A supplied directory overrides
-                that baseline for specialized applications.
+            speed_model_dir: Optional directory containing a 12-bin speed model
+                bundle (``tuned_rf_speed_model.onnx`` and its manifest) from
+                ``scripts/gtfs_realtime/fit_poc_speed_model.py``. When omitted,
+                uses the bundled random-forest model. A supplied directory
+                overrides that model for specialized applications.
             explode_block_routes: If True, block results carry one row per
                 block and revenue route with scalar ``route_id`` and
                 ``agency_id`` columns, repeating the block's energy totals on

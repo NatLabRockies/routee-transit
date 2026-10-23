@@ -13,6 +13,7 @@ dependencies = [
     "nrel.routee.compass>=0.19.3,<0.20",
     "rapidfuzz>=3.0,<4",
     "openpyxl>=3.1,<4",
+    "onnxruntime>=1.20,<2",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,6 @@ dev = [
     "seaborn",
     "skl2onnx>=1.18,<2",
     "onnx>=1.17,<2",
-    "onnxruntime>=1.20,<2",
 ]
 
 [build-system]
