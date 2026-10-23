@@ -132,10 +132,14 @@ def graph_from_local_pbf(
     graph = nx.MultiDiGraph()
     graph.graph["crs"] = "epsg:4326"
 
-    for node in nodes.itertuples(index=False):
+    for node_id, lon, lat in zip(
+        nodes["id"].to_numpy(),
+        nodes["lon"].to_numpy(dtype=float),
+        nodes["lat"].to_numpy(dtype=float),
+    ):
         # No osmid attribute: osmnx keeps it on the index, and Compass's
         # generate_compass_dataset reset_index()es that into a column.
-        graph.add_node(node.id, x=float(node.lon), y=float(node.lat))
+        graph.add_node(node_id, x=float(lon), y=float(lat))
 
     present = [tag for tag in EDGE_TAGS if tag in ways.columns]
     for raw_row in ways.to_dict("records"):

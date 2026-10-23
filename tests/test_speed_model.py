@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import geopandas as gpd
 import numpy as np
+import numpy.typing as npt
 import onnxruntime as ort
 import pandas as pd
 import pytest
@@ -27,7 +28,9 @@ def test_batched_traces_deduplicate_across_batches(tmp_path: Path) -> None:
     session = MagicMock()
     order = ["base"] + TEMPORAL_FEATURES
 
-    def predict(_outputs: None, inputs: dict[str, np.ndarray]) -> list[np.ndarray]:
+    def predict(
+        _outputs: None, inputs: dict[str, npt.NDArray[np.float32]]
+    ) -> list[npt.NDArray[np.floating[Any]]]:
         x = inputs["input"]
         assert len(x) <= 2
         assert x.dtype == np.float32
@@ -57,7 +60,9 @@ def test_batched_traces_deduplicate_across_batches(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "output", [np.array([[np.nan]]), np.ones((1, 2)), np.array([[np.inf]])]
 )
-def test_invalid_model_outputs_fail(tmp_path: Path, output: np.ndarray) -> None:
+def test_invalid_model_outputs_fail(
+    tmp_path: Path, output: npt.NDArray[np.floating[Any]]
+) -> None:
     session = MagicMock()
     session.run.return_value = [output]
     with pytest.raises(ValueError, match="Speed model returned"):

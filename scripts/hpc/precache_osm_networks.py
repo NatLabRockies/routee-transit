@@ -296,9 +296,12 @@ def main() -> None:
             # Separate processes rather than threads: building a network from a
             # local PBF is CPU-bound Python, so threads serialize on the GIL.
             # Each worker handles one dataset and then exits to free its memory.
-            with ProcessPoolExecutor(
-                max_workers=n_workers, max_tasks_per_child=1
-            ) as pool:
+            # max_tasks_per_child needs 3.11+; on 3.10 workers are long-lived.
+            if sys.version_info >= (3, 11):
+                pool = ProcessPoolExecutor(max_workers=n_workers, max_tasks_per_child=1)
+            else:
+                pool = ProcessPoolExecutor(max_workers=n_workers)
+            with pool:
                 future_ids = {
                     pool.submit(
                         _precache_worker,
