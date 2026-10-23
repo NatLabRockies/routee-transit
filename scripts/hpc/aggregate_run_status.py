@@ -15,6 +15,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 
 def find_dataset_dirs(db_root: Path) -> list[Path]:
@@ -32,7 +33,7 @@ def read_status(dataset_dir: Path) -> dict[str, str | int | float | None]:
     status_file = dataset_dir / "results" / "status.json"
     if status_file.exists():
         with open(status_file) as f:
-            return json.load(f)
+            return cast(dict[str, str | int | float | None], json.load(f))
     return {}
 
 
