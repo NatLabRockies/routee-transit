@@ -503,6 +503,7 @@ def plot_agency_hist(agency: pd.DataFrame, vehicles: list[str]) -> str:
     for ax in list(axes.flat)[len(vehicles) :]:
         ax.axis("off")
     fig.suptitle("Agency-average energy rate, one value per agency")
+    plt.tight_layout()
     return fig_to_html(fig)
 
 
@@ -524,6 +525,7 @@ def plot_trip_hist(hists: dict[str, np.ndarray], vehicles: list[str]) -> str:
     for ax in list(axes.flat)[len(vehicles) :]:
         ax.axis("off")
     fig.suptitle("Trip-level energy rate, weighted by trips per year (all agencies)")
+    plt.tight_layout()
     return fig_to_html(fig)
 
 
@@ -545,6 +547,7 @@ def plot_by_region(agency: pd.DataFrame, vehicles: list[str]) -> str:
     for ax in list(axes.flat)[len(vehicles) :]:
         ax.axis("off")
     fig.suptitle("Agency-average energy rate by Census region")
+    plt.tight_layout()
     return fig_to_html(fig)
 
 
@@ -571,6 +574,7 @@ def plot_map(agency: pd.DataFrame, vehicle: str) -> str:
     )
     ax.set_xlabel("longitude")
     ax.set_ylabel("latitude")
+    plt.tight_layout()
     return fig_to_html(fig)
 
 
@@ -624,6 +628,7 @@ def plot_seasonal_spread(season: pd.DataFrame) -> str:
     ax.set_xlabel("max - min of daily index over the year")
     ax.set_ylabel("agencies")
     ax.set_title("How much electric energy swings day to day within each agency")
+    plt.tight_layout()
     ax.legend(fontsize=8)
     return fig_to_html(fig)
 
