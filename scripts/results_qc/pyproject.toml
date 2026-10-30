@@ -8,4 +8,5 @@ dependencies = [
     "matplotlib>=3.8",
     "numpy>=1.26",
     "pandas>=2.3,<3",
+    "pyarrow>=15",
 ]

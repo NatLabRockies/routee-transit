@@ -18,6 +18,15 @@ uv run --project scripts/results_qc python scripts/results_qc/qc_national_result
 On Kestrel you can use the `hpc` env instead, which already has these packages:
 `pixi run -e hpc python scripts/results_qc/qc_national_results.py <db_root>`.
 
+To go faster on a large database:
+
+- `--max_datasets 50` analyzes a random sample of 50 datasets (`--seed` picks a
+  different sample).
+- `--datasets mdb-117 mdb-205` analyzes only those datasets, by feed or dataset ID.
+- `--skip_daily` skips the block files, which are the slowest part to read, and
+  leaves out the by-day section.
+- `--n_processes` sets how many datasets are read in parallel.
+
 `<db_root>` is the batch database folder: it holds `feeds.csv` and one folder per
 dataset, each with a `results/` subfolder. Outputs go to `--out`
 (`reports/` is gitignored):

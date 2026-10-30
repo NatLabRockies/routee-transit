@@ -29,8 +29,11 @@ import io
 import json
 import logging
 import multiprocessing as mp
+import random
+from functools import partial
+from importlib.util import find_spec
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib
 
@@ -41,6 +44,9 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 logger = logging.getLogger("qc_national_results")
+
+# pyarrow parses the large block files several times faster than the C engine.
+CSV_ENGINE: Literal["pyarrow", "c"] = "pyarrow" if find_spec("pyarrow") else "c"
 
 KWH_PER_GGE = 33.705
 
@@ -320,7 +326,7 @@ def summarize_blocks(blocks: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def process_dataset(dataset_dir: Path) -> dict[str, Any]:
+def process_dataset(dataset_dir: Path, include_daily: bool = True) -> dict[str, Any]:
     dataset_id = dataset_dir.name
     results_dir = dataset_dir / "results"
     status = read_status(results_dir)
@@ -339,11 +345,12 @@ def process_dataset(dataset_dir: Path) -> dict[str, Any]:
     if not trip_path.exists():
         return out
     try:
+        header = pd.read_csv(trip_path, nrows=0).columns
         trips = pd.read_csv(
             trip_path,
-            usecols=lambda c: c in TRIP_COLUMNS,
+            usecols=[c for c in TRIP_COLUMNS if c in header],
             dtype={"trip_id": str},
-            low_memory=False,
+            engine=CSV_ENGINE,
         )
         for col in TRIP_COLUMNS:
             if col not in trips:
@@ -354,13 +361,14 @@ def process_dataset(dataset_dir: Path) -> dict[str, Any]:
         out["agency_rows"], out["hists"] = rows, hists
 
         block_path = results_dir / "block_energy_predictions.csv"
-        if block_path.exists():
+        if include_daily and block_path.exists():
             blocks = pd.read_csv(
                 block_path,
                 usecols=BLOCK_COLUMNS,
                 dtype={"block_id": str},
-                parse_dates=["date"],
+                engine=CSV_ENGINE,
             )
+            blocks["date"] = pd.to_datetime(blocks["date"])
             daily = summarize_blocks(blocks)
             daily["dataset_id"] = dataset_id
             out["daily"] = daily
@@ -791,6 +799,24 @@ def main() -> int:
     parser.add_argument("db_root", type=Path, help="Batch database root")
     parser.add_argument("--out", type=Path, default=Path("reports/qc_national"))
     parser.add_argument("--n_processes", type=int, default=min(mp.cpu_count(), 32))
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=None,
+        help="Only these datasets, by dataset ID or feed ID (e.g. mdb-117)",
+    )
+    parser.add_argument(
+        "--max_datasets",
+        type=int,
+        default=None,
+        help="Analyze a random sample of at most this many datasets",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Seed for --max_datasets")
+    parser.add_argument(
+        "--skip_daily",
+        action="store_true",
+        help="Skip the block files (slowest to read) and the by-day section",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -799,9 +825,25 @@ def main() -> int:
     dataset_dirs = sorted(
         p for p in args.db_root.iterdir() if p.is_dir() and (p / "results").is_dir()
     )
+    if args.datasets:
+        wanted = set(args.datasets)
+        dataset_dirs = [
+            p
+            for p in dataset_dirs
+            if p.name in wanted or p.name.rsplit("-", 1)[0] in wanted
+        ]
+    if args.max_datasets is not None and len(dataset_dirs) > args.max_datasets:
+        dataset_dirs = sorted(
+            random.Random(args.seed).sample(dataset_dirs, args.max_datasets)
+        )
     logger.info("Reading %d dataset result folders", len(dataset_dirs))
+    worker = partial(process_dataset, include_daily=not args.skip_daily)
+    results = []
     with mp.Pool(args.n_processes) as pool:
-        results = pool.map(process_dataset, dataset_dirs, chunksize=4)
+        for i, result in enumerate(pool.imap_unordered(worker, dataset_dirs), 1):
+            results.append(result)
+            if i % 10 == 0 or i == len(dataset_dirs):
+                logger.info("Read %d of %d datasets", i, len(dataset_dirs))
 
     meta = load_feed_metadata(args.db_root)
     status = pd.DataFrame(
