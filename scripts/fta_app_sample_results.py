@@ -3,59 +3,13 @@ This script runs the full RouteE-Transit energy prediction pipeline for a few ag
 to provide sample inputs for the FTA app.
 """
 
-import geopandas as gpd
-from gtfsblocks import Feed
-from shapely.geometry import LineString
-
-
-def build_routes_gdf(feed: Feed) -> gpd.GeoDataFrame:
-    """Build GeoDataFrame of typical shapes for all routes in a Feed."""
-    route_shape_cts = (
-        feed.trips.groupby(["route_id", "shape_id"])["trip_count"].sum().reset_index()
-    )
-    most_common_shape = route_shape_cts.loc[
-        route_shape_cts.groupby("route_id")["trip_count"].idxmax()
-    ].reset_index(drop=True)
-
-    route_cols = ["route_short_name"]
-    if "route_color" in feed.routes.columns:
-        route_cols += ["route_color"]
-    most_common_shape = most_common_shape.merge(
-        feed.routes[route_cols],
-        left_on="route_id",
-        right_index=True,
-    )
-
-    # Build a LineString geometry for each selected shape_id from shapes.txt
-    shape_ids = most_common_shape["shape_id"].unique()
-    shapes_df = feed.shapes[feed.shapes["shape_id"].isin(shape_ids)].copy()
-
-    # Sort shape points in sequence order, then build one LineString per shape_id
-    shape_lines = (
-        shapes_df.sort_values(["shape_id", "shape_pt_sequence"])
-        .groupby("shape_id")
-        .apply(
-            lambda g: LineString(zip(g["shape_pt_lon"], g["shape_pt_lat"])),
-            include_groups=False,
-        )
-        .rename("geometry")
-        .reset_index()
-    )
-
-    # Join geometry back to the most-common-shape table
-    gdf = most_common_shape.merge(shape_lines, on="shape_id", how="left")
-    gdf = gdf.drop(columns="trip_count")
-    gdf = gpd.GeoDataFrame(gdf, geometry="geometry", crs="EPSG:4326")
-    return gdf
-
+import pandas as pd
 
 if __name__ == "__main__":
     import logging
     import os
     import time
     import warnings
-
-    import pandas as pd
 
     from routee.transit import GTFSEnergyPredictor, package_root
 
@@ -74,15 +28,45 @@ if __name__ == "__main__":
     # HERE = Path(__file__).parent.resolve()
 
     # Configuration
-    n_proc = 8
+    n_proc = int(os.environ.get("SLURM_CPUS_PER_TASK", "8"))
     routee_vehicle_models = [
-        "Transit_Bus_Battery_Electric",
-        "Transit_Bus_Diesel",
+        "Transit_Bus_Electric_40ft_300kWh",
+        "Transit_Bus_Electric_60ft_600kWh",
+        "Transit_Bus_Diesel_40ft",
+        "Transit_Bus_Diesel_60ft",
+        "Transit_Bus_CNG_40ft",
+        "Transit_Bus_CNG_60ft",
+        "Transit_Bus_Hybrid_40ft",
+        "Transit_Bus_Hybrid_60ft",
     ]
 
-    # TODO: aggregate feeds in this script as well
-    # example data built with pixi run -e dev-py311 python scripts/feeds/gather_feeds.py --db_root tmp --feed_ids mdb-292 mdb-1330 mdb-2432
-    db_root = package_root().parents[1] / "reports" / "results_example_2026_04_22"
+    # The app only consumes the aggregated trip results; these exports are large
+    # and only needed for deeper analysis.
+    save_daily_results = False
+    save_link_results = False
+
+    db_root = package_root().parents[1] / "reports" / "fta_results_102126"
+
+    # Set to True to (re)download the GTFS feeds before running predictions
+    gather_feeds = True
+    if gather_feeds:
+        from scripts.feeds.gather_feeds import main as gather_feeds_main
+
+        gather_feeds_main(
+            [
+                "--db_root",
+                str(db_root),
+                "--feed_ids",
+                "mdb-117",
+                "mdb-205",
+                "mdb-247",
+                "mdb-267",
+                "mdb-368",
+                "mdb-589",
+                "mdb-3521",
+            ]
+        )
+
     feeds_path = db_root / "feeds.csv"
     datasets_path = db_root / "datasets.csv"
 
@@ -106,20 +90,58 @@ if __name__ == "__main__":
             output_dir=output_directory,
             feed_id=feeds_incl[ix],
             dataset_id=d_id,
+            overwrite=True,
+            explode_block_routes=True,
         )
 
-        # Run entire pipeline
-        results = predictor.run(
+        # Run entire pipeline across all service dates
+        daily_results = predictor.run(
             date=None,
             routes=None,
             add_mid_block_deadhead=True,
             add_depot_deadhead=True,
             add_hvac=True,
-            save_results=True,
+            scale_to_year=True,
+            save_results=False,
         )
-        logger.info(f"Finished {len(results)} energy predictions for trips in {d_id}")
+        predictor.save_results(
+            save_trip_level=save_daily_results,
+            save_link_level=save_link_results,
+            save_route_shapes=True,
+            save_block_level=True,
+        )
 
-        # Export routes to GeoJSON
-        routes_gdf = build_routes_gdf(predictor.feed)
-        routes_gdf.to_file(output_directory / "routes.geojson", driver="GeoJSON")
-        logger.info(f"Wrote {len(routes_gdf)} route shapes")
+        # The FTA app expects one row per (trip, vehicle), so collapse the date
+        # dimension: average the date-varying energy columns and record how many
+        # days each trip operates. All remaining columns are date-invariant.
+        date_varying = {"energy_used", "mpge", "hvac_energy_kWh"}
+        dropped = {"date", "trip_is_within_gtfs_scope"}
+        avg_cols = [c for c in daily_results.columns if c in date_varying]
+        group_cols = [
+            c for c in daily_results.columns if c not in date_varying | dropped
+        ]
+        trip_counts = (
+            daily_results.groupby("trip_id")
+            .agg(trip_count=("date", "nunique"))
+            .reset_index()
+        )
+        results = daily_results.groupby(group_cols, as_index=False, dropna=False)[
+            avg_cols
+        ].mean()
+        results = results.merge(trip_counts, on="trip_id", how="left")
+
+        if save_daily_results:
+            # save_results() already claimed the trip filename for the daily export.
+            daily_path = output_directory / "trip_energy_predictions.csv"
+            daily_path.replace(output_directory / "trip_energy_by_day.csv")
+        results.to_csv(output_directory / "trip_energy_predictions.csv", index=False)
+
+        logger.info(
+            "Finished %d aggregated predictions (%d daily) for %s in %.1f seconds; "
+            "results are in %s",
+            len(results),
+            len(daily_results),
+            d_id,
+            time.time() - start_time,
+            output_directory,
+        )

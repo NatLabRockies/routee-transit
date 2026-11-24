@@ -9,3 +9,4 @@ This directory contains scripts for running RouteE-Transit and working with GTFS
 
 - [`feeds/`](feeds/): Scripts for gathering and processing static GTFS feeds from the Mobility Database
 - [`gtfs_realtime/`](gtfs_realtime/): Tools for scraping and analyzing GTFS Realtime vehicle position feeds
+- [`hpc/`](hpc/): HPC build scripts and the SLURM batch pipeline that analyzes a whole Mobility Database snapshot

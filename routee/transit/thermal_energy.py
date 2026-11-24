@@ -6,17 +6,57 @@ import boto3
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 from botocore import UNSIGNED
 from botocore.config import Config
 from gtfsblocks import Feed
 
+from routee.transit.results import (
+    _densest_window as _densest_window,
+)
+from routee.transit.results import (
+    _select_full_year_window as _select_full_year_window,
+)
+from routee.transit.results import (
+    build_trip_dates,
+)
+
 logger = logging.getLogger(__name__)
 
+COUNTY_SHAPEFILE_URL = (
+    "https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip"
+)
+DEFAULT_CACHE_DIR = Path.home() / "cache" / "routee-transit"
 
-def fetch_counties_gdf() -> gpd.GeoDataFrame:
-    gdf_county = gpd.read_file(
-        "https://www2.census.gov/geo/tiger/GENZ2022/shp/cb_2022_us_county_20m.zip"
-    )
+
+def fetch_counties_gdf(cache_dir: Path | None = None) -> gpd.GeoDataFrame:
+    """Load US county boundaries, downloading the Census archive only once.
+
+    Parameters
+    ----------
+    cache_dir : Path or None
+        Directory holding the cached shapefile archive. Defaults to
+        ``~/cache/routee-transit/counties``.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        County polygons with a ``county_id`` column matching the naming scheme
+        used by the TMY weather files.
+    """
+    cache_dir = cache_dir if cache_dir is not None else DEFAULT_CACHE_DIR / "counties"
+    archive = cache_dir / COUNTY_SHAPEFILE_URL.rsplit("/", 1)[-1]
+    if not archive.is_file():
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Downloading county boundaries from %s", COUNTY_SHAPEFILE_URL)
+        response = requests.get(COUNTY_SHAPEFILE_URL, timeout=120)
+        response.raise_for_status()
+        # Write aside and rename so an interrupted download is never cached.
+        partial = archive.with_suffix(".part")
+        partial.write_bytes(response.content)
+        partial.replace(archive)
+
+    gdf_county = gpd.read_file(archive)
     gdf_county["county_id"] = (
         "G" + gdf_county["STATEFP"] + "0" + gdf_county["COUNTYFP"] + "0"
     )
@@ -122,6 +162,10 @@ def compute_HVAC_energy(
     """
     Calculate HVAC + BTMS energy consumption between time intervals.
 
+    The hourly power values define a piecewise-linear profile that wraps at
+    midnight, so each interval's energy is evaluated from the profile's exact
+    antiderivative rather than by numerical sampling.
+
     Args:
         start_hours (array-like): fractional start times in hours
         end_hours (array-like): fractional end times in hours (can be > 24)
@@ -130,24 +174,26 @@ def compute_HVAC_energy(
     Returns:
         np.ndarray: energy consumption [kWh] for each interval
     """
-    power_array = np.asarray(power_array)
-    power_24 = np.concatenate((power_array, [power_array[0]]))  # wrap for interpolation
+    knots = np.asarray(power_array, dtype=float)
+    knots = np.concatenate((knots, [knots[0]]))  # wrap midnight for interpolation
+    # Energy accumulated from midnight to each whole hour, plus a full day total.
+    cumulative = np.concatenate(([0.0], np.cumsum((knots[:-1] + knots[1:]) / 2)))
 
-    def interp_power(t: np.number) -> float:
-        """Linearly interpolate power at fractional hour t."""
-        i = int(np.floor(t)) % 24
-        frac = t - np.floor(t)
-        return float((1 - frac) * power_24[i] + frac * power_24[i + 1])
+    def integral(hours: pd.Series) -> np.typing.NDArray[np.float64]:
+        """Energy consumed from midnight of the first day through ``hours``."""
+        days, hour = np.divmod(np.asarray(hours, dtype=float), 24.0)
+        index = np.floor(hour).astype(int)
+        fraction = hour - index
+        # Area of the partial trapezoid between hour ``index`` and ``hour``.
+        partial = fraction * (
+            knots[index] + 0.5 * fraction * (knots[index + 1] - knots[index])
+        )
+        return cast(
+            np.typing.NDArray[np.float64],
+            days * cumulative[24] + cumulative[index] + partial,
+        )
 
-    energies = []
-    for s, e in zip(start_hours, end_hours):
-        # sample in small steps for accurate integration
-        ts = np.arange(s, e, 0.01)  # 0.01 h = 36 s resolution
-        ps = np.array([interp_power(t) for t in ts])
-        energy = np.trapezoid(ps, ts)  # integrate kW over hours → kWh
-        energies.append(energy)
-
-    return np.array(energies)
+    return integral(end_hours) - integral(start_hours)
 
 
 def load_tmy_power_by_day(
@@ -178,9 +224,14 @@ def load_tmy_power_by_day(
     tmy_df = pd.read_csv(local_file, parse_dates=["date_time"])[
         ["date_time", "Dry Bulb Temperature [°C]"]
     ]
-    tmy_df["month"] = tmy_df["date_time"].dt.month
-    tmy_df["day_of_month"] = tmy_df["date_time"].dt.day
-    tmy_df["hour"] = tmy_df["date_time"].dt.hour
+    # TMY timestamps are hour-ending (01:00 ... 24:00), and each month is drawn
+    # from a different source year. Shift to hour-beginning so every calendar
+    # day gets exactly hours 0-23; otherwise a February taken from a leap year
+    # ends at "Feb 29 00:00", leaving March 1 with only 23 hours.
+    hour_start = tmy_df["date_time"] - pd.Timedelta(hours=1)
+    tmy_df["month"] = hour_start.dt.month
+    tmy_df["day_of_month"] = hour_start.dt.day
+    tmy_df["hour"] = hour_start.dt.hour
     tmy_df["Dry Bulb Temperature [°C]"] = tmy_df["Dry Bulb Temperature [°C]"].round(1)
     tmy_df = tmy_df.merge(
         df_temp_energy,
@@ -189,55 +240,6 @@ def load_tmy_power_by_day(
         how="left",
     )
     return tmy_df[["month", "day_of_month", "hour", "Power"]]
-
-
-def _densest_window(
-    sorted_dates: list[pd.Timestamp], max_days: int
-) -> tuple[pd.Timestamp, pd.Timestamp] | None:
-    """
-    Return the (start, end) of the ``max_days``-wide window containing the most
-    service dates.  Robust to feeds with sparse outliers far in the past or future.
-    Returns None if ``sorted_dates`` is empty.
-    """
-    if not sorted_dates:
-        return None
-    best_start = sorted_dates[0]
-    best_count = 0
-    j = 0
-    for i, start in enumerate(sorted_dates):
-        window_end = start + pd.Timedelta(days=max_days - 1)
-        while j < len(sorted_dates) and sorted_dates[j] <= window_end:
-            j += 1
-        count = j - i
-        if count > best_count:
-            best_count = count
-            best_start = start
-    return best_start, best_start + pd.Timedelta(days=max_days - 1)
-
-
-def _select_full_year_window(
-    sorted_dates: list[pd.Timestamp], max_days: int
-) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """
-    Pick a full-year window for scale_to_year mode.
-
-    Snaps to a calendar year (Jan 1 - Dec 31) when the dense block of service
-    dates falls within a single year; otherwise centers a ``max_days``-wide
-    window on the midpoint of the dense block.
-    """
-    dense = _densest_window(sorted_dates, max_days)
-    assert dense is not None  # caller guarantees non-empty
-    dense_start, dense_end = dense
-    dense_dates = [d for d in sorted_dates if dense_start <= d <= dense_end]
-    first, last = dense_dates[0], dense_dates[-1]
-    if first.year == last.year:
-        year = first.year
-        return pd.Timestamp(year=year, month=1, day=1), pd.Timestamp(
-            year=year, month=12, day=31
-        )
-    midpoint = first + (last - first) / 2
-    half = pd.Timedelta(days=(max_days - 1) // 2)
-    return midpoint - half, midpoint - half + pd.Timedelta(days=max_days - 1)
 
 
 def add_HVAC_energy(
@@ -265,7 +267,8 @@ def add_HVAC_energy(
         Must contain ``trip_id`` and ``service_id`` columns.
     output_dir : Path or None
         Directory used to store downloaded TMY weather files (in a ``TMY/``
-        subdirectory). If None, defaults to ``~/cache/routee-transit/TMY``.
+        subdirectory) and county boundaries (in a ``counties/`` subdirectory).
+        If None, defaults to ``~/cache/routee-transit``.
     max_days : int, default=365
         Width in calendar days of the window to model.  The algorithm selects the
         ``max_days``-wide window that contains the greatest number of service dates,
@@ -291,10 +294,8 @@ def add_HVAC_energy(
         ``trip_is_within_gtfs_scope`` is True when the date is part of the
         feed's actual calendar, False when synthesized via ``scale_to_year``.
     """
-    if output_dir is not None:
-        tmy_dir = output_dir / "TMY"
-    else:
-        tmy_dir = Path.home() / "cache" / "routee-transit" / "TMY"
+    cache_root = output_dir if output_dir is not None else DEFAULT_CACHE_DIR
+    tmy_dir = cache_root / "TMY"
 
     # Based on gtfs stops data, get counties served
     df_stops = feed.stops
@@ -305,7 +306,7 @@ def add_HVAC_energy(
         crs=4269,
     )
 
-    gdf_county = fetch_counties_gdf()
+    gdf_county = fetch_counties_gdf(cache_root / "counties")
 
     # Make sure that both GDFs use the same CRS
     if gdf_stops.crs != gdf_county.crs:
@@ -369,70 +370,13 @@ def add_HVAC_energy(
         month_key, day_key = cast(tuple[int, int], key)
         power_lookup[(month_key, day_key)] = grp.sort_values("hour")["Power"].to_numpy()
 
-    # Get all (date, service_id) pairs covered by the feed, capped to max_days.
-    # If a specific service_date was supplied (single-date run), restrict to that
-    # date only — do not re-expand to every day the service_id runs.
-    all_dates_df = feed.get_service_ids_all_dates()
-    if service_date is not None:
-        date_service_df = all_dates_df[all_dates_df["date"] == service_date][
-            ["date", "service_id"]
-        ].drop_duplicates()
-        date_service_df["trip_is_within_gtfs_scope"] = True
-    else:
-        all_unique = pd.to_datetime(all_dates_df["date"].dropna().unique()).tolist()
-        all_unique.sort()
-        if scale_to_year and all_unique:
-            window_start, window_end = _select_full_year_window(all_unique, max_days)
-        else:
-            dense = _densest_window(all_unique, max_days)
-            if dense is None:
-                window_start = window_end = pd.Timestamp("1970-01-01")
-            else:
-                window_start, window_end = dense
-
-        in_window_mask = (all_dates_df["date"] >= window_start) & (
-            all_dates_df["date"] <= window_end
-        )
-        date_service_df = all_dates_df.loc[
-            in_window_mask, ["date", "service_id"]
-        ].drop_duplicates()
-        date_service_df["trip_is_within_gtfs_scope"] = True
-
-        if scale_to_year and all_unique:
-            # Project the feed's typical weekday service patterns onto uncovered
-            # dates within the full-year window.  Weekdays absent from the
-            # typical-service map (e.g. Tuesday in an M/W/F-only feed) get no
-            # projected rows, preserving the feed's real day-of-week service shape.
-            typical = feed.get_typical_service_by_weekday()
-            weekday_to_sids: dict[str, list[str]] = {
-                weekday: list(row["service_id"]) for weekday, row in typical.iterrows()
-            }
-            covered_dates: set[pd.Timestamp] = set(
-                pd.to_datetime(date_service_df["date"]).to_list()
-            )
-            all_window_dates = pd.date_range(window_start, window_end, freq="D")
-            uncovered_dates = [d for d in all_window_dates if d not in covered_dates]
-            projected_rows = []
-            for d in uncovered_dates:
-                weekday_name = d.day_name().lower()
-                for sid in weekday_to_sids.get(weekday_name, []):
-                    projected_rows.append((d, sid, False))
-            if projected_rows:
-                projected_df = pd.DataFrame(
-                    projected_rows,
-                    columns=["date", "service_id", "trip_is_within_gtfs_scope"],
-                )
-                date_service_df = pd.concat(
-                    [date_service_df, projected_df], ignore_index=True
-                )
-
-    # Join dates to trips via service_id
-    required_cols = {"trip_id", "service_id"}
-    missing = required_cols.difference(trips_df.columns)
-    if missing:
-        raise ValueError(f"trips_df is missing required columns: {sorted(missing)}")
-    trips_slim = trips_df[["trip_id", "service_id"]].drop_duplicates()
-    date_trips = date_service_df.merge(trips_slim, on="service_id")
+    date_trips = build_trip_dates(
+        feed,
+        trips_df,
+        service_date=service_date,
+        scale_to_year=scale_to_year,
+        max_days=max_days,
+    )
 
     # Load trip start/end fractional hours from stop_times
     df_stop_times = feed.stop_times[

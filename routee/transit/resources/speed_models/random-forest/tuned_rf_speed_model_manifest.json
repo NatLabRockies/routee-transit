@@ -1,0 +1,152 @@
+{
+  "target": "mph_moving_mean (observation-weighted mean moving speed, mph)",
+  "input_order": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "time_bin_0",
+    "time_bin_1",
+    "time_bin_2",
+    "time_bin_3",
+    "time_bin_4",
+    "time_bin_5",
+    "is_weekday",
+    "functional_class_collector",
+    "functional_class_freeway",
+    "functional_class_local",
+    "functional_class_minor_arterial",
+    "functional_class_principal_arterial",
+    "maxspeed_mph_was_missing",
+    "lanes_was_missing",
+    "grade_was_missing",
+    "grade_abs_was_missing",
+    "link_length_km_was_missing",
+    "n_stops_was_missing"
+  ],
+  "static_per_edge_features": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops",
+    "functional_class"
+  ],
+  "per_query_temporal_features": [
+    "time_bin_0",
+    "time_bin_1",
+    "time_bin_2",
+    "time_bin_3",
+    "time_bin_4",
+    "time_bin_5",
+    "is_weekday"
+  ],
+  "time_bin_start_hours": [
+    0,
+    6,
+    9,
+    15,
+    19,
+    22
+  ],
+  "trace_rounding_mph": 0.1,
+  "categorical_feature": {
+    "name": "functional_class",
+    "one_hot_columns": [
+      "functional_class_collector",
+      "functional_class_freeway",
+      "functional_class_local",
+      "functional_class_minor_arterial",
+      "functional_class_principal_arterial"
+    ],
+    "highway_to_functional_class": {
+      "motorway": "freeway",
+      "motorway_link": "freeway",
+      "trunk": "freeway",
+      "trunk_link": "freeway",
+      "primary": "principal_arterial",
+      "primary_link": "principal_arterial",
+      "secondary": "minor_arterial",
+      "secondary_link": "minor_arterial",
+      "tertiary": "collector",
+      "tertiary_link": "collector",
+      "unclassified": "collector",
+      "residential": "local",
+      "living_street": "local",
+      "busway": "local",
+      "service": "local"
+    },
+    "default": "local"
+  },
+  "feature_medians": {
+    "maxspeed_mph": 25.0,
+    "lanes": 2.0,
+    "grade": 0.0,
+    "grade_abs": 0.0057508542538770285,
+    "link_length_km": 0.17945897708290323,
+    "n_stops": 1.0,
+    "time_bin_0": 0.0,
+    "time_bin_1": 0.0,
+    "time_bin_2": 0.0,
+    "time_bin_3": 0.0,
+    "time_bin_4": 0.0,
+    "time_bin_5": 0.0,
+    "is_weekday": 1.0
+  },
+  "missing_indicator_features": [
+    "maxspeed_mph",
+    "lanes",
+    "grade",
+    "grade_abs",
+    "link_length_km",
+    "n_stops"
+  ],
+  "training": {
+    "agencies": [
+      "actransit",
+      "broward",
+      "cats",
+      "citybus-lafayette",
+      "dayton",
+      "gcrta",
+      "metro-transit-madison",
+      "mountainline",
+      "wrta-youngstown"
+    ],
+    "agency_timezones": {
+      "actransit": "America/Los_Angeles",
+      "broward": "America/New_York",
+      "cats": "America/New_York",
+      "citybus-lafayette": "America/Indiana/Indianapolis",
+      "dayton": "America/New_York",
+      "gcrta": "America/New_York",
+      "metro-transit-madison": "America/Chicago",
+      "mountainline": "America/Denver",
+      "wrta-youngstown": "America/New_York"
+    },
+    "model_params": {
+      "n_estimators": 100,
+      "max_depth": 8,
+      "min_samples_leaf": 10,
+      "max_features": 0.5,
+      "random_state": 42,
+      "n_jobs": 4
+    },
+    "weighting": "equal total weight per agency, observation-weighted within agency",
+    "comparison": [
+      {
+        "model": "12_bin",
+        "mae_mph": 3.9118436748344942,
+        "rmse_mph": 5.768947216430641
+      },
+      {
+        "model": "no_time",
+        "mae_mph": 3.9072212751009476,
+        "rmse_mph": 5.74265949739514
+      }
+    ]
+  }
+}

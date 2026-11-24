@@ -67,6 +67,17 @@ class TestMidBlockDeadhead(unittest.TestCase):
             deadhead_trips.iloc[0]["route_short_name"], "deadhead_S2_to_S3"
         )
 
+    def test_no_transitions_or_assigned_blocks(self) -> None:
+        singleton = self.trips_df.iloc[:1]
+        self.assertTrue(
+            create_mid_block_deadhead_trips(singleton, self.stop_times_df).empty
+        )
+        unassigned = self.trips_df.copy()
+        unassigned["block_id"] = None
+        self.assertTrue(
+            create_mid_block_deadhead_trips(unassigned, self.stop_times_df).empty
+        )
+
     def test_create_mid_block_deadhead_stops(self) -> None:
         deadhead_trips = create_mid_block_deadhead_trips(
             self.trips_df, self.stop_times_df

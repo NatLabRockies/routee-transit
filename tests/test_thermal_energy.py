@@ -6,15 +6,67 @@ from unittest.mock import MagicMock, patch
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import requests
 from shapely.geometry import Point
 
 from routee.transit.thermal_energy import (
+    DEFAULT_CACHE_DIR,
     _densest_window,
     _select_full_year_window,
     add_HVAC_energy,
     compute_HVAC_energy,
+    fetch_counties_gdf,
     load_thermal_lookup_table,
+    load_tmy_power_by_day,
 )
+
+
+class TestFetchCountiesGdf(unittest.TestCase):
+    def _counties(self) -> gpd.GeoDataFrame:
+        return gpd.GeoDataFrame(
+            {
+                "STATEFP": ["08"],
+                "COUNTYFP": ["031"],
+                "geometry": [Point(-105.0, 39.7)],
+            },
+            crs="EPSG:4269",
+        )
+
+    @patch("routee.transit.thermal_energy.gpd.read_file")
+    @patch("routee.transit.thermal_energy.requests.get")
+    def test_archive_downloaded_once_then_read_from_cache(
+        self, mock_get: MagicMock, mock_read_file: MagicMock
+    ) -> None:
+        mock_get.return_value = MagicMock(content=b"shapefile-archive")
+        mock_read_file.return_value = self._counties()
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = Path(directory) / "cache"
+            first = fetch_counties_gdf(cache_dir)
+            second = fetch_counties_gdf(cache_dir)
+            archive = cache_dir / "cb_2022_us_county_20m.zip"
+            self.assertTrue(archive.is_file())
+            self.assertEqual(archive.read_bytes(), b"shapefile-archive")
+            self.assertEqual(list(cache_dir.glob("*.part")), [])
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(mock_read_file.call_count, 2)
+        self.assertEqual(first["county_id"].tolist(), ["G0800310"])
+        self.assertEqual(second["county_id"].tolist(), ["G0800310"])
+
+    @patch("routee.transit.thermal_energy.gpd.read_file")
+    @patch("routee.transit.thermal_energy.requests.get")
+    def test_failed_download_is_not_cached(
+        self, mock_get: MagicMock, mock_read_file: MagicMock
+    ) -> None:
+        response = MagicMock()
+        response.raise_for_status.side_effect = requests.HTTPError("503")
+        mock_get.return_value = response
+        mock_read_file.return_value = self._counties()
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = Path(directory) / "cache"
+            with self.assertRaises(requests.HTTPError):
+                fetch_counties_gdf(cache_dir)
+            self.assertFalse((cache_dir / "cb_2022_us_county_20m.zip").exists())
+        mock_read_file.assert_not_called()
 
 
 class TestThermalEnergy(unittest.TestCase):
@@ -35,10 +87,38 @@ class TestThermalEnergy(unittest.TestCase):
         power_array = np.full(24, 10.0)
 
         energy = compute_HVAC_energy(start_hours, end_hours, power_array)
-        # Power is 10kW, time is 1h.
-        # Integration uses np.arange(0, 1, 0.01) which stops at 0.99.
-        # np.trapezoid on [0, ..., 0.99] with constant 10 gives 9.9.
-        self.assertAlmostEqual(energy[0], 9.9, places=1)
+        self.assertAlmostEqual(energy[0], 10.0)
+
+    def test_compute_HVAC_energy_integrates_a_ramping_profile(self) -> None:
+        # Power ramps 0, 1, 2, ... kW, so hour h spans a trapezoid of area h + 0.5.
+        power_array = np.arange(24, dtype=float)
+        energy = compute_HVAC_energy(
+            pd.Series([0.0, 2.0, 2.5]), pd.Series([1.0, 4.0, 3.0]), power_array
+        )
+        self.assertAlmostEqual(energy[0], 0.5)
+        self.assertAlmostEqual(energy[1], 6.0)
+        self.assertAlmostEqual(energy[2], 1.375)
+
+    def test_compute_HVAC_energy_counts_intervals_shorter_than_a_minute(self) -> None:
+        energy = compute_HVAC_energy(
+            pd.Series([10.0]), pd.Series([10.008]), np.full(24, 10.0)
+        )
+        self.assertAlmostEqual(energy[0], 0.08)
+
+    def test_compute_HVAC_energy_wraps_past_midnight(self) -> None:
+        power_array = np.full(24, 10.0)
+        # 23:30 to 24:30 the next morning, and a full day plus an hour.
+        energy = compute_HVAC_energy(
+            pd.Series([23.5, 0.0]), pd.Series([24.5, 25.0]), power_array
+        )
+        self.assertAlmostEqual(energy[0], 10.0)
+        self.assertAlmostEqual(energy[1], 250.0)
+
+    def test_compute_HVAC_energy_handles_empty_input(self) -> None:
+        energy = compute_HVAC_energy(
+            pd.Series([], dtype=float), pd.Series([], dtype=float), np.full(24, 10.0)
+        )
+        self.assertEqual(len(energy), 0)
 
     def _make_mock_feed_and_trips(
         self,
@@ -139,6 +219,35 @@ class TestThermalEnergy(unittest.TestCase):
         self.assertIn("trip_is_within_gtfs_scope", result.columns)
         self.assertTrue((result["scenario"] == "TMY").all())
         self.assertEqual(len(result), 2)
+
+    @patch("routee.transit.thermal_energy.fetch_counties_gdf")
+    @patch("routee.transit.thermal_energy.download_tmy_files")
+    @patch("routee.transit.thermal_energy.load_tmy_power_by_day")
+    def test_downloads_are_cached_under_output_dir(
+        self,
+        mock_load_power: MagicMock,
+        mock_download: MagicMock,
+        mock_fetch_counties: MagicMock,
+    ) -> None:
+        mock_feed, trips_df, mock_county_gdf, mock_power_by_day = (
+            self._make_mock_feed_and_trips()
+        )
+        mock_fetch_counties.return_value = mock_county_gdf
+        mock_load_power.return_value = mock_power_by_day
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_directory = Path(directory)
+            add_HVAC_energy(mock_feed, trips_df, output_directory)
+            self.assertEqual(
+                mock_fetch_counties.call_args.args[0], output_directory / "counties"
+            )
+            self.assertEqual(mock_download.call_args.args[1], output_directory / "TMY")
+
+        add_HVAC_energy(mock_feed, trips_df, output_dir=None)
+        self.assertEqual(
+            mock_fetch_counties.call_args.args[0], DEFAULT_CACHE_DIR / "counties"
+        )
+        self.assertEqual(mock_download.call_args.args[1], DEFAULT_CACHE_DIR / "TMY")
 
 
 class TestDateWindowSelection(unittest.TestCase):
@@ -318,6 +427,29 @@ class TestScaleToYear(unittest.TestCase):
         # Only the 6 real dates appear, all flagged True
         self.assertEqual(len(result), 6)
         self.assertTrue(result["trip_is_within_gtfs_scope"].all())
+
+
+class TestLoadTmyPowerByDay(unittest.TestCase):
+    def test_leap_year_february_gives_every_day_24_hours(self) -> None:
+        # Hour-ending TMY timestamps with February drawn from a leap year, so
+        # the last February hour is stamped "Feb 29 00:00".
+        feb = pd.date_range("2004-02-01 01:00", "2004-02-29 00:00", freq="h")
+        mar = pd.date_range("1999-03-01 01:00", "1999-03-03 00:00", freq="h")
+        times = feb.append(mar)
+        with tempfile.TemporaryDirectory() as tmp:
+            pd.DataFrame(
+                {
+                    "date_time": times,
+                    "Dry Bulb Temperature [°C]": np.full(len(times), 20.0),
+                }
+            ).to_csv(Path(tmp) / "G0000010.csv", index=False)
+            lookup = pd.DataFrame({"Temp_C": [20.0], "Power": [5.0]})
+            result = load_tmy_power_by_day("G0000010", Path(tmp), lookup)
+
+        hours_per_day = result.groupby(["month", "day_of_month"]).size()
+        self.assertTrue((hours_per_day == 24).all(), hours_per_day.to_dict())
+        self.assertNotIn((2, 29), hours_per_day.index)
+        self.assertEqual(sorted(result["hour"].unique()), list(range(24)))
 
 
 if __name__ == "__main__":

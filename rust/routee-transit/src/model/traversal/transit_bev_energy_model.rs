@@ -36,6 +36,9 @@ pub struct TransitBevEnergyModel {
     stop_edges: HashSet<EdgeId>,
     /// Whether to include the stop energy penalty during traversal
     include_stop_penalty: bool,
+    /// Name of the speed state feature to consume (default: `fieldname::EDGE_SPEED`;
+    /// set to `"transit_speed"` to consume the ML-predicted transit speed model instead).
+    speed_feature_name: String,
 }
 
 impl TransitBevEnergyModel {
@@ -46,6 +49,7 @@ impl TransitBevEnergyModel {
         include_trip_energy: bool,
         stop_edges: HashSet<EdgeId>,
         include_stop_penalty: bool,
+        speed_feature_name: String,
     ) -> Result<Self, TraversalModelError> {
         let starting_soc =
             energy_model_ops::soc_from_energy(starting_battery_energy, battery_capacity).map_err(
@@ -62,6 +66,7 @@ impl TransitBevEnergyModel {
             include_trip_energy,
             stop_edges,
             include_stop_penalty,
+            speed_feature_name,
         })
     }
 
@@ -81,7 +86,7 @@ impl TransitBevEnergyModel {
         }
 
         // Get speed from state (the average link speed)
-        let speed = state_model.get_speed(state, fieldname::EDGE_SPEED)?;
+        let speed = state_model.get_speed(state, &self.speed_feature_name)?;
 
         // Get mass from the prediction model record
         let mass = self.prediction_model_record.mass_estimate;
@@ -108,7 +113,7 @@ impl TraversalModel for TransitBevEnergyModel {
                 unit: None,
             },
             InputFeature::Speed {
-                name: String::from(fieldname::EDGE_SPEED),
+                name: self.speed_feature_name.clone(),
                 unit: None,
             },
         ];
@@ -251,6 +256,7 @@ pub struct TransitBevEnergyModelService {
     battery_capacity: Energy,
     include_trip_energy: bool,
     stop_edge_mapping: StopEdgeMapping,
+    speed_feature_name: String,
 }
 
 impl TransitBevEnergyModelService {
@@ -259,12 +265,14 @@ impl TransitBevEnergyModelService {
         battery_capacity: Energy,
         include_trip_energy: bool,
         stop_edge_mapping: StopEdgeMapping,
+        speed_feature_name: String,
     ) -> Self {
         Self {
             prediction_model_record,
             battery_capacity,
             include_trip_energy,
             stop_edge_mapping,
+            speed_feature_name,
         }
     }
 }
@@ -315,6 +323,7 @@ impl TraversalModelService for TransitBevEnergyModelService {
             self.include_trip_energy,
             stop_edges,
             include_stop_penalty,
+            self.speed_feature_name.clone(),
         )?;
 
         Ok(Arc::new(model))

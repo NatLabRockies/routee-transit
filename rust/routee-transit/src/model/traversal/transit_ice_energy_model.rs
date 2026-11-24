@@ -30,6 +30,9 @@ pub struct TransitIceEnergyModel {
     stop_edges: HashSet<EdgeId>,
     /// Whether to include the stop energy penalty during traversal
     include_stop_penalty: bool,
+    /// Name of the speed state feature to consume (default: `fieldname::EDGE_SPEED`;
+    /// set to `"transit_speed"` to consume the ML-predicted transit speed model instead).
+    speed_feature_name: String,
 }
 
 impl TransitIceEnergyModel {
@@ -38,12 +41,14 @@ impl TransitIceEnergyModel {
         include_trip_energy: bool,
         stop_edges: HashSet<EdgeId>,
         include_stop_penalty: bool,
+        speed_feature_name: String,
     ) -> Self {
         Self {
             prediction_model_record,
             include_trip_energy,
             stop_edges,
             include_stop_penalty,
+            speed_feature_name,
         }
     }
 
@@ -64,7 +69,7 @@ impl TransitIceEnergyModel {
         }
 
         // Get speed from state (the average link speed)
-        let speed = state_model.get_speed(state, fieldname::EDGE_SPEED)?;
+        let speed = state_model.get_speed(state, &self.speed_feature_name)?;
 
         // Get mass from the prediction model record
         let mass = self.prediction_model_record.mass_estimate;
@@ -91,7 +96,7 @@ impl TraversalModel for TransitIceEnergyModel {
                 unit: None,
             },
             InputFeature::Speed {
-                name: String::from(fieldname::EDGE_SPEED),
+                name: self.speed_feature_name.clone(),
                 unit: None,
             },
         ];
@@ -177,6 +182,20 @@ impl TraversalModel for TransitIceEnergyModel {
                     self.prediction_model_record.a_star_heuristic_energy_rate * distance_miles;
                 EnergyUnit::GallonsDieselEquivalent.to_uom(energy_gallons_diesel)
             }
+            // The bundled transit ICE models (diesel, CNG, hybrid) report fuel
+            // energy in kWh rather than gallons.
+            EnergyRateUnit::KWHPM => {
+                let distance_miles = distance.get::<uom::si::length::mile>();
+                Energy::new::<uom::si::energy::kilowatt_hour>(
+                    self.prediction_model_record.a_star_heuristic_energy_rate * distance_miles,
+                )
+            }
+            EnergyRateUnit::KWHPKM => {
+                let distance_km = distance.get::<uom::si::length::kilometer>();
+                Energy::new::<uom::si::energy::kilowatt_hour>(
+                    self.prediction_model_record.a_star_heuristic_energy_rate * distance_km,
+                )
+            }
             _ => {
                 return Err(TraversalModelError::BuildError(format!(
                     "unsupported energy rate unit for ICE model: {}",
@@ -198,6 +217,7 @@ pub struct TransitIceEnergyModelService {
     prediction_model_record: Arc<PredictionModelRecord>,
     include_trip_energy: bool,
     stop_edge_mapping: StopEdgeMapping,
+    speed_feature_name: String,
 }
 
 impl TransitIceEnergyModelService {
@@ -205,11 +225,13 @@ impl TransitIceEnergyModelService {
         prediction_model_record: Arc<PredictionModelRecord>,
         include_trip_energy: bool,
         stop_edge_mapping: StopEdgeMapping,
+        speed_feature_name: String,
     ) -> Self {
         Self {
             prediction_model_record,
             include_trip_energy,
             stop_edge_mapping,
+            speed_feature_name,
         }
     }
 }
@@ -251,6 +273,7 @@ impl TraversalModelService for TransitIceEnergyModelService {
             self.include_trip_energy,
             stop_edges,
             include_stop_penalty,
+            self.speed_feature_name.clone(),
         );
 
         Ok(Arc::new(model))

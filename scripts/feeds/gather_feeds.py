@@ -548,7 +548,7 @@ def process_dataset(
     return summary, agency_metrics
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Gather GTFS feeds and datasets.")
     parser.add_argument(
         "--db_root",
@@ -578,7 +578,7 @@ def main() -> None:
             "Can be combined with --states to restrict the initial query."
         ),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     db_root = Path(args.db_root)
     extractor = GtfsExtractor()

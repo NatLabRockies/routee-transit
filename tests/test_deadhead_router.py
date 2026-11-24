@@ -66,7 +66,7 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping, _ = create_deadhead_shapes(self.app, df)
 
         self.assertIsInstance(shapes_df, pd.DataFrame)
         self.assertIsInstance(od_mapping, pd.DataFrame)
@@ -81,6 +81,56 @@ class TestDeadheadRouter(unittest.TestCase):
         self.assertIn("shape_id", od_mapping.columns)
         self.assertEqual(len(od_mapping), 1)
         self.assertEqual(od_mapping.iloc[0]["block_id"], "B1")
+
+    def test_create_deadhead_shapes_returns_route_edges(self) -> None:
+        path = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-105.0, 39.0], [-104.95, 39.05]],
+                    },
+                    "properties": {"edge_id": 11, "state": {"edge_speed": 30.0}},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-104.95, 39.05], [-104.9, 39.1]],
+                    },
+                    "properties": {"edge_id": 12, "state": {"edge_speed": 40.0}},
+                },
+            ],
+        }
+        self.app.run.return_value = [
+            {
+                "request": {
+                    "origin_x": -105.0,
+                    "origin_y": 39.0,
+                    "destination_x": -104.9,
+                    "destination_y": 39.1,
+                },
+                "route": {"path": path},
+            }
+        ]
+        df = gpd.GeoDataFrame(
+            {
+                "block_id": ["B1", "B2"],
+                "geometry_origin": [Point(-105.0, 39.0), Point(-105.0, 39.0)],
+                # B2 is a short hop that gets a straight-line fallback
+                "geometry_destination": [Point(-104.9, 39.1), Point(-105.0, 39.0001)],
+            }
+        )
+
+        shapes_df, od_mapping, route_edges = create_deadhead_shapes(self.app, df)
+
+        routed_id = od_mapping.loc[od_mapping["block_id"] == "B1", "shape_id"].iloc[0]
+        self.assertEqual(route_edges["shape_id"].unique().tolist(), [routed_id])
+        self.assertEqual(route_edges["edge_id"].tolist(), [11, 12])
+        self.assertEqual(route_edges["edge_speed"].tolist(), [30.0, 40.0])
+        self.assertEqual(shapes_df["shape_id"].nunique(), 2)
 
     @patch("routee.transit.deadhead_router.geometry_from_route")
     def test_route_single_trip_with_geometry(
@@ -111,7 +161,7 @@ class TestDeadheadRouter(unittest.TestCase):
                 "geometry_destination": [Point(-104.9, 39.1)],
             }
         )
-        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping, _ = create_deadhead_shapes(self.app, df)
 
         self.assertEqual(len(shapes_df), 3)  # Should have 3 points from the LineString
         self.assertEqual(shapes_df.iloc[0]["shape_pt_sequence"], 1)
@@ -151,7 +201,7 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping, _ = create_deadhead_shapes(self.app, df)
 
         self.assertIsInstance(shapes_df, pd.DataFrame)
         # Only 1 unique O-D pair, so only 1 unique shape_id
@@ -188,7 +238,7 @@ class TestDeadheadRouter(unittest.TestCase):
             }
         )
 
-        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping, _ = create_deadhead_shapes(self.app, df)
 
         self.assertEqual(len(shapes_df), 2)  # Straight line fallback
         mock_log.warning.assert_called_once()
@@ -275,7 +325,7 @@ class TestDeadheadRouter(unittest.TestCase):
 
         mock_geom_from_route.side_effect = _geom_for_path
 
-        shapes_df, od_mapping = create_deadhead_shapes(self.app, df)
+        shapes_df, od_mapping, _ = create_deadhead_shapes(self.app, df)
 
         b1_shape_id = od_mapping.loc[od_mapping["block_id"] == "B1", "shape_id"].iloc[0]
         b2_shape_id = od_mapping.loc[od_mapping["block_id"] == "B2", "shape_id"].iloc[0]

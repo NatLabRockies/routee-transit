@@ -1,4 +1,10 @@
-# HPC build
+# HPC
+
+This directory holds two groups of scripts: the from-source build needed to run
+routee-transit on an HPC host (below), and the SLURM batch pipelines that use it
+(see [Batch analysis pipeline](#batch-analysis-pipeline)).
+
+## HPC build
 
 On HPC hosts the prebuilt ("downloaded") ONNX Runtime that crates.io's `ort`
 crate fetches can't be used — it requires a newer glibc (e.g.
@@ -124,3 +130,40 @@ objdump -T <the .so> | grep -oE 'GLIBC_2\.[0-9]+' | sort -uV | tail -1  # must b
 host runtime. Note that after rebuilding ONNX Runtime, cargo does not notice
 the external `.a` files changed — force it with
 `cargo clean -p ort-sys --release` in `rust/`.
+
+## Batch analysis pipeline
+
+`gather_feeds_and_run_analysis.sh` runs energy prediction across an entire
+Mobility Database snapshot. Run it from the repo root; paths inside are
+repo-relative.
+
+| script                             | role                                                                |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| `gather_feeds_and_run_analysis.sh` | SLURM driver; selects phases via `ROUTEE_PHASES`                      |
+| `precache_osm_networks.py`         | Downloads + caches each dataset's OSM network (also `--check-only`)   |
+| `parse_datasets_csv.py`            | Joins `feeds.csv` + `datasets.csv` into the qualifying-dataset list    |
+| `analyze_full_feed.py`             | Runs one dataset end to end and writes `status.json`                  |
+| `aggregate_run_status.py`          | Rolls per-dataset `status.json` files into `run_status.csv`           |
+| `test_overpass_parallel.py`        | Benchmarks safe Overpass concurrency for the pre-cache phase          |
+| `debug_map_matching_oom.py/.sh`    | Per-shape map-matching memory debugging for one dataset               |
+
+**Pre-caching is mandatory.** Without it, every dataset in the analysis phase
+downloads its own OSM network concurrently and the public Overpass server
+blocks the node IP. Give it its own job so it can't eat the analysis window:
+
+```bash
+jid=$(sbatch --parsable --export="ALL,ROUTEE_PHASES=feeds precache" scripts/hpc/gather_feeds_and_run_analysis.sh)
+sbatch --dependency=afterok:$jid --export="ALL,ROUTEE_PHASES=analyze" scripts/hpc/gather_feeds_and_run_analysis.sh
+```
+
+Both phases are resumable: re-submitting skips datasets that already have a
+reusable cache. The analysis phase refuses to start unless every qualifying
+dataset is cached (override with `ALLOW_UNCACHED=1`).
+
+| var                   | default             | notes                                              |
+| --------------------- | ------------------- | -------------------------------------------------- |
+| `ROUTEE_PHASES`       | `feeds precache analyze` | subset of phases to run                        |
+| `ROUTEE_OSMNX_CACHE`  | `$REPO_ROOT/cache`  | osmnx Overpass response cache; share across runs    |
+| `ROUTEE_OVERPASS_URLS`| overpass-api.de     | comma-separated mirrors to rotate through on retry  |
+| `ALLOW_UNCACHED`      | `0`                 | set to `1` to analyze with incomplete cache coverage |
+
