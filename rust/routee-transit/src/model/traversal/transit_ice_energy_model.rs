@@ -182,6 +182,20 @@ impl TraversalModel for TransitIceEnergyModel {
                     self.prediction_model_record.a_star_heuristic_energy_rate * distance_miles;
                 EnergyUnit::GallonsDieselEquivalent.to_uom(energy_gallons_diesel)
             }
+            // The bundled transit ICE models (diesel, CNG, hybrid) report fuel
+            // energy in kWh rather than gallons.
+            EnergyRateUnit::KWHPM => {
+                let distance_miles = distance.get::<uom::si::length::mile>();
+                Energy::new::<uom::si::energy::kilowatt_hour>(
+                    self.prediction_model_record.a_star_heuristic_energy_rate * distance_miles,
+                )
+            }
+            EnergyRateUnit::KWHPKM => {
+                let distance_km = distance.get::<uom::si::length::kilometer>();
+                Energy::new::<uom::si::energy::kilowatt_hour>(
+                    self.prediction_model_record.a_star_heuristic_energy_rate * distance_km,
+                )
+            }
             _ => {
                 return Err(TraversalModelError::BuildError(format!(
                     "unsupported energy rate unit for ICE model: {}",
