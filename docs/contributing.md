@@ -64,6 +64,11 @@ CI runs this matrix against Python 3.10, 3.11, and 3.12, so verify against each
 `dev-py310` / `dev-py311` / `dev-py312` environment before opening a pull request.
 mypy runs in strict mode.
 
+The end-to-end test (`tests/test_e2e.py`) downloads OSM, elevation and weather
+data, so it carries the `e2e` pytest marker. CI runs it once in a separate job
+rather than in every matrix entry; skip it locally with
+`pytest tests -m "not e2e"`.
+
 For the Rust crates:
 
 ```bash

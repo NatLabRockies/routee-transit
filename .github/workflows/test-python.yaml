@@ -16,6 +16,7 @@ jobs:
   test:
     if: github.event.pull_request.merged == false
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       fail-fast: false
@@ -32,6 +33,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # `pip install .` compiles the Rust extension in-tree under rust/target.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: py${{ matrix.python-version }}
 
       - name: Install package
         run: |
@@ -48,6 +58,48 @@ jobs:
         run: |
           ruff format --check
 
+      # The end-to-end test depends on external downloads, so it runs once in
+      # its own job below rather than in every matrix entry.
       - name: Run tests
         run: |
-          pytest tests
+          pytest tests -m "not e2e"
+
+  e2e:
+    if: github.event.pull_request.merged == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: set up python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: py3.12
+
+      - name: Install package
+        run: |
+          pip install ".[dev]"
+
+      # osmnx (Overpass responses) and RouteE-Compass (USGS elevation tiles)
+      # both cache downloads in ./cache; reusing it keeps the test off those
+      # services after the first run.
+      - name: Cache network downloads
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: e2e-downloads-${{ hashFiles('tests/test_e2e.py', 'routee/transit/resources/sample_inputs/**') }}
+          restore-keys: |
+            e2e-downloads-
+
+      - name: Run end-to-end test
+        run: |
+          pytest tests -m e2e -o log_cli=true -o log_cli_level=INFO

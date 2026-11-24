@@ -12,6 +12,7 @@ import tempfile
 
 import geopandas as gpd
 import pandas as pd
+import pytest
 
 from routee.transit import GTFSEnergyPredictor, sample_inputs_path
 
@@ -25,6 +26,7 @@ logging.basicConfig(
 os.environ["PROJ_DEBUG"] = "0"
 
 
+@pytest.mark.e2e
 def test_e2e_uta() -> None:
     """
     Test the full energy prediction workflow for a subset of UTA routes.
