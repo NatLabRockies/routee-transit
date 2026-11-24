@@ -1,0 +1,828 @@
+
+<!DOCTYPE html>
+
+
+<html lang="python" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>routee.transit.speed_model &#8212; RouteE Transit</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=6a604523" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="../../../_static/documentation_options.js?v=30a733bc"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="../../../_static/design-tabs.js?v=fcb327ea"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../../../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/routee/transit/speed_model';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="python"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/routeelogo.png" class="logo__image only-light" alt="RouteE Transit - Home"/>
+    <img src="../../../_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE Transit - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../index.html">
+                    RouteE-Transit
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../data.html">Data Requirements</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/Utah_Transit_Agency_example.html">Utah Transit Authority</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../prediction.html">RouteE-Transit Prediction Pipeline</a></li>
+
+
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../results.html">Results</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Developer Guide</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/NatLabRockies/routee-transit" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/NatLabRockies/routee-transit/issues/new?title=Issue%20on%20page%20%2F_modules/routee/transit/speed_model.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for routee.transit.speed_model</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Precompute six daily periods for weekday/weekend speeds on road links.</span>
+
+<span class="sd">ONNX inference runs only during dataset generation, in bounded batches. Speeds</span>
+<span class="sd">are rounded to 0.1 mph and deduplicated into a dense edge-to-trace map.</span>
+<span class="sd">Rust selects speeds using departure time plus elapsed search time; no inference</span>
+<span class="sd">session or static feature loaders are retained in the routing application.</span>
+
+<span class="sd">Feature engineering matches scripts/gtfs_realtime/fit_poc_speed_model.py.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tomlkit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gtfsblocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feed</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">nrel.routee.compass.io.generate_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">HookParameters</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"speed_model"</span><span class="p">)</span>
+
+<span class="n">TRANSIT_SPEED_FEATURE_NAME</span> <span class="o">=</span> <span class="s2">"transit_speed"</span>
+<span class="n">TIME_BIN_START_HOURS</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">22</span><span class="p">)</span>
+<span class="n">TIME_BIN_FEATURES</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"time_bin_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">TIME_BIN_START_HOURS</span><span class="p">))]</span>
+<span class="n">TEMPORAL_FEATURES</span> <span class="o">=</span> <span class="n">TIME_BIN_FEATURES</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"is_weekday"</span><span class="p">]</span>
+<span class="n">SPEED_TRACE_MODEL_CONFIG</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"transit_speed"</span><span class="p">,</span>
+    <span class="s2">"format_version"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="s2">"edge_trace_input_file"</span><span class="p">:</span> <span class="s2">"transit_speed_edge_traces.bin"</span><span class="p">,</span>
+    <span class="s2">"traces_input_file"</span><span class="p">:</span> <span class="s2">"transit_speed_traces.bin"</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">DEFAULT_SPEED_MODEL_DIR</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"resources"</span> <span class="o">/</span> <span class="s2">"speed_models"</span> <span class="o">/</span> <span class="s2">"random-forest"</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="compute_stop_density">
+<a class="viewcode-back" href="../../../api.html#routee.transit.speed_model.compute_stop_density">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_stop_density</span><span class="p">(</span><span class="n">n_stops</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">link_length_km</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return stops/km, treating links shorter than 50 m as 50 m.</span>
+
+<span class="sd">    Missing or nonpositive lengths produce missing values for model imputation.</span>
+<span class="sd">    """</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="n">link_length_km</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">link_length_km</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">n_stops</span> <span class="o">/</span> <span class="n">length</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_maxspeed_mph</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse an OSM maxspeed value to mph. Mirrors realtime_speeds._parse_maxspeed_mph."""</span>
+    <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="p">[</span><span class="n">_parse_maxspeed_mph</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">]</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parsed</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">v</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span> <span class="k">if</span> <span class="n">valid</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">))</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"none"</span><span class="p">,</span> <span class="s2">"signals"</span><span class="p">,</span> <span class="s2">"variable"</span><span class="p">,</span> <span class="s2">"walk"</span><span class="p">,</span> <span class="s2">"national"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(\d+(?:\.\d+)?)\s*(mph|km/h|kph|kmh)?"</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">unit</span> <span class="o">=</span> <span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"mph"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unit</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"kmh"</span><span class="p">,</span> <span class="s2">"kph"</span><span class="p">):</span>
+            <span class="n">speed</span> <span class="o">*=</span> <span class="mf">0.621371</span>
+        <span class="k">return</span> <span class="n">speed</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_highway</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the OSM highway tag as a string. Mirrors realtime_speeds._parse_highway."""</span>
+    <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">val</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_lanes</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse an OSM lanes value to a float. Mirrors realtime_speeds._parse_lanes."""</span>
+    <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">nums</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">pass</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">nums</span><span class="p">))</span> <span class="k">if</span> <span class="n">nums</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_n_stops</span><span class="p">(</span>
+    <span class="n">edges_gdf</span><span class="p">:</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Count GTFS stops nearest to each edge (spatial join), indexed by edge_id."""</span>
+    <span class="n">stops_gdf</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
+        <span class="n">feed</span><span class="o">.</span><span class="n">stops</span><span class="p">,</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="n">gpd</span><span class="o">.</span><span class="n">points_from_xy</span><span class="p">(</span><span class="n">feed</span><span class="o">.</span><span class="n">stops</span><span class="o">.</span><span class="n">stop_lon</span><span class="p">,</span> <span class="n">feed</span><span class="o">.</span><span class="n">stops</span><span class="o">.</span><span class="n">stop_lat</span><span class="p">),</span>
+        <span class="n">crs</span><span class="o">=</span><span class="s2">"EPSG:4326"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">stops_projected</span> <span class="o">=</span> <span class="n">stops_gdf</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">"EPSG:3857"</span><span class="p">)</span>
+    <span class="n">edges_projected</span> <span class="o">=</span> <span class="n">edges_gdf</span><span class="p">[[</span><span class="s2">"edge_id"</span><span class="p">,</span> <span class="s2">"geometry"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">"EPSG:3857"</span><span class="p">)</span>
+    <span class="n">matched</span> <span class="o">=</span> <span class="n">stops_projected</span><span class="o">.</span><span class="n">sjoin_nearest</span><span class="p">(</span><span class="n">edges_projected</span><span class="p">,</span> <span class="n">distance_col</span><span class="o">=</span><span class="s2">"dist"</span><span class="p">)</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="n">matched</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"edge_id"</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+    <span class="n">result</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">counts</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">edges_gdf</span><span class="p">[</span><span class="s2">"edge_id"</span><span class="p">],</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<div class="viewcode-block" id="compute_transit_speed_features">
+<a class="viewcode-back" href="../../../api.html#routee.transit.speed_model.compute_transit_speed_features">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_transit_speed_features</span><span class="p">(</span>
+    <span class="n">edges_gdf</span><span class="p">:</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span><span class="p">,</span> <span class="n">manifest</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Build the per-edge feature matrix expected by the tuned speed model.</span>
+
+<span class="sd">    Returns a DataFrame indexed by ``edge_id`` (0..N-1, Compass's enumeration</span>
+<span class="sd">    order) with one column per name in ``manifest["input_order"]`` EXCEPT the</span>
+<span class="sd">    temporal features (period indicators and ``is_weekday``), which are added</span>
+<span class="sd">    for each discrete time bin during preprocessing.</span>
+<span class="sd">    """</span>
+    <span class="n">cat</span> <span class="o">=</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"categorical_feature"</span><span class="p">]</span>
+    <span class="n">cat_name</span> <span class="o">=</span> <span class="n">cat</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
+    <span class="n">numeric_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"static_per_edge_features"</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="o">!=</span> <span class="n">cat_name</span><span class="p">]</span>
+    <span class="n">one_hot_cols</span> <span class="o">=</span> <span class="n">cat</span><span class="p">[</span><span class="s2">"one_hot_columns"</span><span class="p">]</span>
+    <span class="n">highway_to_functional_class</span> <span class="o">=</span> <span class="n">cat</span><span class="p">[</span><span class="s2">"highway_to_functional_class"</span><span class="p">]</span>
+    <span class="n">functional_class_default</span> <span class="o">=</span> <span class="n">cat</span><span class="p">[</span><span class="s2">"default"</span><span class="p">]</span>
+    <span class="n">feature_medians</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_medians"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">missing_indicator_features</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"missing_indicator_features"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+
+    <span class="n">edges</span> <span class="o">=</span> <span class="n">edges_gdf</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"edge_id"</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"maxspeed_mph"</span><span class="p">]</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[</span><span class="s2">"maxspeed"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_parse_maxspeed_mph</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"lanes"</span><span class="p">]</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[</span><span class="s2">"lanes"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_parse_lanes</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"grade"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"grade"</span><span class="p">),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"grade_abs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"grade_abs"</span><span class="p">),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"link_length_km"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="s2">"distance"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">/</span> <span class="mf">1000.0</span>
+    <span class="p">)</span>
+    <span class="n">raw</span><span class="p">[</span><span class="s2">"n_stops"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_compute_n_stops</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">feed</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">"stop_density_per_km"</span> <span class="ow">in</span> <span class="n">numeric_cols</span><span class="p">:</span>
+        <span class="n">raw</span><span class="p">[</span><span class="s2">"stop_density_per_km"</span><span class="p">]</span> <span class="o">=</span> <span class="n">compute_stop_density</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">"n_stops"</span><span class="p">]),</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">"link_length_km"</span><span class="p">])</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="n">highway</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[</span><span class="s2">"highway"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_parse_highway</span><span class="p">)</span>
+    <span class="n">functional_class</span> <span class="o">=</span> <span class="n">highway</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">highway_to_functional_class</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span>
+        <span class="n">functional_class_default</span>
+    <span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">edges</span><span class="p">[</span><span class="s2">"edge_id"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+
+    <span class="c1"># Missing-value indicators (computed BEFORE imputation).</span>
+    <span class="k">for</span> <span class="n">feat</span> <span class="ow">in</span> <span class="n">missing_indicator_features</span><span class="p">:</span>
+        <span class="n">df</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">feat</span><span class="si">}</span><span class="s2">_was_missing"</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">feat</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="c1"># Median-impute using the exact training-time medians from the manifest.</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">numeric_cols</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">feature_medians</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">feature_medians</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+
+    <span class="c1"># One-hot expand functional_class using the manifest's exact column names.</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">one_hot_cols</span><span class="p">:</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">col</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">cat_name</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">functional_class</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">label</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">ordered_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"input_order"</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">ordered_cols</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="patch_vehicle_speed_feature">
+<a class="viewcode-back" href="../../../api.html#routee.transit.speed_model.patch_vehicle_speed_feature">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">patch_vehicle_speed_feature</span><span class="p">(</span>
+    <span class="n">vehicles_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">vehicle_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">speed_feature_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">TRANSIT_SPEED_FEATURE_NAME</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Repoint each named vehicle's own energy-rate model at ``transit_speed``.</span>
+
+<span class="sd">    ``vehicles_dir`` also holds every OTHER bundled vehicle model shipped by</span>
+<span class="sd">    ``nrel.routee.compass`` (Mazda 3, Ford Focus, Tesla, etc.) copied in by</span>
+<span class="sd">    ``generate_compass_dataset``'s "copying vehicle configuration files" step</span>
+<span class="sd">    — only the transit bus model(s) actually selected via ``vehicle_models``</span>
+<span class="sd">    should be touched, so ``vehicle_names`` scopes the patch to those.</span>
+
+<span class="sd">    The ``speed_feature_name`` override on the ``transit_energy`` traversal</span>
+<span class="sd">    model only affects the wrapper's OWN stop-penalty kinetic-energy calc</span>
+<span class="sd">    (see ``TransitIceEnergyModel``/``TransitBevEnergyModel`` in Rust) — the</span>
+<span class="sd">    vehicle's underlying per-mile energy-rate model (smartcore/ONNX,</span>
+<span class="sd">    interpolated by speed + grade) reads its OWN ``input_features`` list,</span>
+<span class="sd">    which hardcodes ``"name": "edge_speed"`` in the bundled vehicle JSON</span>
+<span class="sd">    templates (from the ``nrel.routee.compass`` package). Without this patch,</span>
+<span class="sd">    the ML transit speed only affects stop penalties, not the primary energy</span>
+<span class="sd">    consumption rate. Must run AFTER vehicle JSON files are copied into</span>
+<span class="sd">    ``vehicles_dir`` (e.g. by ``generate_compass_dataset``'s "copying vehicle</span>
+<span class="sd">    configuration files" step, which runs before hooks).</span>
+<span class="sd">    """</span>
+    <span class="k">for</span> <span class="n">vehicle_path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">vehicles_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.json"</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">vehicle_path</span><span class="o">.</span><span class="n">stem</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">vehicle_names</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">vehicle</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">vehicle_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">vehicle</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"input_features"</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="k">if</span> <span class="n">feature</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"speed"</span> <span class="ow">and</span> <span class="n">feature</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"edge_speed"</span><span class="p">:</span>
+                <span class="n">feature</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">=</span> <span class="n">speed_feature_name</span>
+                <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">feature_bounds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">vehicle</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model_type"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"interpolate"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_bounds"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"edge_speed"</span> <span class="ow">in</span> <span class="n">feature_bounds</span><span class="p">:</span>
+            <span class="n">feature_bounds</span><span class="p">[</span><span class="n">speed_feature_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">feature_bounds</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"edge_speed"</span><span class="p">)</span>
+            <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">changed</span><span class="p">:</span>
+            <span class="n">vehicle_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">vehicle</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Repointed </span><span class="si">{</span><span class="n">vehicle_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> at '</span><span class="si">{</span><span class="n">speed_feature_name</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="write_transit_speed_model">
+<a class="viewcode-back" href="../../../api.html#routee.transit.speed_model.write_transit_speed_model">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_transit_speed_model</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="n">HookParameters</span><span class="p">,</span>
+    <span class="n">feed</span><span class="p">:</span> <span class="n">Feed</span><span class="p">,</span>
+    <span class="n">onnx_model_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">manifest_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Precompute deduplicated traces and return the speed traversal config."""</span>
+    <span class="n">manifest</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">manifest_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">manifest</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"time_bin_start_hours"</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="n">TIME_BIN_START_HOURS</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Speed model must use the six-period POC time bins; retrain with "</span>
+            <span class="s2">"scripts/gtfs_realtime/fit_poc_speed_model.py"</span>
+        <span class="p">)</span>
+
+    <span class="n">out_onnx</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">output_directory</span> <span class="o">/</span> <span class="s2">"transit_speed_model.onnx"</span>
+    <span class="n">out_manifest</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">output_directory</span> <span class="o">/</span> <span class="s2">"transit_speed_model_manifest.json"</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">,</span> <span class="n">out_onnx</span><span class="p">)</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">,</span> <span class="n">out_manifest</span><span class="p">)</span>
+
+    <span class="n">features</span> <span class="o">=</span> <span class="n">compute_transit_speed_features</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">edges</span><span class="p">,</span> <span class="n">feed</span><span class="p">,</span> <span class="n">manifest</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Precomputing 12 speed bins for </span><span class="si">%d</span><span class="s2"> road links"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))</span>
+
+    <span class="n">options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">intra_op_num_threads</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span>
+        <span class="nb">str</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">),</span> <span class="n">sess_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="s2">"CPUExecutionProvider"</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">_write_speed_traces</span><span class="p">(</span>
+        <span class="n">features</span><span class="p">,</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"input_order"</span><span class="p">],</span> <span class="n">session</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">output_directory</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">SPEED_TRACE_MODEL_CONFIG</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_speed_traces</span><span class="p">(</span>
+    <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">input_order</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">session</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">,</span>
+    <span class="n">output_directory</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Write uint32 IDs and 12-float32 mph traces, rounded to 0.1 mph."""</span>
+    <span class="k">if</span> <span class="n">batch_size</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">features</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Speed preprocessing requires edges and a positive batch size"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Speed features must be in dense Compass edge_id order"</span><span class="p">)</span>
+    <span class="n">temporal</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">TEMPORAL_FEATURES</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">temporal</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">input_order</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">input_order</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_order</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Speed manifest must contain unique inputs including time features"</span>
+        <span class="p">)</span>
+    <span class="n">static_columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">input_order</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">temporal</span><span class="p">]</span>
+    <span class="n">static_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">input_order</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">static_columns</span><span class="p">]</span>
+    <span class="n">trace_ids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">with</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">output_directory</span> <span class="o">/</span> <span class="s2">"transit_speed_edge_traces.bin"</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">mapping</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">output_directory</span> <span class="o">/</span> <span class="s2">"transit_speed_traces.bin"</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">traces_file</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">]</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_order</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">inputs</span><span class="p">[:,</span> <span class="n">static_indices</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="n">static_columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">traces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="mi">12</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">"&lt;f4"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">day_type</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                <span class="n">inputs</span><span class="p">[:,</span> <span class="n">input_order</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">"is_weekday"</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">day_type</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">period</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">feature</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">TIME_BIN_FEATURES</span><span class="p">):</span>
+                        <span class="n">inputs</span><span class="p">[:,</span> <span class="n">input_order</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">feature</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">period</span><span class="p">)</span>
+                    <span class="n">predictions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+                        <span class="n">session</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="s2">"input"</span><span class="p">:</span> <span class="n">inputs</span><span class="p">})[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">predictions</span><span class="o">.</span><span class="n">shape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">),),</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="mi">1</span><span class="p">)):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Speed model returned invalid output shape </span><span class="si">{</span><span class="n">predictions</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Speed model returned non-finite predictions"</span><span class="p">)</span>
+                    <span class="n">traces</span><span class="p">[:,</span> <span class="n">day_type</span> <span class="o">*</span> <span class="mi">6</span> <span class="o">+</span> <span class="n">period</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">predictions</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">),</span> <span class="mi">1</span>
+                    <span class="p">)</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">"&lt;u4"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">traces</span><span class="p">):</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+                <span class="n">trace_id</span> <span class="o">=</span> <span class="n">trace_ids</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">trace_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">trace_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trace_ids</span><span class="p">)</span>
+                    <span class="n">trace_ids</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">trace_id</span>
+                    <span class="n">traces_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="n">ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">trace_id</span>
+            <span class="n">mapping</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">"Precomputed </span><span class="si">%d</span><span class="s2"> speed bins for </span><span class="si">%d</span><span class="s2"> edges (</span><span class="si">%d</span><span class="s2"> unique traces)"</span><span class="p">,</span>
+        <span class="mi">12</span><span class="p">,</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">),</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">trace_ids</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="insert_transit_speed_config">
+<a class="viewcode-back" href="../../../api.html#routee.transit.speed_model.insert_transit_speed_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">insert_transit_speed_config</span><span class="p">(</span>
+    <span class="n">transit_energy_toml_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">model_blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Replace posted speeds before time accumulation and energy evaluation.</span>
+
+<span class="sd">    Both ``edge_speed`` and its ``transit_speed`` alias come from the same</span>
+<span class="sd">    lookup, so routing costs, elapsed time and energy use consistent speeds.</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">transit_energy_toml_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">tomlkit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="n">search</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"search"</span><span class="p">,</span> <span class="n">tomlkit</span><span class="o">.</span><span class="n">table</span><span class="p">())</span>
+    <span class="n">traversal</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"traversal"</span><span class="p">,</span> <span class="n">tomlkit</span><span class="o">.</span><span class="n">table</span><span class="p">())</span>
+    <span class="n">models</span> <span class="o">=</span> <span class="n">traversal</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"models"</span><span class="p">,</span> <span class="n">tomlkit</span><span class="o">.</span><span class="n">aot</span><span class="p">())</span>
+
+    <span class="n">new_models</span> <span class="o">=</span> <span class="n">tomlkit</span><span class="o">.</span><span class="n">aot</span><span class="p">()</span>
+    <span class="n">speed_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">model</span> <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models</span> <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"speed"</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">speed_models</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Transit config must have exactly one posted-speed model"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"speed"</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">model_blocks</span><span class="p">:</span>
+                <span class="n">new_models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tomlkit</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="n">block</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"transit_energy"</span><span class="p">:</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">"speed_feature_name"</span><span class="p">]</span> <span class="o">=</span> <span class="n">TRANSIT_SPEED_FEATURE_NAME</span>
+        <span class="n">new_models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+    <span class="n">traversal</span><span class="p">[</span><span class="s2">"models"</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_models</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">transit_energy_toml_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">tomlkit</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Wired transit speed model into </span><span class="si">{</span><span class="n">transit_energy_toml_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By National Laboratory of the Rockies
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

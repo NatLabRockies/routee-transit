@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Developer Guide &#8212; RouteE-Transit</title>
+    <title>Developer Guide &#8212; RouteE Transit</title>
   
   
   
@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
@@ -36,13 +36,13 @@
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=6a604523" />
   
   <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
@@ -55,32 +55,39 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="_static/design-tabs.js?v=fcb327ea"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'contributing';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="Results" href="results.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -106,7 +113,51 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
     </header>
   
 
@@ -145,8 +196,8 @@
       
     
     
-    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE Transit - Home"/>
   
   
 </a></div>
@@ -246,7 +297,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit" target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -263,7 +314,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2Fcontributing.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit/issues/new?title=Issue%20on%20page%20%2Fcontributing.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -378,13 +429,15 @@
                 <h2> Contents </h2>
             </div>
             <nav aria-label="Page">
-                <ul class="visible nav section-nav flex-column">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up-development-environment-with-pixi">Set Up Development Environment with Pixi</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-pixi">1. Install pixi</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clone-and-set-up-the-project">2. Clone and set up the project</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activate-the-environment">3. Activate the environment</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-rust-extension">Building the Rust Extension</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-checks">Running Checks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-documentation">Build Documentation</a></li>
 </ul>
             </nav>
@@ -413,7 +466,7 @@ curl<span class="w"> </span>-fsSL<span class="w"> </span>https://pixi.sh/install
 </section>
 <section id="clone-and-set-up-the-project">
 <h3>2. Clone and set up the project<a class="headerlink" href="#clone-and-set-up-the-project" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NREL/routee-transit.git
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NatLabRockies/routee-transit.git
 <span class="nb">cd</span><span class="w"> </span>routee-transit
 pixi<span class="w"> </span>install
 </pre></div>
@@ -428,8 +481,43 @@ pixi<span class="w"> </span>install
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pixi<span class="w"> </span>shell<span class="w"> </span>-e<span class="w"> </span>dev-py310
 </pre></div>
 </div>
-<p>Alternatively, ou can use <code class="docutils literal notranslate"><span class="pre">pixi</span> <span class="pre">run</span> <span class="pre">-e</span> <span class="pre">dev-py310</span> <span class="pre">myfile.py</span></code> to execute a python file in the environment specified. If you're using VS Code, the <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=jjjermiah.pixi-vscode">Pixi VSCode</a> extension is useful.</p>
+<p>Alternatively, you can use <code class="docutils literal notranslate"><span class="pre">pixi</span> <span class="pre">run</span> <span class="pre">-e</span> <span class="pre">dev-py310</span> <span class="pre">python</span> <span class="pre">myfile.py</span></code> to execute a python file in the environment specified. If you're using VS Code, the <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=jjjermiah.pixi-vscode">Pixi VSCode</a> extension is useful.</p>
 </section>
+</section>
+<section id="building-the-rust-extension">
+<h2>Building the Rust Extension<a class="headerlink" href="#building-the-rust-extension" title="Link to this heading">#</a></h2>
+<p>Part of RouteE-Transit is implemented in Rust (see the <code class="docutils literal notranslate"><span class="pre">rust/</span></code> directory) and is built
+with <a class="reference external" href="https://www.maturin.rs/">maturin</a>. Pixi builds the extension for you as part of
+<code class="docutils literal notranslate"><span class="pre">pixi</span> <span class="pre">install</span></code>, but after changing any Rust code you must rebuild before the change
+takes effect in Python:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>maturin<span class="w"> </span>develop
+</pre></div>
+</div>
+</section>
+<section id="running-checks">
+<h2>Running Checks<a class="headerlink" href="#running-checks" title="Link to this heading">#</a></h2>
+<p>The Python checks that CI runs are available as pixi tasks:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pixi<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>dev-py312<span class="w"> </span>fmt_fix<span class="w">     </span><span class="c1"># ruff format</span>
+pixi<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>dev-py312<span class="w"> </span>lint_fix<span class="w">    </span><span class="c1"># ruff check --fix</span>
+pixi<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>dev-py312<span class="w"> </span>typing<span class="w">      </span><span class="c1"># mypy .</span>
+pixi<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>dev-py312<span class="w"> </span><span class="nb">test</span><span class="w">        </span><span class="c1"># pytest tests/</span>
+pixi<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>dev-py312<span class="w"> </span>check<span class="w">       </span><span class="c1"># all of the above</span>
+</pre></div>
+</div>
+<p>CI runs this matrix against Python 3.10, 3.11, and 3.12, so verify against each
+<code class="docutils literal notranslate"><span class="pre">dev-py310</span></code> / <code class="docutils literal notranslate"><span class="pre">dev-py311</span></code> / <code class="docutils literal notranslate"><span class="pre">dev-py312</span></code> environment before opening a pull request.
+mypy runs in strict mode.</p>
+<p>The end-to-end test (<code class="docutils literal notranslate"><span class="pre">tests/test_e2e.py</span></code>) downloads OSM, elevation and weather
+data, so it carries the <code class="docutils literal notranslate"><span class="pre">e2e</span></code> pytest marker. CI runs it once in a separate job
+rather than in every matrix entry; skip it locally with
+<code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">tests</span> <span class="pre">-m</span> <span class="pre">&quot;not</span> <span class="pre">e2e&quot;</span></code>.</p>
+<p>For the Rust crates:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>rust
+cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace
+cargo<span class="w"> </span>fmt<span class="w"> </span>--all
+cargo<span class="w"> </span>clippy
+</pre></div>
+</div>
 </section>
 <section id="build-documentation">
 <h2>Build Documentation<a class="headerlink" href="#build-documentation" title="Link to this heading">#</a></h2>
@@ -497,13 +585,15 @@ pixi<span class="w"> </span>install
     <i class="fa-solid fa-list"></i> Contents
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up-development-environment-with-pixi">Set Up Development Environment with Pixi</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-pixi">1. Install pixi</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clone-and-set-up-the-project">2. Clone and set up the project</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activate-the-environment">3. Activate the environment</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-rust-extension">Building the Rust Extension</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-checks">Running Checks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-documentation">Build Documentation</a></li>
 </ul>
   </nav></div>
@@ -519,7 +609,7 @@ pixi<span class="w"> </span>install
   <div class="footer-item">
     
 <p class="component-author">
-By National Renewable Energy Laboratory
+By National Laboratory of the Rockies
 </p>
 
   </div>
@@ -553,8 +643,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
 
   <footer class="bd-footer">
   </footer>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Data Requirements &#8212; RouteE-Transit</title>
+    <title>Data Requirements &#8212; RouteE Transit</title>
   
   
   
@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
@@ -36,13 +36,13 @@
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=6a604523" />
   
   <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
@@ -55,12 +55,13 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="_static/design-tabs.js?v=fcb327ea"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'data';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Utah Transit Authority" href="examples/Utah_Transit_Agency_example.html" />
@@ -68,20 +69,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -107,7 +114,51 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
     </header>
   
 
@@ -146,8 +197,8 @@
       
     
     
-    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE Transit - Home"/>
   
   
 </a></div>
@@ -247,7 +298,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit" target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -264,7 +315,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2Fdata.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit/issues/new?title=Issue%20on%20page%20%2Fdata.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -379,9 +430,19 @@
                 <h2> Contents </h2>
             </div>
             <nav aria-label="Page">
-                <ul class="visible nav section-nav flex-column">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#general-transit-feed-specification-gtfs">General Transit Feed Specification (GTFS)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#elevation-data">Elevation Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transit-speed-model">Transit Speed Model</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inputs-and-time-bins">Inputs and time bins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-speeds-are-used-at-runtime">How speeds are used at runtime</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-data">Training data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-link-speeds-from-gtfs-rt">Estimating link speeds from GTFS-RT</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#model-training">Model training</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accuracy">Accuracy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#limitations">Limitations</a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -408,6 +469,435 @@
 <section id="elevation-data">
 <h2>Elevation Data<a class="headerlink" href="#elevation-data" title="Link to this heading">#</a></h2>
 <p>Road grade is computed automatically by RouteE-Compass using OSMnx to fetch elevation data from the USGS <a class="reference external" href="https://www.usgs.gov/core-science-systems/national-geospatial-program/national-map">National Map</a>. No manual download or configuration is required. For large geographic areas, the initial OSMnx network download may take additional time, but results are cached for subsequent runs.</p>
+</section>
+<section id="transit-speed-model">
+<span id="speed-model"></span><h2>Transit Speed Model<a class="headerlink" href="#transit-speed-model" title="Link to this heading">#</a></h2>
+<p>RouteE-Transit predicts the average <em>moving</em> speed of a transit bus on every
+OpenStreetMap road link with a machine-learning model trained on archived GTFS
+Realtime (GTFS-RT) vehicle positions. These speeds replace OSM posted speeds
+for map matching, deadhead routing, travel time, and energy prediction. The
+model is bundled with the package
+(<code class="docutils literal notranslate"><span class="pre">routee/transit/resources/speed_models/random-forest/</span></code>), so no realtime data
+is needed to run predictions.</p>
+<p>The model is a single pooled random forest intended to generalize to agencies
+it has never seen. It uses only features available for any U.S. road network
+plus a static GTFS feed. It is a proof of concept: see
+<a class="reference internal" href="#speed-model-accuracy"><span class="std std-ref">accuracy</span></a> and
+<a class="reference internal" href="#speed-model-limitations"><span class="std std-ref">limitations</span></a> below.</p>
+<section id="inputs-and-time-bins">
+<h3>Inputs and time bins<a class="headerlink" href="#inputs-and-time-bins" title="Link to this heading">#</a></h3>
+<p>Each link gets 12 speeds: six local-time periods for weekdays, followed by the
+same six for weekends.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Period</p></th>
+<th class="head"><p>Local time</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Overnight</p></td>
+<td><p>00:00–06:00</p></td>
+</tr>
+<tr class="row-odd"><td><p>Morning peak</p></td>
+<td><p>06:00–09:00</p></td>
+</tr>
+<tr class="row-even"><td><p>Midday</p></td>
+<td><p>09:00–15:00</p></td>
+</tr>
+<tr class="row-odd"><td><p>Afternoon peak</p></td>
+<td><p>15:00–19:00</p></td>
+</tr>
+<tr class="row-even"><td><p>Evening</p></td>
+<td><p>19:00–22:00</p></td>
+</tr>
+<tr class="row-odd"><td><p>Late evening</p></td>
+<td><p>22:00–24:00</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Boundaries belong to the period starting at that time. The model has 24 inputs:</p>
+<ul class="simple">
+<li><p><strong>Road attributes from OSM:</strong> posted speed (mph), lane count, link length (km),
+signed and absolute grade, and FHWA-style functional class derived from the
+OSM <code class="docutils literal notranslate"><span class="pre">highway</span></code> tag (freeway, principal arterial, minor arterial, collector,
+local; one-hot encoded).</p></li>
+<li><p><strong>Transit context:</strong> number of GTFS stops nearest to the link.</p></li>
+<li><p><strong>Time:</strong> six period indicators and a weekday/weekend indicator.</p></li>
+<li><p><strong>Missing-value flags:</strong> one per numeric road attribute. Missing values are
+imputed with training-set medians stored in the model manifest.</p></li>
+</ul>
+<p>Scheduled GTFS speed, agency identity, route identity, and road identity are
+deliberately <em>not</em> inputs. Scheduled speed is unavailable on arbitrary network
+links, and the identifiers would not generalize to new agencies.</p>
+</section>
+<section id="how-speeds-are-used-at-runtime">
+<h3>How speeds are used at runtime<a class="headerlink" href="#how-speeds-are-used-at-runtime" title="Link to this heading">#</a></h3>
+<p>During Compass dataset generation, RouteE-Transit runs the ONNX speed
+model over all road links in bounded batches. Predictions are floored at
+1 mph; invalid model outputs stop preprocessing. Speeds are rounded to 0.1 mph,
+then identical 12-value traces share a trace ID. The cache stores a dense
+little-endian uint32 edge-to-trace mapping in <code class="docutils literal notranslate"><span class="pre">transit_speed_edge_traces.bin</span></code>
+and consecutive 12-value little-endian float32 mph traces in
+<code class="docutils literal notranslate"><span class="pre">transit_speed_traces.bin</span></code>. Storage is 4 bytes per edge plus 48 bytes per
+unique trace, excluding file metadata.</p>
+<p>A single Compass application shares these immutable tables across queries.
+Map matching, deadhead routing, elapsed travel time, and energy calculations
+all use the same lookup speed (<code class="docutils literal notranslate"><span class="pre">edge_speed</span></code>, also exposed as <code class="docutils literal notranslate"><span class="pre">transit_speed</span></code>).
+<code class="docutils literal notranslate"><span class="pre">edge_speed</span></code> is in km/h and <code class="docutils literal notranslate"><span class="pre">transit_speed</span></code> is in mph. The lookup selects the
+bin at entry to each edge using departure time plus accumulated travel time,
+including turn delays. Hours and weekdays roll forward across midnight,
+including GTFS departures beyond 24:00:00. Speeds are constant within each
+period and are not interpolated within an edge. A* estimates use the maximum
+trace speed, subject to a query's speed limit.</p>
+<p>Energy queries are not expanded across service dates: path calculation runs
+once per matched shape and vehicle model. Trips sharing a shape use its
+earliest departure. Without a date filter, the representative service day
+defaults to Monday. Calendar expansion and HVAC modeling happen afterward. Energy
+estimates are therefore representative per shape, not trip-specific by
+departure time.</p>
+<p>ONNX Runtime is a runtime dependency because it runs during preprocessing.
+Rust traversal does not use it. Cached datasets are reused when <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>
+is provided and <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>. Datasets with an old speed configuration,
+missing trace files, or changed model/manifest files are rebuilt
+automatically. Adding vehicle models to an otherwise valid cache preserves the
+traces without repeating inference. To use a different trained model, pass
+<code class="docutils literal notranslate"><span class="pre">speed_model_dir</span></code> to <code class="docutils literal notranslate"><span class="pre">GTFSEnergyPredictor</span></code>.</p>
+</section>
+<section id="training-data">
+<h3>Training data<a class="headerlink" href="#training-data" title="Link to this heading">#</a></h3>
+<p>Training data came from the public <a class="reference external" href="https://gtfsrt.io">gtfsrt.io</a> archive of
+GTFS-RT feeds, read from its Parquet bucket. For each agency, the archived
+vehicle positions were paired with the static GTFS schedule snapshot in effect
+on the same dates. Three full Monday–Sunday weeks were sampled per agency,
+spread across its archived date range. The archive dates used span January to
+September 2026.</p>
+<p>Eleven bus agencies with both vehicle positions and schedules in the archive
+were attempted. Nine produced usable data:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Agency</p></th>
+<th class="head"><p>Archive slug</p></th>
+<th class="head text-right"><p>Days</p></th>
+<th class="head text-right"><p>Road links</p></th>
+<th class="head text-right"><p>Training bins</p></th>
+<th class="head text-right"><p>Trip-link speeds</p></th>
+<th class="head text-right"><p>GPS points</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AC Transit (Oakland, CA)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">actransit</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>6,479</p></td>
+<td class="text-right"><p>28,949</p></td>
+<td class="text-right"><p>529,810</p></td>
+<td class="text-right"><p>2.26 M</p></td>
+</tr>
+<tr class="row-odd"><td><p>Broward County Transit (FL)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">broward</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>7,424</p></td>
+<td class="text-right"><p>48,930</p></td>
+<td class="text-right"><p>1,162,614</p></td>
+<td class="text-right"><p>4.46 M</p></td>
+</tr>
+<tr class="row-even"><td><p>Charlotte Area Transit System (NC)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cats</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>6,165</p></td>
+<td class="text-right"><p>35,938</p></td>
+<td class="text-right"><p>852,177</p></td>
+<td class="text-right"><p>3.19 M</p></td>
+</tr>
+<tr class="row-odd"><td><p>CityBus of Greater Lafayette (IN)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">citybus-lafayette</span></code></p></td>
+<td class="text-right"><p>20</p></td>
+<td class="text-right"><p>876</p></td>
+<td class="text-right"><p>3,741</p></td>
+<td class="text-right"><p>84,728</p></td>
+<td class="text-right"><p>0.32 M</p></td>
+</tr>
+<tr class="row-even"><td><p>Greater Dayton RTA (OH)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dayton</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>3,078</p></td>
+<td class="text-right"><p>16,338</p></td>
+<td class="text-right"><p>248,260</p></td>
+<td class="text-right"><p>1.10 M</p></td>
+</tr>
+<tr class="row-odd"><td><p>Greater Cleveland RTA (OH)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gcrta</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>8,176</p></td>
+<td class="text-right"><p>53,182</p></td>
+<td class="text-right"><p>1,675,578</p></td>
+<td class="text-right"><p>7.41 M</p></td>
+</tr>
+<tr class="row-even"><td><p>Metro Transit (Madison, WI)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">metro-transit-madison</span></code></p></td>
+<td class="text-right"><p>17</p></td>
+<td class="text-right"><p>2,576</p></td>
+<td class="text-right"><p>11,804</p></td>
+<td class="text-right"><p>245,883</p></td>
+<td class="text-right"><p>0.98 M</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mountain Line (Missoula, MT)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mountainline</span></code></p></td>
+<td class="text-right"><p>21</p></td>
+<td class="text-right"><p>1,081</p></td>
+<td class="text-right"><p>4,709</p></td>
+<td class="text-right"><p>92,722</p></td>
+<td class="text-right"><p>0.35 M</p></td>
+</tr>
+<tr class="row-even"><td><p>Western Reserve Transit Authority (Youngstown, OH)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">wrta-youngstown</span></code></p></td>
+<td class="text-right"><p>18</p></td>
+<td class="text-right"><p>1,633</p></td>
+<td class="text-right"><p>5,538</p></td>
+<td class="text-right"><p>80,743</p></td>
+<td class="text-right"><p>0.42 M</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Total</strong></p></td>
+<td><p></p></td>
+<td class="text-right"><p><strong>181</strong></p></td>
+<td class="text-right"><p><strong>37,488</strong></p></td>
+<td class="text-right"><p><strong>209,129</strong></p></td>
+<td class="text-right"><p><strong>4,972,515</strong></p></td>
+<td class="text-right"><p><strong>20.5 M</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><em>Trip-link speeds</em> and <em>GPS points</em> count only cleaned observations
+contributing to training bins. Big Blue Bus (Santa Monica, CA) was excluded
+because its realtime trip IDs did not match its static GTFS. Metro Transit
+(Minneapolis, MN) was excluded because its OSM network download failed.</p>
+</section>
+<section id="estimating-link-speeds-from-gtfs-rt">
+<h3>Estimating link speeds from GTFS-RT<a class="headerlink" href="#estimating-link-speeds-from-gtfs-rt" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">scripts/gtfs_realtime/archive_speeds.py</span></code> estimates one speed per trip and
+road link from each trip's vehicle positions, using the shared library in
+<code class="docutils literal notranslate"><span class="pre">realtime_speeds.py</span></code>:</p>
+<ol class="arabic simple">
+<li><p><strong>Pair realtime with schedules.</strong> Download vehicle positions for a day and
+join them to the matching static GTFS <code class="docutils literal notranslate"><span class="pre">trips.txt</span></code>. Days where fewer than 50%
+of realtime trip IDs match the static feed are skipped.</p></li>
+<li><p><strong>Clean each trip's trace.</strong> Drop duplicate reports and sort
+chronologically.</p></li>
+<li><p><strong>Map match.</strong> Match the trip's GPS trace to the OSM network with
+RouteE-Compass. Assign each GPS point to a matched edge, and project it onto
+the route to get cumulative distance. Distance is forced to be
+non-decreasing because the bus only moves forward along its route.</p></li>
+<li><p><strong>Interpolate link traversal times.</strong> Linearly interpolate timestamps at
+each link boundary from cumulative distance. Travel time on a link is exit
+time minus entry time.</p></li>
+<li><p><strong>Remove dwell time.</strong> Consecutive points on the same link less than 10 m
+apart and more than 15 s apart count as dwelling. Moving speed is link
+length divided by (travel time − dwell time).</p></li>
+<li><p><strong>Attach features.</strong> Record OSM attributes, grade, and the number of GTFS
+stops projected onto the link. Links with at least two GPS points are
+labeled <code class="docutils literal notranslate"><span class="pre">observed</span></code>; others are <code class="docutils literal notranslate"><span class="pre">interpolated</span></code>.</p></li>
+</ol>
+<p>Output is one row per trip and link, partitioned as
+<code class="docutils literal notranslate"><span class="pre">link_observations/agency=&lt;slug&gt;/date=&lt;YYYY-MM-DD&gt;/</span></code>.</p>
+</section>
+<section id="model-training">
+<h3>Model training<a class="headerlink" href="#model-training" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">scripts/gtfs_realtime/fit_poc_speed_model.py</span></code> trains the bundled model:</p>
+<ol class="arabic simple">
+<li><p><strong>Filter observations.</strong> Keep only <code class="docutils literal notranslate"><span class="pre">observed</span></code> links with a finite moving
+speed between 1 and 65 mph. Remove outliers outside 1.5 × IQR per road link
+(for links with at least four observations).</p></li>
+<li><p><strong>Assign local time bins.</strong> Convert archive timestamps, which are naive
+UTC, to each agency's local time zone, then assign period and weekday/weekend
+from the link entry time.</p></li>
+<li><p><strong>Aggregate.</strong> Group by road link, period, and day type. The target is the
+GPS-point-weighted mean moving speed (<code class="docutils literal notranslate"><span class="pre">mph_moving_mean</span></code>). Keep groups with
+at least three trip-link observations.</p></li>
+<li><p><strong>Weight agencies equally.</strong> Sample weights are point-weighted within each
+agency and normalized so each agency has equal total influence.</p></li>
+<li><p><strong>Fit.</strong> Train a <code class="docutils literal notranslate"><span class="pre">RandomForestRegressor</span></code> with 100 trees, maximum depth 8,
+minimum leaf size 10, <code class="docutils literal notranslate"><span class="pre">max_features=0.5</span></code>, and <code class="docutils literal notranslate"><span class="pre">random_state=42</span></code>. There is
+no hyperparameter search.</p></li>
+<li><p><strong>Evaluate, then refit.</strong> Evaluate with three agency-grouped folds,
+learning imputation medians from training agencies only. Then refit the
+final model on all nine agencies.</p></li>
+<li><p><strong>Export.</strong> Export to ONNX with <code class="docutils literal notranslate"><span class="pre">skl2onnx</span></code>, validate against
+scikit-learn predictions, and write a JSON manifest. The manifest records
+input order, medians, the functional class mapping, time bin boundaries, and
+training metadata.</p></li>
+</ol>
+<p>See the <a class="reference external" href="https://github.com/NatLabRockies/routee-transit/blob/main/scripts/gtfs_realtime/README.md#speed-model-training-pipeline-current">training instructions</a>
+for commands.</p>
+</section>
+<section id="accuracy">
+<span id="speed-model-accuracy"></span><h3>Accuracy<a class="headerlink" href="#accuracy" title="Link to this heading">#</a></h3>
+<p>Accuracy is measured on agencies held out of training entirely. This reflects
+the main use case: predicting speeds for an agency without realtime data.
+Errors are GPS-point-weighted over each held-out agency's road/period/day-type
+bins.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Held-out agency</p></th>
+<th class="head text-right"><p>MAE (mph)</p></th>
+<th class="head text-right"><p>RMSE (mph)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AC Transit</p></td>
+<td class="text-right"><p>4.90</p></td>
+<td class="text-right"><p>6.61</p></td>
+</tr>
+<tr class="row-odd"><td><p>Broward County Transit</p></td>
+<td class="text-right"><p>4.17</p></td>
+<td class="text-right"><p>6.76</p></td>
+</tr>
+<tr class="row-even"><td><p>Charlotte Area Transit System</p></td>
+<td class="text-right"><p>4.31</p></td>
+<td class="text-right"><p>6.52</p></td>
+</tr>
+<tr class="row-odd"><td><p>CityBus of Greater Lafayette</p></td>
+<td class="text-right"><p>3.14</p></td>
+<td class="text-right"><p>4.81</p></td>
+</tr>
+<tr class="row-even"><td><p>Greater Dayton RTA</p></td>
+<td class="text-right"><p>3.76</p></td>
+<td class="text-right"><p>6.05</p></td>
+</tr>
+<tr class="row-odd"><td><p>Greater Cleveland RTA</p></td>
+<td class="text-right"><p>4.31</p></td>
+<td class="text-right"><p>5.92</p></td>
+</tr>
+<tr class="row-even"><td><p>Metro Transit (Madison)</p></td>
+<td class="text-right"><p>3.16</p></td>
+<td class="text-right"><p>4.88</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mountain Line</p></td>
+<td class="text-right"><p>3.58</p></td>
+<td class="text-right"><p>4.68</p></td>
+</tr>
+<tr class="row-even"><td><p>Western Reserve Transit Authority</p></td>
+<td class="text-right"><p>3.88</p></td>
+<td class="text-right"><p>5.68</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Equal-agency average</strong></p></td>
+<td class="text-right"><p><strong>3.91</strong></p></td>
+<td class="text-right"><p><strong>5.77</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For scale, the mean target across training bins is 13.4 mph with a standard
+deviation of 8.6 mph.</p>
+<p>Additional experiments used the same folds:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variant</p></th>
+<th class="head text-right"><p>MAE (mph)</p></th>
+<th class="head text-right"><p>RMSE (mph)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Bundled model</strong> (12 bins)</p></td>
+<td class="text-right"><p><strong>3.91</strong></p></td>
+<td class="text-right"><p><strong>5.77</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>Same model without time features</p></td>
+<td class="text-right"><p>3.91</p></td>
+<td class="text-right"><p>5.74</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_features=1.0</span></code></p></td>
+<td class="text-right"><p>4.00</p></td>
+<td class="text-right"><p>5.89</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_features=1.0</span></code>, depth 12, leaf size 20</p></td>
+<td class="text-right"><p>4.17</p></td>
+<td class="text-right"><p>6.06</p></td>
+</tr>
+<tr class="row-even"><td><p>Previous variant + stop density (stops/km)</p></td>
+<td class="text-right"><p>4.14</p></td>
+<td class="text-right"><p>6.03</p></td>
+</tr>
+<tr class="row-odd"><td><p>Bundled settings + stop density</p></td>
+<td class="text-right"><p>3.91</p></td>
+<td class="text-right"><p>5.78</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Time-of-day features do not measurably improve accuracy on held-out agencies.
+Larger forests overfit to training agencies. The bundled model keeps the 12
+bins so the runtime supports time-varying speeds, but its predictions vary
+little by time of day.</p>
+<p>Random-forest feature importances (mean decrease in impurity) for the bundled
+model:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Feature</p></th>
+<th class="head text-right"><p>Importance</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Link length</p></td>
+<td class="text-right"><p>81.3%</p></td>
+</tr>
+<tr class="row-odd"><td><p>GTFS stop count</p></td>
+<td class="text-right"><p>6.2%</p></td>
+</tr>
+<tr class="row-even"><td><p>Absolute grade</p></td>
+<td class="text-right"><p>4.2%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Signed grade</p></td>
+<td class="text-right"><p>3.7%</p></td>
+</tr>
+<tr class="row-even"><td><p>Functional class (5 indicators)</p></td>
+<td class="text-right"><p>1.9%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lane count</p></td>
+<td class="text-right"><p>1.1%</p></td>
+</tr>
+<tr class="row-even"><td><p>Posted speed</p></td>
+<td class="text-right"><p>0.9%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Missing-value flags</p></td>
+<td class="text-right"><p>0.5%</p></td>
+</tr>
+<tr class="row-even"><td><p>Time period (6 indicators)</p></td>
+<td class="text-right"><p>0.1%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Weekday/weekend</p></td>
+<td class="text-right"><p>&lt; 0.1%</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Impurity-based importances favor continuous features and split credit among
+correlated ones, such as the two grade features. They show what the forest
+splits on, not how much real-world speed each feature explains.</p>
+</section>
+<section id="limitations">
+<span id="speed-model-limitations"></span><h3>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Small, regional sample.</strong> Nine mostly small and mid-sized agencies, five
+of them in the Eastern time zone, over three sampled weeks each. Large,
+congested systems and rail-like bus operations are underrepresented.</p></li>
+<li><p><strong>Link length dominates.</strong> Short links tend to have lower measured
+speeds, partly because of acceleration and deceleration near intersections and
+stops. Some of the effect may also come from how GPS points are assigned to
+links and boundary times are interpolated.</p></li>
+<li><p><strong>Weak temporal signal.</strong> Peak and off-peak speeds are nearly identical in
+predictions.</p></li>
+<li><p><strong>Moving speed only.</strong> Dwell time at stops is excluded from the target.</p></li>
+<li><p><strong>Training/inference differences.</strong> Training stop counts come from stops
+projected onto each trip's matched route. At inference, every GTFS stop is
+assigned to its nearest network edge. The model is trained only on links that
+buses traversed but is applied to every link, including those used only by
+deadhead routing.</p></li>
+<li><p><strong>Representative departure time.</strong> As described above, each shape uses one
+representative departure time rather than each trip's own time.</p></li>
+</ul>
+</section>
 </section>
 </section>
 
@@ -476,9 +966,19 @@
     <i class="fa-solid fa-list"></i> Contents
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#general-transit-feed-specification-gtfs">General Transit Feed Specification (GTFS)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#elevation-data">Elevation Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transit-speed-model">Transit Speed Model</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inputs-and-time-bins">Inputs and time bins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-speeds-are-used-at-runtime">How speeds are used at runtime</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-data">Training data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-link-speeds-from-gtfs-rt">Estimating link speeds from GTFS-RT</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#model-training">Model training</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accuracy">Accuracy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#limitations">Limitations</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
@@ -493,7 +993,7 @@
   <div class="footer-item">
     
 <p class="component-author">
-By National Renewable Energy Laboratory
+By National Laboratory of the Rockies
 </p>
 
   </div>
@@ -527,8 +1027,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
 
   <footer class="bd-footer">
   </footer>

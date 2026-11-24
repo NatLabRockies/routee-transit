@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>RouteE-Transit Prediction Pipeline &#8212; RouteE-Transit</title>
+    <title>RouteE-Transit Prediction Pipeline &#8212; RouteE Transit</title>
   
   
   
@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
@@ -36,13 +36,13 @@
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=6a604523" />
   
   <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
 
     <script src="_static/documentation_options.js?v=30a733bc"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
@@ -55,12 +55,13 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="_static/togglebutton.js?v=b8b12719"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="_static/design-tabs.js?v=fcb327ea"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'prediction';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Reference" href="api.html" />
@@ -68,20 +69,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="python"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -107,7 +114,51 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
     </header>
   
 
@@ -146,8 +197,8 @@
       
     
     
-    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE-Transit - Home"/>
-    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE-Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-light" alt="RouteE Transit - Home"/>
+    <img src="_static/routeelogo.png" class="logo__image only-dark pst-js-only" alt="RouteE Transit - Home"/>
   
   
 </a></div>
@@ -247,7 +298,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit" target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -264,7 +315,7 @@
       
       
       
-      <li><a href="https://github.com/NREL/routee-transit/issues/new?title=Issue%20on%20page%20%2Fprediction.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/NatLabRockies/routee-transit/issues/new?title=Issue%20on%20page%20%2Fprediction.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -379,8 +430,8 @@
                 <h2> Contents </h2>
             </div>
             <nav aria-label="Page">
-                <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#route-filtering">Route filtering</a></li>
 </ul>
@@ -394,6 +445,10 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-prediction-and-thermal-impacts">4) Energy Prediction and Thermal Impacts</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#powertrain-energy">Powertrain energy</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-impacts-hvac-btms">Thermal impacts (HVAC + BTMS)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#daily-trip-and-block-results">Daily trip and block results</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#one-row-per-route">One row per route</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -424,7 +479,7 @@
 </ol>
 <section id="load-and-filter-gtfs-trips">
 <h2>1) Load and Filter GTFS Trips<a class="headerlink" href="#load-and-filter-gtfs-trips" title="Link to this heading">#</a></h2>
-<p>RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces and scheduled stop times are used downstream to estimate average speed and distance at the road link level.</p>
+<p>RouteE-Transit reads a standard GTFS feed directory and loads trips along with their shape traces, stop locations, and stop times. Users can optionally filter to a specific service date and/or a subset of routes. The shape traces are used downstream to identify the road links each trip travels, and scheduled stop times set each trip's departure time and duration.</p>
 <section id="route-filtering">
 <h3>Route filtering<a class="headerlink" href="#route-filtering" title="Link to this heading">#</a></h3>
 <p>By default, route filtering is <strong>trip-level</strong>: only trips whose <code class="docutils literal notranslate"><span class="pre">route_short_name</span></code> appears in the <code class="docutils literal notranslate"><span class="pre">routes</span></code> list are included, regardless of what other routes share the same GTFS block. This gives the most intuitive results, especially for agencies where interlining is common (e.g., a bus block might serve both route 5 and route 21).</p>
@@ -432,12 +487,12 @@
 <p>When using <code class="docutils literal notranslate"><span class="pre">filter_trips()</span></code> directly, you can control this behavior with the <code class="docutils literal notranslate"><span class="pre">use_block_filter</span></code> parameter:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
 
-<span class="c1"># Trip-level filtering (default) — individual trips on route &quot;5&quot; are</span>
-<span class="c1"># always kept, even if their block also serves route &quot;21&quot;</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;5&quot;</span><span class="p">])</span>
+<span class="c1"># Trip-level filtering (default) — individual trips on route "5" are</span>
+<span class="c1"># always kept, even if their block also serves route "21"</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"5"</span><span class="p">])</span>
 
-<span class="c1"># Block-level filtering — only blocks that exclusively serve route &quot;5&quot;</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;5&quot;</span><span class="p">],</span> <span class="n">use_block_filter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># Block-level filtering — only blocks that exclusively serve route "5"</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"5"</span><span class="p">],</span> <span class="n">use_block_filter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>See [](data:gtfs-reqs) for the full list of required GTFS files and fields.</p>
@@ -462,42 +517,154 @@
 <ul class="simple">
 <li><p><strong>Distance</strong> — derived from OSM road geometry</p></li>
 <li><p><strong>Grade</strong> — elevation data from the USGS National Map, fetched automatically</p></li>
-<li><p><strong>Speed</strong> — estimated from the scheduled time between GTFS stops and the cumulative shape distance traveled</p></li>
+<li><p><strong>Speed</strong> — predicted by a bundled machine-learning model trained on archived GTFS Realtime bus speeds, with separate values for six local-time periods on weekdays and weekends. Speeds are precomputed for every road link when the network is built and shared by map matching, deadhead routing, and energy prediction. See <a class="reference internal" href="data.html#speed-model"><span class="std std-ref">Transit Speed Model</span></a>.</p></li>
 </ul>
 </section>
 <section id="energy-prediction-and-thermal-impacts">
 <h2>4) Energy Prediction and Thermal Impacts<a class="headerlink" href="#energy-prediction-and-thermal-impacts" title="Link to this heading">#</a></h2>
 <section id="powertrain-energy">
 <h3>Powertrain energy<a class="headerlink" href="#powertrain-energy" title="Link to this heading">#</a></h3>
-<p>RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — predicts energy consumption from the road link features computed above. Two transit bus models are included:</p>
+<p>RouteE-Compass — via a custom Rust extension bundled with RouteE-Transit — predicts energy consumption from the road link features computed above. Eight transit bus models are included:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Model name</p></th>
-<th class="head"><p>Output unit</p></th>
+<th class="head"><p>Powertrain</p></th>
+<th class="head"><p>Curb-mass estimate</p></th>
+<th class="head"><p>Reported unit</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Battery_Electric</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Electric_40ft_300kWh</span></code></p></td>
+<td><p>Battery electric, 300 kWh</p></td>
+<td><p>32,000 lb</p></td>
 <td><p>kWh</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Diesel</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Electric_60ft_600kWh</span></code></p></td>
+<td><p>Battery electric, 600 kWh</p></td>
+<td><p>40,000 lb</p></td>
+<td><p>kWh</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Diesel_40ft</span></code></p></td>
+<td><p>Diesel</p></td>
+<td><p>28,000 lb</p></td>
 <td><p>gallons diesel</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Diesel_60ft</span></code></p></td>
+<td><p>Diesel</p></td>
+<td><p>40,000 lb</p></td>
+<td><p>gallons diesel</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Hybrid_40ft</span></code></p></td>
+<td><p>Diesel hybrid</p></td>
+<td><p>32,000 lb</p></td>
+<td><p>gallons diesel</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_Hybrid_60ft</span></code></p></td>
+<td><p>Diesel hybrid</p></td>
+<td><p>45,000 lb</p></td>
+<td><p>gallons diesel</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_CNG_40ft</span></code></p></td>
+<td><p>Compressed natural gas</p></td>
+<td><p>30,000 lb</p></td>
+<td><p>kWh</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Transit_Bus_CNG_60ft</span></code></p></td>
+<td><p>Compressed natural gas</p></td>
+<td><p>43,000 lb</p></td>
+<td><p>kWh</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>In RouteE-Transit 0.3.0, both models simply apply a kinetic energy stop penalty at GTFS stop locations (modeled as 0.5mv²). Future release will refine the physical and thermal models used to account for the impacts of stops. Results are also expressed in miles-per-gallon equivalent (MPGe) using EPA/DOE GGE conversion factors for cross-fuel comparison.</p>
+<p>Each model is a RouteE-Powertrain model whose energy rate (kWh per kilometer) is a
+function of link speed and road grade. The models are evaluated in Rust through a
+binned interpolation grid over those two features, so per-link predictions are fast
+enough to run across a whole feed. Combustion models predict in kWh internally and are
+converted to their reported fuel unit before results are returned.</p>
+<p>On top of the powertrain model, a kinetic-energy stop penalty (0.5mv², using the
+model's mass estimate) is applied at GTFS stop locations to represent the
+deceleration/re-acceleration cycle at each stop. Pass <code class="docutils literal notranslate"><span class="pre">include_stop_penalty=False</span></code> to
+<code class="docutils literal notranslate"><span class="pre">run()</span></code> or <code class="docutils literal notranslate"><span class="pre">predict_energy()</span></code> to disable it.</p>
+<p>Results are also expressed in miles-per-gallon equivalent (MPGe) in the <code class="docutils literal notranslate"><span class="pre">mpge</span></code> column,
+using EPA/DOE GGE conversion factors for cross-fuel comparison.</p>
 </section>
 <section id="thermal-impacts-hvac-btms">
 <h3>Thermal impacts (HVAC + BTMS)<a class="headerlink" href="#thermal-impacts-hvac-btms" title="Link to this heading">#</a></h3>
-<p>For battery-electric buses, auxiliary loads from the HVAC system and battery thermal management system (BTMS) can represent a significant share of total energy consumption. When <code class="docutils literal notranslate"><span class="pre">add_hvac=True</span></code>, RouteE-Transit adds these loads using county-level Typical Meteorological Year (TMY3) weather data:</p>
+<p>For battery-electric buses, auxiliary loads from the HVAC system and battery thermal management system (BTMS) can represent a significant share of total energy consumption. When <code class="docutils literal notranslate"><span class="pre">add_hvac=True</span></code> (the default), RouteE-Transit adds these loads using county-level Typical Meteorological Year (TMY3) weather data:</p>
 <ol class="arabic simple">
 <li><p>Each stop is spatially joined to its US Census county.</p></li>
-<li><p>TMY3 files for the relevant counties are downloaded from the NREL Open Energy Data Initiative (OEDI) S3 bucket.</p></li>
+<li><p>TMY3 files for the relevant counties are downloaded from the NREL Open Energy Data Initiative (OEDI) S3 bucket and averaged into a single hourly temperature profile for the service area.</p></li>
 <li><p>Hourly HVAC + BTMS power demand is looked up from a temperature-dependent table (derived from the literature) and integrated over each trip's scheduled time window.</p></li>
-<li><p>Thermal energy is computed for three weather scenarios — <strong>summer</strong> (hottest day of year), <strong>winter</strong> (coldest day), and <strong>median</strong> — giving a range of thermal impact estimates per trip.</p></li>
+<li><p>Thermal energy is computed for each modeled service date using its TMY temperature profile. These rows use the <strong>TMY</strong> scenario.</p></li>
 </ol>
+<p>Because the underlying weather source is a typical meteorological year, the <code class="docutils literal notranslate"><span class="pre">scenario</span></code>
+column in the output is always <code class="docutils literal notranslate"><span class="pre">&quot;TMY&quot;</span></code>. Seasonal comparisons are made by grouping the
+results on the <code class="docutils literal notranslate"><span class="pre">date</span></code> column (e.g. by month) rather than by scenario.</p>
 <p>The resulting <code class="docutils literal notranslate"><span class="pre">hvac_energy_kWh</span></code> is added to the powertrain energy for electric models in the trip-level output.</p>
+</section>
+<section id="daily-trip-and-block-results">
+<h3>Daily trip and block results<a class="headerlink" href="#daily-trip-and-block-results" title="Link to this heading">#</a></h3>
+<p>All vehicle models produce one trip row per modeled service date, including diesel models and runs with <code class="docutils literal notranslate"><span class="pre">add_hvac=False</span></code>. Dates come from the feed's service calendar, including calendar exceptions, using the densest 365-day window by default. A <code class="docutils literal notranslate"><span class="pre">date</span></code> filter restricts the output to that service date. Trips with times beyond 24:00 remain assigned to their original service date.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">scale_to_year=True</span></code> and no date filter, typical weekday service is projected onto uncovered dates in the selected year window. Trip output includes <code class="docutils literal notranslate"><span class="pre">trip_is_within_gtfs_scope</span></code>: false identifies projected service. This calendar expansion applies independently of HVAC. Compared with earlier versions, non-electric and HVAC-disabled trip exports now contain repeated trips on different dates rather than one undated row per trip.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">block_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_block_predictions</span><span class="p">()</span>
+<span class="n">electric_blocks</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_block_predictions</span><span class="p">(</span><span class="s2">"Transit_Bus_Electric_40ft_300kWh"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Block results have one row per <code class="docutils literal notranslate"><span class="pre">vehicle</span></code>, <code class="docutils literal notranslate"><span class="pre">date</span></code>, and usable <code class="docutils literal notranslate"><span class="pre">block_id</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">energy_used_without_deadhead</span></code></p></td>
+<td><p>Sum of modeled revenue service trip energy, including HVAC when enabled</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">energy_used_with_deadhead</span></code></p></td>
+<td><p>Sum of all modeled trip energy, including pull-out, pull-in, and mid-block deadhead</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">energy_unit</span></code></p></td>
+<td><p>The vehicle model's output unit; incompatible units cannot be combined</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">route_ids</span></code></p></td>
+<td><p>Sorted unique revenue route IDs, excluding synthetic deadhead routes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">agency_ids</span></code></p></td>
+<td><p>Sorted unique revenue agency IDs; a block interlined across agencies lists all of them</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">feasible_without_deadhead</span></code></p></td>
+<td><p>Whether revenue energy fits the vehicle's usable capacity; unset for models without declared capacity</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">feasible_with_deadhead</span></code></p></td>
+<td><p>Whether total energy including deadhead fits the vehicle's usable capacity</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="one-row-per-route">
+<h4>One row per route<a class="headerlink" href="#one-row-per-route" title="Link to this heading">#</a></h4>
+<p>Consumers that cannot store list-valued columns — relational databases in particular — can request an exploded block schema with <code class="docutils literal notranslate"><span class="pre">explode_block_routes=True</span></code> on the constructor:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
+    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">"path/to/gtfs"</span><span class="p">,</span>
+    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">"Transit_Bus_Electric_40ft_300kWh"</span><span class="p">],</span>
+    <span class="n">explode_block_routes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">route_ids</span></code> and <code class="docutils literal notranslate"><span class="pre">agency_ids</span></code> lists are then replaced by scalar <code class="docutils literal notranslate"><span class="pre">route_id</span></code> and <code class="docutils literal notranslate"><span class="pre">agency_id</span></code> columns, and each block contributes one row per revenue route it covers, repeating the block's energy totals and feasibility flags on every row. Agency comes from <code class="docutils literal notranslate"><span class="pre">routes.txt</span></code>, so each route contributes exactly one pairing. Summing an energy column across the exploded rows therefore double counts interlined blocks; aggregate over distinct <code class="docutils literal notranslate"><span class="pre">vehicle</span></code>, <code class="docutils literal notranslate"><span class="pre">date</span></code>, and <code class="docutils literal notranslate"><span class="pre">block_id</span></code> first. Blocks whose revenue trips carry no route ID keep a single row with null identifiers. The default rolled-up schema is unchanged.</p>
+<p>Feasibility compares each total against <code class="docutils literal notranslate"><span class="pre">capacity</span> <span class="pre">*</span> <span class="pre">usable_capacity_fraction</span></code> from the vehicle model config. <code class="docutils literal notranslate"><span class="pre">save_results()</span></code> exports those capacities to <code class="docutils literal notranslate"><span class="pre">vehicles.csv</span></code>; pass <code class="docutils literal notranslate"><span class="pre">save_vehicle_specs=False</span></code> to skip it.</p>
+<p>The vehicle table contains <code class="docutils literal notranslate"><span class="pre">vehicle</span></code>, <code class="docutils literal notranslate"><span class="pre">display_name</span></code>, <code class="docutils literal notranslate"><span class="pre">powertrain</span></code>, <code class="docutils literal notranslate"><span class="pre">capacity</span></code>, <code class="docutils literal notranslate"><span class="pre">capacity_unit</span></code>, <code class="docutils literal notranslate"><span class="pre">usable_capacity_fraction</span></code>, and <code class="docutils literal notranslate"><span class="pre">usable_capacity</span></code>. Display names come directly from the vehicle model JSON's <code class="docutils literal notranslate"><span class="pre">display_name</span></code> field, for example <code class="docutils literal notranslate"><span class="pre">40'</span> <span class="pre">CNG</span></code> or <code class="docutils literal notranslate"><span class="pre">60'</span> <span class="pre">Electric</span> <span class="pre">(600</span> <span class="pre">kWh)</span></code>; older configs without that field leave the column blank. Mass estimates remain in the model configs but are not exported. After changing Rust vehicle config fields, rebuild the extension (<code class="docutils literal notranslate"><span class="pre">pixi</span> <span class="pre">run</span> <span class="pre">-e</span> <span class="pre">hpc</span> <span class="pre">build_hpc</span></code> on HPC) before running predictions.</p>
+<p>Both energy columns are equal when no deadhead is modeled. Accessing block results does not enable deadhead routing: the total includes only deadhead requested and successfully predicted by the pipeline. Results describe modeled trips, so route filtering or failed map matching can leave a partial block. A block left with only deadhead trips is dropped entirely, with a single warning counting the affected blocks, since its revenue service was excluded upstream and the remaining total is not a meaningful block.</p>
+<p>Absent, null, empty, and whitespace-only block IDs are excluded from block aggregation, with a warning counting omitted trips. They remain in trip results. Deadhead inference skips these trips; with route filtering enabled, they are filtered individually while assigned blocks retain exclusive block filtering. If no usable IDs exist, block results are empty, not an error.</p>
+<p><code class="docutils literal notranslate"><span class="pre">save_results()</span></code> writes <code class="docutils literal notranslate"><span class="pre">block_energy_predictions.csv</span></code> beside <code class="docutils literal notranslate"><span class="pre">trip_energy_predictions.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">link_energy_predictions.csv</span></code>, including a header-only block file when no blocks qualify. Route and agency lists are JSON arrays in the CSV, or plain values under <code class="docutils literal notranslate"><span class="pre">explode_block_routes=True</span></code>; dates use <code class="docutils literal notranslate"><span class="pre">YYYY-MM-DD</span></code>. Feed and dataset metadata are included in the trip export when supplied. Each export can be skipped independently with <code class="docutils literal notranslate"><span class="pre">save_trip_level=False</span></code>, <code class="docutils literal notranslate"><span class="pre">save_link_level=False</span></code>, or <code class="docutils literal notranslate"><span class="pre">save_block_level=False</span></code>. The existing trip filename and the trip DataFrame returned by <code class="docutils literal notranslate"><span class="pre">run()</span></code> are unchanged.</p>
+<p><code class="docutils literal notranslate"><span class="pre">save_results()</span></code> also writes <code class="docutils literal notranslate"><span class="pre">routes.geojson</span></code>, one EPSG:4326 feature per revenue route drawn on the shape its trips use most often. Each feature carries the route's identifiers, whichever of <code class="docutils literal notranslate"><span class="pre">route_short_name</span></code>, <code class="docutils literal notranslate"><span class="pre">agency_id</span></code>, and <code class="docutils literal notranslate"><span class="pre">route_color</span></code> the feed supplies, and the <code class="docutils literal notranslate"><span class="pre">mean_energy_used</span></code> and <code class="docutils literal notranslate"><span class="pre">mean_efficiency</span></code> objects keyed by vehicle model, each with a <code class="docutils literal notranslate"><span class="pre">value</span></code> and <code class="docutils literal notranslate"><span class="pre">unit</span></code>. Efficiency is reported as <code class="docutils literal notranslate"><span class="pre">kWh/mi</span></code> for models whose energy is in kWh and <code class="docutils literal notranslate"><span class="pre">mpg_diesel</span></code> otherwise, and mean energy is per trip day. Synthetic deadhead routes are excluded. Pass <code class="docutils literal notranslate"><span class="pre">save_route_shapes=False</span></code> to skip it.</p>
+</section>
 </section>
 </section>
 </section>
@@ -508,46 +675,68 @@
 
 <span class="c1"># Initialize predictor — vehicle_models and output_dir are set here</span>
 <span class="n">predictor</span> <span class="o">=</span> <span class="n">GTFSEnergyPredictor</span><span class="p">(</span>
-    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">&quot;path/to/gtfs&quot;</span><span class="p">,</span>
-    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Transit_Bus_Battery_Electric&quot;</span><span class="p">],</span>
-    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;reports/my_agency&quot;</span><span class="p">,</span>  <span class="c1"># optional; enables result caching</span>
+    <span class="n">gtfs_path</span><span class="o">=</span><span class="s2">"path/to/gtfs"</span><span class="p">,</span>
+    <span class="n">vehicle_models</span><span class="o">=</span><span class="p">[</span><span class="s2">"Transit_Bus_Electric_40ft_300kWh"</span><span class="p">],</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"reports/my_agency"</span><span class="p">,</span>  <span class="c1"># optional; enables graph/result caching</span>
 <span class="p">)</span>
 
 <span class="c1"># Option 1: Use the convenience method (recommended)</span>
-<span class="c1"># By default, only revenue trips are included (no deadhead).</span>
+<span class="c1"># By default, only revenue trips are included (no deadhead), and HVAC</span>
+<span class="c1"># energy is added for electric models.</span>
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
-    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">],</span>
+    <span class="n">date</span><span class="o">=</span><span class="s2">"2023/08/02"</span><span class="p">,</span>
+    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"205"</span><span class="p">],</span>
 <span class="p">)</span>
 
-<span class="c1"># Option 2: Include deadhead trips and HVAC impacts</span>
+<span class="c1"># Option 2: Include deadhead trips, and turn off the stop penalty</span>
 <span class="c1"># When deadhead is enabled with route filtering, block-level filtering</span>
 <span class="c1"># is used automatically to ensure complete blocks.</span>
 <span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span>
-    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">],</span>
+    <span class="n">date</span><span class="o">=</span><span class="s2">"2023/08/02"</span><span class="p">,</span>
+    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"205"</span><span class="p">],</span>
     <span class="n">add_mid_block_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">add_depot_deadhead</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">include_stop_penalty</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># Option 3: Step-by-step processing for more control</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">&quot;2023/08/02&quot;</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;205&quot;</span><span class="p">])</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">add_mid_block_deadhead</span><span class="p">()</span>  <span class="c1"># Between-trip deadhead</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">add_depot_deadhead</span><span class="p">()</span>      <span class="c1"># To/from depot (uses NTD locations)</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">get_link_level_inputs</span><span class="p">()</span>   <span class="c1"># Map matching + grade via RouteE-Compass</span>
-<span class="n">predictor</span><span class="o">.</span><span class="n">predict_energy</span><span class="p">(</span><span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># Option 3: Model a full year of service from a short feed</span>
+<span class="n">trip_results</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"205"</span><span class="p">],</span>
+    <span class="n">scale_to_year</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
+<p>Deadhead inference has to be requested through <code class="docutils literal notranslate"><span class="pre">run()</span></code>; the routing steps it depends on
+are not exposed as standalone public methods.</p>
+<p>For finer control over the revenue-service-only workflow, the individual steps can be
+called directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">predictor</span><span class="o">.</span><span class="n">load_gtfs_data</span><span class="p">()</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">filter_trips</span><span class="p">(</span><span class="n">date</span><span class="o">=</span><span class="s2">"2023/08/02"</span><span class="p">,</span> <span class="n">routes</span><span class="o">=</span><span class="p">[</span><span class="s2">"205"</span><span class="p">])</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">add_trip_times</span><span class="p">()</span>          <span class="c1"># start/end time and duration per trip</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">load_compass_app</span><span class="p">()</span>        <span class="c1"># builds/loads the OSM graph + energy models</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">predict_energy</span><span class="p">(</span><span class="n">add_hvac</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># map matching + energy prediction</span>
+<span class="n">predictor</span><span class="o">.</span><span class="n">save_results</span><span class="p">()</span>
+
+<span class="n">trips</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_trip_predictions</span><span class="p">()</span>
+<span class="n">links</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">get_link_predictions</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">predict_energy()</span></code> performs map matching itself. <code class="docutils literal notranslate"><span class="pre">get_link_level_inputs()</span></code> is a
+separate helper that produces link-level features (distance, travel time, geometry) for
+inspection or export, and is not a prerequisite for <code class="docutils literal notranslate"><span class="pre">predict_energy()</span></code>.</p>
 </section>
 <section class="tex2jax_ignore mathjax_ignore" id="assumptions-and-limitations">
 <h1>Assumptions and Limitations<a class="headerlink" href="#assumptions-and-limitations" title="Link to this heading">#</a></h1>
 <ul class="simple">
-<li><p><strong>Speed estimation</strong>: Trip speed is assumed constant along each shape and is derived from scheduled stop times and cumulative shape distance. Actual in-service speed variation is not captured.</p></li>
+<li><p><strong>Speed estimation</strong>: Link speeds come from a generic model trained on nine agencies' realtime data, not from the modeled agency's own schedule or realtime feed. Held-out-agency error averages about 3.9 mph MAE. Each shape uses one representative departure time, and predicted speeds vary little by time of day. See <a class="reference internal" href="data.html#speed-model"><span class="std std-ref">Transit Speed Model</span></a> for accuracy and limitations. Agency- or corridor-specific congestion is not captured unless a custom model is supplied via <code class="docutils literal notranslate"><span class="pre">speed_model_dir</span></code>.</p></li>
 <li><p><strong>Deadhead speed</strong>: Deadhead trips assume a uniform average speed of 30 km/h for travel time estimation.</p></li>
+<li><p><strong>Deadhead routing</strong>: Deadhead paths are shortest-time routes on the OSM network;
+origin–destination pairs less than 200 m apart use a straight-line geometry instead.</p></li>
 <li><p><strong>Depot matching</strong>: The nearest depot is chosen by minimising total pull-out + pull-in distance. Actual depot assignments may differ from operational practice.</p></li>
-<li><p><strong>TMY weather</strong>: HVAC loads use typical (not actual) meteorological year data.</p></li>
+<li><p><strong>TMY weather</strong>: HVAC loads use typical (not actual) meteorological year data, and a
+single service-area-average temperature profile is applied to all trips.</p></li>
+<li><p><strong>Passenger load</strong>: Vehicle mass is a fixed per-model estimate; ridership-dependent
+mass variation is not modeled.</p></li>
 </ul>
 </section>
 
@@ -616,8 +805,8 @@
     <i class="fa-solid fa-list"></i> Contents
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="visible nav section-nav flex-column">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">RouteE-Transit Prediction Pipeline</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-and-filter-gtfs-trips">1) Load and Filter GTFS Trips</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#route-filtering">Route filtering</a></li>
 </ul>
@@ -631,6 +820,10 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-prediction-and-thermal-impacts">4) Energy Prediction and Thermal Impacts</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#powertrain-energy">Powertrain energy</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#thermal-impacts-hvac-btms">Thermal impacts (HVAC + BTMS)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#daily-trip-and-block-results">Daily trip and block results</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#one-row-per-route">One row per route</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -652,7 +845,7 @@
   <div class="footer-item">
     
 <p class="component-author">
-By National Renewable Energy Laboratory
+By National Laboratory of the Rockies
 </p>
 
   </div>
@@ -686,8 +879,8 @@ By National Renewable Energy Laboratory
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
 
   <footer class="bd-footer">
   </footer>
